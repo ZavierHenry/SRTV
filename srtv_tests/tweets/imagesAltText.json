@@ -1,0 +1,19 @@
+﻿{
+  "label": "tweet with alt text images",
+  "tweet": {
+    "id": "1391155501254070273",
+    "author": {
+      "name": "brands getting owned",
+      "screenName": "BrandsOwned",
+      "verified": false,
+      "protected": false
+    },
+    "dateCreated": "2021-05-08T22:18:12.000Z",
+    "text": "the workers at this chipotle said no more exploiting us https://t.co/a99FHWc5vq",
+    "imageAltTexts": [
+      "sign posted on Chipotle window reads: \"Attention Chipotle Customers: Want to know why we are closed? Ask out corporate offices why their employees are forced to work in borderline sweatshop conditions for 8+ hours WITHOUT BREAKS. We are overworked, understaffed, underpaid, and under appreciated. Almost the entire management and crew have walked out until further notice. People should be > profits. Repost this if you agree: Help spread awareness #freechipworkers #fairwages #fairhoursfairwages #giveusabreak \"",
+      "two signs posted on Chipotle window:\n\nsign 1 reads: â€œWe Demand Changeâ€, â€œHigher pay $13.50-$15â€, â€œHelp spread overworked underpaidâ€, and â€œ#fairwagesâ€\n\nsign 2 reads: â€œOver workedâ€, â€œUnder Paid!!â€, and â€œ#giveusabreakâ€",
+      "large sign posted on door of chipotle reads: â€œSorry for the inconvenience but due to us being over worked understaffed and under appreciated we are protesting until conditions are changedâ€"
+    ]
+  }
+}

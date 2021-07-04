@@ -1,0 +1,14 @@
+﻿{
+  "label": "Tweet containing the percent symbol",
+  "tweet": {
+    "id": "1410034793283264521",
+    "author": {
+      "name": "Dave Wasserman",
+      "screenName": "Redistrict",
+      "protected": false,
+      "verified": true
+    },
+    "dateCreated": "2021-06-30T00:37:46.000Z",
+    "text": "If @BOENYC's unofficial tallies from *both* 6/23 and today are to be believed, these are how the 142,005 newly added 1st-choice votes broke down:\n\nAdams 12.3%\nYang 11.6%\nWrite-ins 11.4%\nTaylor 10.6%\nDonovan 9.3%\nGarcia 8.2%\nWright 8.2%\nWiley 6.8%\n\nUmm...something's very wrong."
+  }
+}

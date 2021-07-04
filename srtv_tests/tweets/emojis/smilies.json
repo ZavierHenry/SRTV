@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with smiling emojis",
+  "tweet": {
+    "id": "1411203650165174274",
+    "text": "@kushaldas @IanColdwater @rustlang Ian's \"read the docs\" suggestion has been working out really well for me. I spend less time figuring out stuff since I read the docs first ☺️😊",
+    "dateCreated": "2021-07-03T06:02:23.000Z",
+    "author": {
+      "name": "Noel Georgi",
+      "screenName": "noelgeorgi",
+      "protected": false,
+      "verified": false
+    },
+    "repliedTo": [ "kushaldas" ]
+  }
+}

@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="samples.json" />
+    <Content Include="schema.json" />
+    <Content Include="tweets\emojis\smilies.json" />
+    <Content Include="tweets\emojis\loudlyCryingWithSkull.json" />
+    <Content Include="tweets\numbers\phoneNumber.json" />
+    <Content Include="tweets\punctuation\percent.json" />
+    <Content Include="tweets\basicPrivateTweet.json" />
+    <Content Include="tweets\basicReply.json" />
+    <Content Include="tweets\basicVerifiedTweet.json" />
+    <Content Include="tweets\gifNoAltText.json" />
+    <Content Include="tweets\imagesAltText.json" />
+    <Content Include="tweets\imageTweetNoAltText.json" />
+    <Content Include="tweets\poll.json" />
+    <Content Include="tweets\quotedTweet.json" />
+    <Content Include="tweets\unverifiedTweet.json" />
+    <Content Include="tweets\urlCard.json" />
+    <Content Include="tweets\videoAttribution.json" />
+    <None Include="SampleGenerator.fsx" />
+    <Compile Include="Tests.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Data" Version="4.1.1" />
+    <PackageReference Include="FsUnit.xUnit" Version="4.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.10.0" />
+    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.14" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="3.0.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\sr_tweet_vis\sr_tweet_vis.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.2" />
+  </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties tweets_4basicverifiedtweet_1json__JsonSchema="..\schema.json" tweets_4emojis_4loudlycryingwithskull_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4smilies_1json__JsonSchema="..\..\schema.json" tweets_4numbers_4phonenumber_1json__JsonSchema="..\..\schema.json" tweets_4punctuation_4percent_1json__JsonSchema="..\..\schema.json" tweets_4urlcard_1json__JsonSchema="..\schema.json" /></VisualStudio></ProjectExtensions>
+
+</Project>

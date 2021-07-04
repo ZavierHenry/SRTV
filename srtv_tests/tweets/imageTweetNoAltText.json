@@ -1,0 +1,16 @@
+﻿{
+  "label": "image tweet with no alt text",
+  "tweet": {
+    "id": "1390830841157193728",
+    "author": {
+      "name": "Brian Floyd",
+      "screenName": "BrianMFloyd",
+      "verified": true,
+      "protected": false
+    },
+    "dateCreated": "2021-05-08T00:48:07.000Z",
+    "repliedTo": [],
+    "text": "Tri tip https://t.co/cQrW5FUmYf",
+    "imageAltTexts": [ null ]
+  }
+}

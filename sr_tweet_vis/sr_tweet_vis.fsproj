@@ -2,11 +2,38 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Substitution.fs" />
+    <Compile Include="Utilities.fs" />
+    <Compile Include="Regex.fs" />
+    <Compile Include="TwitterClient.fs" />
+    <Compile Include="TweetMedia.fs" />
+    <Compile Include="TweetAudio.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspose.HTML" Version="21.6.0" />
+    <PackageReference Include="Aspose.SVG" Version="21.6.0" />
+    <PackageReference Include="FSharp.Data" Version="4.1.1" />
+    <PackageReference Include="linqtotwitter" Version="6.7.1" />
+    <PackageReference Include="NReco.ImageGenerator" Version="1.2.0" />
+    <PackageReference Include="System.Speech" Version="5.0.0" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
+    <PackageReference Include="Xabe.FFmpeg" Version="5.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.2" />
+  </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties test_3tweets_4schema_1json__JsonSchema="https://json-schema.org/draft-04/schema" test_3tweets_4tweets_4basicprivatetweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4basicreply_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4basicverifiedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4gifnoalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4imagesalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4imagetweetnoalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4poll_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4quotedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4unverifiedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4videoattribution_1json__JsonSchema="..\schema.json" /></VisualStudio></ProjectExtensions>
 
 </Project>

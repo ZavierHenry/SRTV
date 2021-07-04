@@ -1,0 +1,17 @@
+{
+  "profiles": {
+    "sr_tweet_vis": {
+      "commandName": "Project"
+    },
+    "sr_tweet_vis_tofile": {
+      "commandName": "Project",
+      "commandLineArgs": "\"./Pictures/srtv_background.png\" \"./Downloads/synthesized_tweet.mp4\"",
+      "workingDirectory": "C:\\Users\\Z-Henry\\"
+    },
+    "sr_tweet_image": {
+      "commandName": "Project",
+      "commandLineArgs": "\"./Downloads/tweet_image.jpg\"",
+      "workingDirectory": "C:\\Users\\Z-Henry\\"
+    }
+  }
+}
