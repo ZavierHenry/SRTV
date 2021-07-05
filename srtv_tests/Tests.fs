@@ -124,11 +124,13 @@ type ``test json schema is valid``() =
 type ``test tweets are valid examples``() =
     
     [<Theory>]
+    [<InlineData("emojis/fire.json")>]
     [<InlineData("emojis/smilies.json")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json")>]
     
     [<InlineData("numbers/phoneNumber.json")>]
     
+    [<InlineData("punctuation/hashtag.json")>]
     [<InlineData("punctuation/percent.json")>]
 
     [<InlineData("basicPrivateTweet.json")>]
@@ -139,6 +141,9 @@ type ``test tweets are valid examples``() =
     [<InlineData("imageTweetNoAltText.json")>]
     [<InlineData("poll.json")>]
     [<InlineData("quotedTweet.json")>]
+    [<InlineData("unverifiedTweet.json")>]
+    [<InlineData("urlCard.json")>]
+    [<InlineData("videoAttribution.json")>]
 
     member __.``examples are valid``(relativeFilepath:string) =
         let testTweet = fetchTweet(relativeFilepath)
@@ -193,6 +198,14 @@ type ``numbers are properly converted to words``() =
 
 type ``emojis are properly converted to words``() =
 
+    [<Theory>]
+    [<InlineData("emojis/fire.json")>]
+    member __.``Fire emoji has fire in speak text``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring " fire "
+        
+
     [<Fact>]
     member __.``Flag emoji names start with "flag of"``() =
         raise <| System.NotImplementedException("Test has not been implemented")
@@ -207,6 +220,13 @@ type ``currency is properly converted to words``() =
         raise <| System.NotImplementedException("Test has not been implemented")
         
 type ``punctuation is properly converted to words``() = 
+
+    [<Theory>]
+    [<InlineData("punctuation/hashtag.json")>]
+    member __.``# is replaced with the word "hashtag"``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring " hashtag "
 
     [<Fact>]
     member __.``Underscores are replaced with the word "underscore"``() =
