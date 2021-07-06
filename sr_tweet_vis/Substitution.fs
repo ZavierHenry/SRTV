@@ -2,7 +2,13 @@
 
 module Substitution =
     module Punctuation =
-        let replace = ""
+        let replacements = 
+            seq {
+                ("#", "hashtag");
+                ("%", "percent")
+                ("_", "underscore")
+            } 
+            |> Map
 
     module Emojis =
         let x = 11

@@ -10,6 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="assets\emojis.csv" />
+    <None Include="scripts\emojiExtractor.fsx" />
     <Compile Include="Substitution.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Regex.fs" />
