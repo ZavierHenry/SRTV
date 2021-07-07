@@ -14,6 +14,7 @@ open Newtonsoft.Json.Schema
 open Newtonsoft.Json.Linq
 
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 let [<Literal>] samplesFile = "./samples.json"
 let [<Literal>] schemaFile = "./schema.json"
@@ -24,7 +25,7 @@ type SchemaTemplate = JsonProvider<templateFile>
 type TestTweetSchema = JsonProvider<schemaFile>
 
 type SchemaMatcher(sample:string) = 
-    inherit DiagnosingMatcher<obj>()
+    inherit Matcher<obj>()
 
     let schema = JSchema.Parse <| sample
     let mutable messages = List() :> IList<string>
@@ -32,29 +33,19 @@ type SchemaMatcher(sample:string) =
     override this.DescribeTo(description) =
         description.AppendText("JSON should validate against this schema") |> ignore
 
-    override this.Matches(item, description) =
+    override this.Matches(item:obj) =
         let token = item :?> JsonValue
         let token = JToken.Parse <| token.ToString()
-        let result = token.IsValid(schema, &messages)
-
-        if not result then this.DescribeMismatch(item, description)
-        result
+        token.IsValid(schema, &messages)
 
     override this.DescribeMismatch(item, mismatchDescription) =
         Seq.iter (fun err -> mismatchDescription.AppendText(err + "\n\n") |> ignore) messages
 
-    interface IMatcher<obj> with
-        member this.Matches(item:obj) =
-            this.Matches(item, StringDescription())
-
-        member this.DescribeMismatch(item, mismatchDescription) =
-            Seq.iter (fun err -> mismatchDescription.AppendText(err + "\n\n") |> ignore) messages
-
     static member matchSchema(value:JsonValue) = SchemaMatcher <| value.ToString()
-
 
 let matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
 let matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
+let matchPattern (pattern:string) (input:string) = Regex.IsMatch(input, pattern) |> equal
     
 let pollToMedia (poll:TestTweet.Poll) =
     let endDate = DateTime.Parse(poll.EndDate)
@@ -113,6 +104,8 @@ let fetchTweet filename =
     let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
     TestTweet.Load(directory + filename)
 
+let noTest = System.NotImplementedException("Tests have not been implemented")
+
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
     let schema = TestTweetSchema.GetSample().JsonValue
@@ -124,10 +117,12 @@ type ``test json schema is valid``() =
 type ``test tweets are valid examples``() =
     
     [<Theory>]
+    [<InlineData("emojis/faceScreamingInFear.json")>]
     [<InlineData("emojis/fire.json")>]
     [<InlineData("emojis/smilies.json")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json")>]
     
+    [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumber.json")>]
     
     [<InlineData("punctuation/hashtag.json")>]
@@ -189,12 +184,25 @@ type ``poll tweets are properly parsed``() =
     member __.``Finished polls should indicate that they are finished``() =
         raise <| System.NotImplementedException("Test has not been implemented")
 
+    [<Theory>]
+    [<InlineData("", " three minutes left ")>]
+    member __.``Unfinished polls should indicate the time they have left``(filepath:string, expected:string) =
+        raise <| System.NotImplementedException("Test has not been implemented")
+
 
 type ``numbers are properly converted to words``() =
 
+    [<Theory>]
+    [<InlineData("numbers/negativeNumber.json")>]
+    member __.``numbers under zero include "minus"``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring (" minus ")
+        speakText |> should not' (haveSubstring "-")
+
     [<Fact>]
-    member __.``numbers under zero include "negative"``() =
-       raise <| System.NotImplementedException("Test has not been implemented")
+    member __.``fractional numbers are converted properly``() =
+        raise noTest
 
 type ``emojis are properly converted to words``() =
 
@@ -202,6 +210,7 @@ type ``emojis are properly converted to words``() =
     [<InlineData("emojis/fire.json", " fire ")>]
     [<InlineData("emojis/smilies.json", " smiling face with smiling eyes ")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json", " skull ")>]
+    [<InlineData("emojis/faceScreamingInFear.json", " face screaming in fear ")>]
     member __.``Emojis should have correct speak text``(filepath:string, name:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
@@ -211,7 +220,7 @@ type ``emojis are properly converted to words``() =
 type ``currency is properly converted to words``() =    
     [<Fact>]
     member __.``Dollar amounts are properly indicated``() =
-        raise <| System.NotImplementedException("Test has not been implemented")
+        raise noTest
         
 type ``punctuation is properly converted to words``() = 
 
@@ -221,7 +230,16 @@ type ``punctuation is properly converted to words``() =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring " hashtag "
+        speakText |> should not' (matchPattern @"#\S+")
 
     [<Fact>]
     member __.``Underscores are replaced with the word "underscore"``() =
-        raise <| System.NotImplementedException("Test has not been implemented")
+        raise noTest
+
+    [<Theory>]
+    [<InlineData("punctuation/percent.json")>]
+    member __.``"%" is replaced with the word percent``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring " percent "
+        speakText |> should not' (haveSubstring "%")
