@@ -15,6 +15,7 @@ let cleanEmojiTitle title =
     String.map Char.ToLower title
     |> fun x -> Regex.Replace(x, "^flag: ", "flag of ")
     |> fun x -> x.Replace(":", "")
+    |> sprintf " %s "
 
 let getEmojiUrl node =
     let src = Node.attributeValue "src" node

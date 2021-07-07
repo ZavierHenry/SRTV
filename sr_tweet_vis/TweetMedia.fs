@@ -5,6 +5,7 @@ module TweetMedia =
     open LinqToTwitter
     open TwitterClient
     open System.Text.RegularExpressions
+    open Substitution
 
     let pluralize prefix (number:int) =
         prefix + if number = 1 then "s" else ""
@@ -201,43 +202,14 @@ module TweetMedia =
             )
     
         member this.ToSpeakText() : string = 
-            sprintf "%s%s%s%s@%s%s %s%s"
-            <| match this.Retweeter with | Some name -> $"Retweeted by @%s{name} " | None -> ""
-            <| this.Name
-            <| if this.IsVerified then " verified account " else " "
-            <| if this.IsProtected then " protected account " else " "
-            <| this.ScreenName
-            <| repliesToString repliedTo
-            <| this.Text 
-            <| (if this.Media.IsEmpty then "" else " ") + String.concat " " (List.map mediaToText this.Media)
-
-
-    module Text =
-
-        let private transformSymbol = function
-        | '_' -> " underscore "
-        | '/' -> " slash "
-        | '%' -> " percent "
-        | character -> $"%c{character}"
-
-
-        let unusedCharacters = "()"
-
-
-        let countUrls (text:string) = 0
-
-        let replace (before:string) (after:string) (text:string) =
-            text.Replace(before, after)
-
-        let letterizeUsedPunctuation = String.collect transformSymbol
-        
-
-        let letterizeCurrency (text:string) = ""
-        
-        let letterizeNumbers (text:string) = ""
-
-        let letterizeEmojis (text:string) = ""
-
-        let letterizeDate (text:string) = ""
-
-        let toSpeechText = letterizeCurrency >> letterizeNumbers >> letterizeEmojis
+            let text = 
+                sprintf "%s%s%s%s@%s%s %s%s"
+                <| match this.Retweeter with | Some name -> $"Retweeted by @%s{name} " | None -> ""
+                <| this.Name
+                <| if this.IsVerified then " verified account " else " "
+                <| if this.IsProtected then " protected account " else " "
+                <| this.ScreenName
+                <| repliesToString repliedTo
+                <| this.Text 
+                <| (if this.Media.IsEmpty then "" else " ") + String.concat " " (List.map mediaToText this.Media)
+            processSpeakText text
