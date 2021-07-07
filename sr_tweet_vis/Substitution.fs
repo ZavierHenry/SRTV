@@ -18,17 +18,16 @@ module Substitution =
                     List.tryFind (Trie.hasKey<'a> key) children
                 static member emptyTrie = Node ("", None, [])
 
-
-        let rec tryFindNext text (Node (_, v, _) as node) =
+        let rec tryFindNext text (Node (k, v, _) as node) =
             match text with
-            | ""    -> Option.map (fun x -> (0, x)) v
+            | ""    -> Option.map (fun x -> (k.Length, x)) v
             | t     ->
                 let endIndex = if Char.IsSurrogatePair(text, 0) then 1 else 0
                 let key = t.[ .. endIndex ]
                 Trie.tryFindChild key node
                 |> Option.bind (tryFindNext text.[endIndex + 1 .. ])
-                |> Option.map (fun (level, v) -> (level + 1, v))
-                |> Option.orElse (Option.map (fun x -> (0, x)) v)
+                |> Option.map (fun (length, v) -> (length + k.Length, v))
+                |> Option.orElse (Option.map (fun x -> (k.Length, x)) v)
 
         let rec add codepoints value (Node (k1, v1, children) as node) =
             match codepoints with
