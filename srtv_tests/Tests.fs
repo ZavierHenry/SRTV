@@ -199,20 +199,14 @@ type ``numbers are properly converted to words``() =
 type ``emojis are properly converted to words``() =
 
     [<Theory>]
-    [<InlineData("emojis/fire.json")>]
-    member __.``Fire emoji has fire in speak text``(filepath:string) =
+    [<InlineData("emojis/fire.json", " fire ")>]
+    [<InlineData("emojis/smilies.json", " smiling face with smiling eyes ")>]
+    [<InlineData("emojis/loudlyCryingWithSkull.json", " skull ")>]
+    member __.``Emojis should have correct speak text``(filepath:string, name:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring " fire "
+        speakText |> should haveSubstring name
         
-
-    [<Fact>]
-    member __.``Flag emoji names start with "flag of"``() =
-        raise <| System.NotImplementedException("Test has not been implemented")
-
-    [<Fact>]
-    member __.``Multicode emojis are properly converted to words``() =
-        raise <| System.NotImplementedException("Test has not been implemented")
 
 type ``currency is properly converted to words``() =    
     [<Fact>]
