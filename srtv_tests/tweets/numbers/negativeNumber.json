@@ -1,0 +1,14 @@
+﻿{
+  "label": "Tweet with a negative number",
+  "tweet": {
+    "id": "1098611637760806913",
+    "author": {
+      "name": "Mo Gilligan",
+      "screenName": "MoTheComedian",
+      "verified": true,
+      "protected": false
+    },
+    "dateCreated": "2019-02-21T15:53:20.000Z",
+    "text": "Don’t let this sprinkle of sunshine suck you in only to turn -1 degrees next week and give you a cold"
+  }
+}
