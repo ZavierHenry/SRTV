@@ -4,16 +4,16 @@ open System
 open SRTV.TweetMedia
 open SRTV.TweetAudio
 
-open Aspose.Html.Saving
-open Aspose.Html.Rendering.Image
-open Aspose.Html.Converters
-open Aspose.Html
-
 open System.IO
+open System.Web
 
 open SRTV.Utilities
 
-    
+open FSharp.Data
+open FSharp.Data.HtmlActivePatterns
+
+open CoreHtmlToImage
+
 
 let exampleMockTweet =
     MockTweet(
@@ -33,56 +33,74 @@ let synthesize imagefile outfile = async {
     use synth = new Synthesizer()
     do! synth.Synthesize(exampleMockTweet, imagefile, outfile)
 }
-    
 
 let speak () =
     use synth = new Synthesizer()
     synth.speak(exampleMockTweet.ToSpeakText())
 
-let setElementTextById id text (document:HTMLDocument) =
-    document.GetElementById(id).TextContent <- text
-    document
+module Doc = FSharp.Data.HtmlDocument
+module Node = FSharp.Data.HtmlNode
 
-let toImage (outputFile:string) =
-    let template = "./Downloads/template.html"
+let toAssocList = Seq.map (function | HtmlAttribute x -> x)
+let getAttributeSequence node = Node.attributes node |> toAssocList
+let setText text = function
+    | HtmlElement (tag, attrs, children) -> 
+        let elements = 
+            seq { 
+                yield! Seq.filter (function | HtmlText _ -> false | _ -> true) children
+                HtmlNode.NewText text  
+            }
+        HtmlNode.NewElement (tag, toAssocList attrs, elements)
+    | node -> node
 
+let setImageSrc src = function
+    | HtmlElement (tag, attrs, children) ->
+        let attrs = Seq.map (function | HtmlAttribute ("src", _) -> ("src", src) | HtmlAttribute x -> x) attrs
+        HtmlNode.NewElement (tag, attrs, children)
+    | node -> node
+
+let rec transformNode cond transformation (node:HtmlNode) =
+    match cond node with
+    | true -> transformation node
+    | false -> 
+        match node with
+        | HtmlElement (tag, attrs, children) -> 
+            HtmlNode.NewElement (tag, toAssocList attrs, Seq.map (transformNode cond transformation) children)
+        | node -> node
+
+let transformDOM cond transformation (document:FSharp.Data.HtmlDocument) =
+    Doc.elements document
+    |> List.map (transformNode cond transformation)
+    |> HtmlDocument.New
+
+type ImageTemplate = HtmlProvider<"assets/template.html">
+
+let toImage'(output:string) =
     let source = "Twitter for iPhone"
     let profileUrl = "https://pbs.twimg.com/profile_images/1011409104441630720/ksmEpPII_normal.jpg"
 
-    use document = new HTMLDocument(template)
+    let document =
+        ImageTemplate.GetSample().Html
+        |> transformDOM (Node.hasId "pfp") (setImageSrc profileUrl)
+        |> transformDOM (Node.hasId "username") (setText  $"@{exampleMockTweet.ScreenName}")
+        |> transformDOM (Node.hasId "name") (setText exampleMockTweet.Name)
+        |> transformDOM (Node.hasId "monthOutput") (setText <| exampleMockTweet.Date.ToString("MMM "))
+        |> transformDOM (Node.hasId "dayOutput") (setText <| exampleMockTweet.Date.Day.ToString())
+        |> transformDOM (Node.hasId "yearOutput") (setText <| exampleMockTweet.Date.ToString("yyyy"))
+        |> transformDOM (Node.hasId "timeOutput") (setText <| exampleMockTweet.Date.ToString(@"h\:mm tt"))
+        |> transformDOM (Node.hasId "client") (setText source)
+        |> transformDOM (Node.hasId "tweetText") (exampleMockTweet.ToSpeakText() |> HttpUtility.HtmlEncode |> setText)
 
-    document
-    |> setElementTextById "usernameOutput" exampleMockTweet.ScreenName
-    |> setElementTextById "nameOutput" exampleMockTweet.Name
-    |> setElementTextById "monthOutput" (exampleMockTweet.Date.ToString("MMM "))
-    |> setElementTextById "dayOutput" (exampleMockTweet.Date.Day.ToString())
-    |> setElementTextById "yearOutput" (exampleMockTweet.Date.ToString("yyyy"))
-    |> setElementTextById "timeOutput" (exampleMockTweet.Date.ToString(@"h\:mm tt"))
-    |> setElementTextById "clientOutput" source
-    |> setElementTextById "tweetTextOutput" (exampleMockTweet.ToSpeakText())
-    |> ignore
+    File.WriteAllText("results.html", document.ToString())
 
-    let profileNode = document.CreateElement("img")
-    profileNode.SetAttribute("src", profileUrl)
-
-    document.GetElementById("profilePicture").AppendChild(profileNode) |> ignore
-    let verifiedStyle = document.GetElementById("verifiedOutput")
-
-    if exampleMockTweet.IsVerified
-    then verifiedStyle.RemoveAttribute("style")
-    else verifiedStyle.SetAttribute("style", "display:none;")
-
-    let testHtmlOutput = "./Downloads/test_result.html"
-    document.Save(testHtmlOutput)
-    
-    let options = ImageSaveOptions(ImageFormat.Jpeg)
-    Converters.Converter.ConvertHTML(document, options, outputFile)
+    let bytes = CoreHtmlToImage.HtmlConverter().FromHtmlString(document.ToString(), 700, ImageFormat.Jpg, 100)
+    File.WriteAllBytes(output, bytes)
     
 
 [<EntryPoint>]
 let main argv =
     match argv with
     | [| imagefile; outputfile |]   -> synthesize imagefile outputfile |> Async.RunSynchronously
-    | [| outfile |]                 -> toImage outfile
+    | [| outfile |]                 -> toImage' outfile
     | _                             -> speak ()
     0
