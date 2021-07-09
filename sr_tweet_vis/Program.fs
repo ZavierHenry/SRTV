@@ -12,8 +12,7 @@ open SRTV.Utilities
 open FSharp.Data
 open FSharp.Data.HtmlActivePatterns
 
-open CoreHtmlToImage
-
+open PuppeteerSharp
 
 let exampleMockTweet =
     MockTweet(
@@ -93,14 +92,26 @@ let toImage'(output:string) =
 
     File.WriteAllText("results.html", document.ToString())
 
-    let bytes = CoreHtmlToImage.HtmlConverter().FromHtmlString(document.ToString(), 700, ImageFormat.Jpg, 100)
-    File.WriteAllBytes(output, bytes)
+    async {
+        let! _ = BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask
+
+        let launchOptions = LaunchOptions()
+        launchOptions.Headless <- true
+
+        let! browser = Puppeteer.LaunchAsync(launchOptions) |> Async.AwaitTask
+        let! page = browser.NewPageAsync() |> Async.AwaitTask
+
+        do! document.ToString() |> page.SetContentAsync |> Async.AwaitTask
+        do! page.ScreenshotAsync(output) |> Async.AwaitTask
+    }
+    
+
     
 
 [<EntryPoint>]
 let main argv =
     match argv with
     | [| imagefile; outputfile |]   -> synthesize imagefile outputfile |> Async.RunSynchronously
-    | [| outfile |]                 -> toImage' outfile
+    | [| outfile |]                 -> toImage' outfile |> Async.RunSynchronously
     | _                             -> speak ()
     0

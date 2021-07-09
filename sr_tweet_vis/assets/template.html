@@ -64,34 +64,6 @@
             -webkit-user-modify: read-write-plaintext-only;
         }
 
-        .tweetContainer .emoji {
-            height: 1.2em;
-            margin-left: 0.075em;
-            margin-right: 0.075em;
-            vertical-align: -20%;
-        }
-
-        .tweetContainer[editing=off] .editing-only {
-            display: none;
-        }
-
-        .tweetContainer[editing=on] .editable-border {
-            padding: 5px;
-            border: 2px dashed var(--tweet-tertiary-color);
-            cursor: pointer;
-        }
-
-            .tweetContainer[editing=on] .editable-border:focus {
-                outline: none;
-                border: 2px dashed var(--tweet-primary-color);
-                cursor: text;
-            }
-
-        .tweetContainer[editing=on] .bullet, .tweetContainer[editing=on] .verified {
-            margin-top: auto;
-            margin-bottom: auto;
-        }
-
         .tweetContainer .headerContainer {
             margin-bottom: 4px;
             display: flex;
@@ -195,11 +167,6 @@
                 fill: currentColor;
             }
 
-        .tweetContainer .editorInfo {
-            color: var(--tweet-secondary-color);
-            font-size: 12px;
-            margin-top: 2px;
-        }
 
         #clientInfo, #numbersInfo {
             margin-top: 6px;
@@ -218,8 +185,8 @@
             color: var(--tweet-primary-color);
         }
 
-        .tweetContainer[editing=on] .tweetText {
-            font-size: 20px;
+        .tweetContainer[theme=dim] .tweetText {
+            color: #ffffff;
         }
 
         .tweetContainer .tweetText span {
@@ -311,25 +278,7 @@
                 fill: currentColor;
             }
 
-        .cloneframe {
-            visibility: hidden !important;
-            position: fixed;
-            left: -10000px;
-            top: 0px;
-            border: none;
-        }
-
-        .tweetOptions button {
-            font-weight: 600;
-        }
-
-        .tweetOptions svg, .tweetOptions .fas {
-            height: 1.3em;
-            width: 1.3em;
-            text-align: center;
-            margin-right: 4px;
-            color: #6c757d;
-        }
+     
     </style>
 </head>
 <body>
