@@ -52,11 +52,13 @@ let setText text = function
         HtmlNode.NewElement (tag, toAssocList attrs, elements)
     | node -> node
 
-let setImageSrc src = function
+let setAttribute name value = function
     | HtmlElement (tag, attrs, children) ->
-        let attrs = Seq.map (function | HtmlAttribute ("src", _) -> ("src", src) | HtmlAttribute x -> x) attrs
+        let attrs = Seq.map (function | HtmlAttribute (n, v) -> (n, if n = name then value else v)) attrs
         HtmlNode.NewElement (tag, attrs, children)
     | node -> node
+
+let setImageSrc src = setAttribute "src" src
 
 let rec transformNode cond transformation (node:HtmlNode) =
     match cond node with
@@ -83,6 +85,8 @@ let toImage'(output:string) =
         |> transformDOM (Node.hasId "pfp") (setImageSrc profileUrl)
         |> transformDOM (Node.hasId "username") (setText  $"@{exampleMockTweet.ScreenName}")
         |> transformDOM (Node.hasId "name") (setText exampleMockTweet.Name)
+        |> transformDOM (Node.hasId "verified") (setAttribute "style" (if exampleMockTweet.IsVerified then "" else "display:none;"))
+        |> transformDOM (Node.hasId "protected") (setAttribute "style" (if exampleMockTweet.IsProtected then "" else "display:none;"))
         |> transformDOM (Node.hasId "monthOutput") (setText <| exampleMockTweet.Date.ToString("MMM "))
         |> transformDOM (Node.hasId "dayOutput") (setText <| exampleMockTweet.Date.Day.ToString())
         |> transformDOM (Node.hasId "yearOutput") (setText <| exampleMockTweet.Date.ToString("yyyy"))
@@ -104,8 +108,6 @@ let toImage'(output:string) =
         do! document.ToString() |> page.SetContentAsync |> Async.AwaitTask
         do! page.ScreenshotAsync(output) |> Async.AwaitTask
     }
-    
-
     
 
 [<EntryPoint>]
