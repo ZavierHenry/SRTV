@@ -13,6 +13,7 @@ open FSharp.Data
 open FSharp.Data.HtmlActivePatterns
 
 open PuppeteerSharp
+open PuppeteerSharp.Media
 
 let exampleMockTweet =
     MockTweet(
@@ -69,7 +70,7 @@ let rec transformNode cond transformation (node:HtmlNode) =
             HtmlNode.NewElement (tag, toAssocList attrs, Seq.map (transformNode cond transformation) children)
         | node -> node
 
-let transformDOM cond transformation (document:FSharp.Data.HtmlDocument) =
+let transformDOM cond transformation (document:HtmlDocument) =
     Doc.elements document
     |> List.map (transformNode cond transformation)
     |> HtmlDocument.New
@@ -106,7 +107,22 @@ let toImage'(output:string) =
         let! page = browser.NewPageAsync() |> Async.AwaitTask
 
         do! document.ToString() |> page.SetContentAsync |> Async.AwaitTask
-        do! page.ScreenshotAsync(output) |> Async.AwaitTask
+
+        let! width = page.EvaluateExpressionAsync<decimal>(@"document.getElementById(""tweetContainer"").offsetWidth") |> Async.AwaitTask
+        let! height = page.EvaluateExpressionAsync<decimal>(@"document.getElementById(""tweetContainer"").offsetHeight") |> Async.AwaitTask
+        let! left = page.EvaluateExpressionAsync<decimal>(@"document.getElementById(""tweetContainer"").offsetLeft") |> Async.AwaitTask
+        let! top = page.EvaluateExpressionAsync<decimal>(@"document.getElementById(""tweetContainer"").offsetTop") |> Async.AwaitTask
+
+        let clip = Clip()
+        clip.Width <- width
+        clip.Height <- height
+        clip.X <- left
+        clip.Y <- top
+
+        let screenshotOptions = ScreenshotOptions()
+        screenshotOptions.Clip <- clip
+
+        do! page.ScreenshotAsync(output, screenshotOptions) |> Async.AwaitTask
     }
     
 
