@@ -18,9 +18,8 @@ open PuppeteerSharp.Media
 let exampleMockTweet =
     MockTweet(
         "I love that the Harvey’s burger chain got its name because the John Harvey Motors car dealership was going out of business and a guy opening a burger shop got the dealership sign for cheap.  A thrifty Canadian icon.",
-        //"Anne Thériault",
         "anne_theriault",
-        "Anne Theriault",
+        "Anne Thériault",
         DateTime.Parse("2021-05-07T16:31:38.000Z").ToUniversalTime(),
         true,
         false,
@@ -88,9 +87,7 @@ let toImage'(output:string) =
         |> transformDOM (Node.hasId "name") (setText exampleMockTweet.Name)
         |> transformDOM (Node.hasId "verified") (setAttribute "style" (if exampleMockTweet.IsVerified then "" else "display:none;"))
         |> transformDOM (Node.hasId "protected") (setAttribute "style" (if exampleMockTweet.IsProtected then "" else "display:none;"))
-        |> transformDOM (Node.hasId "monthOutput") (setText <| exampleMockTweet.Date.ToString("MMM "))
-        |> transformDOM (Node.hasId "dayOutput") (setText <| exampleMockTweet.Date.Day.ToString())
-        |> transformDOM (Node.hasId "yearOutput") (setText <| exampleMockTweet.Date.ToString("yyyy"))
+        |> transformDOM (Node.hasId "dateOutput") (setText <| exampleMockTweet.Date.ToString(@"MMM d, yyyy"))
         |> transformDOM (Node.hasId "timeOutput") (setText <| exampleMockTweet.Date.ToString(@"h\:mm tt"))
         |> transformDOM (Node.hasId "client") (setText source)
         |> transformDOM (Node.hasId "tweetText") (exampleMockTweet.ToSpeakText() |> HttpUtility.HtmlEncode |> setText)
