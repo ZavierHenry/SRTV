@@ -18,6 +18,7 @@
     <Compile Include="Regex.fs" />
     <Compile Include="TwitterClient.fs" />
     <Compile Include="TweetMedia.fs" />
+    <Compile Include="TweetImage.fs" />
     <Compile Include="TweetAudio.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
