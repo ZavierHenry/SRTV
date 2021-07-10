@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="assets\template.html" />
     <None Include="assets\emojis.csv" />
     <None Include="scripts\emojiExtractor.fsx" />
     <Compile Include="Substitution.fs" />
@@ -17,16 +18,15 @@
     <Compile Include="Regex.fs" />
     <Compile Include="TwitterClient.fs" />
     <Compile Include="TweetMedia.fs" />
+    <Compile Include="TweetImage.fs" />
     <Compile Include="TweetAudio.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspose.HTML" Version="21.6.0" />
-    <PackageReference Include="Aspose.SVG" Version="21.6.0" />
     <PackageReference Include="FSharp.Data" Version="4.1.1" />
     <PackageReference Include="linqtotwitter" Version="6.7.1" />
-    <PackageReference Include="NReco.ImageGenerator" Version="1.2.0" />
+    <PackageReference Include="PuppeteerSharp" Version="4.0.0" />
     <PackageReference Include="System.Speech" Version="5.0.0" />
     <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
     <PackageReference Include="Xabe.FFmpeg" Version="5.0.2" />
