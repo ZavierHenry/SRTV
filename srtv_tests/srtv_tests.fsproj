@@ -18,6 +18,8 @@
     <Content Include="tweets\numbers\phoneNumber.json" />
     <Content Include="tweets\punctuation\hashtag.json" />
     <Content Include="tweets\punctuation\percent.json" />
+    <Content Include="tweets\punctuation\underscore.json" />
+    <Content Include="tweets\multipleTcoLinks.json" />
     <Content Include="tweets\basicPrivateTweet.json" />
     <Content Include="tweets\basicReply.json" />
     <Content Include="tweets\basicVerifiedTweet.json" />
@@ -62,6 +64,6 @@
     <PackageReference Update="FSharp.Core" Version="5.0.2" />
   </ItemGroup>
 
-  <ProjectExtensions><VisualStudio><UserProperties tweets_4basicverifiedtweet_1json__JsonSchema="..\schema.json" tweets_4emojis_4facescreaminginfear_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4fire_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4loudlycryingwithskull_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4smilies_1json__JsonSchema="..\..\schema.json" tweets_4numbers_4negativenumber_1json__JsonSchema="..\..\schema.json" tweets_4numbers_4phonenumber_1json__JsonSchema="..\..\schema.json" tweets_4punctuation_4hashtag_1json__JsonSchema="..\..\schema.json" tweets_4punctuation_4percent_1json__JsonSchema="..\..\schema.json" tweets_4urlcard_1json__JsonSchema="..\schema.json" /></VisualStudio></ProjectExtensions>
+  <ProjectExtensions><VisualStudio><UserProperties tweets_4basicverifiedtweet_1json__JsonSchema="..\schema.json" tweets_4emojis_4facescreaminginfear_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4fire_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4loudlycryingwithskull_1json__JsonSchema="..\..\schema.json" tweets_4emojis_4smilies_1json__JsonSchema="..\..\schema.json" tweets_4multipletcolinks_1json__JsonSchema="..\schema.json" tweets_4numbers_4negativenumber_1json__JsonSchema="..\..\schema.json" tweets_4numbers_4phonenumber_1json__JsonSchema="..\..\schema.json" tweets_4punctuation_4hashtag_1json__JsonSchema="..\..\schema.json" tweets_4punctuation_4percent_1json__JsonSchema="..\..\schema.json" tweets_4punctuation_4underscore_1json__JsonSchema="..\..\schema.json" tweets_4urlcard_1json__JsonSchema="..\schema.json" /></VisualStudio></ProjectExtensions>
 
 </Project>
