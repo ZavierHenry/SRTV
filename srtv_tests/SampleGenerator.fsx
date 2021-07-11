@@ -7,20 +7,20 @@ open System.Text.RegularExpressions
 
 type JVal = FSharp.Data.JsonValue
 
-type StringConstraint = StringConstraint of minLength:int * maxLength:int * patterns:string seq
-type IntegerConstraint = IntegerConstraint of min:int64 * max:int64 * multiple:int64
-type NumberConstraint = NumberConstraint of min:float * max:float * multiple:float
+type StringConstraint = StringConstraint of minLength:int * maxLength:int
+type IntegerConstraint = IntegerConstraint of min:int64 * max:int64
+type NumberConstraint = NumberConstraint of min:float * max:float
 type ArrayConstraint = ArrayConstraint of minItems:int * maxItems:int
 
-let unboundedStringConstraint = StringConstraint ( 0, Int32.MaxValue, [] )
-let unboundedIntegerConstraint = IntegerConstraint ( Int64.MinValue, Int64.MaxValue, 1L )
-let unboundedNumberConstraint = NumberConstraint ( Double.MinValue, Double.MaxValue, 1.0 )
+let unboundedStringConstraint = StringConstraint ( 0, Int32.MaxValue )
+let unboundedIntegerConstraint = IntegerConstraint ( Int64.MinValue, Int64.MaxValue )
+let unboundedNumberConstraint = NumberConstraint ( Double.MinValue, Double.MaxValue )
 let unboundedArrayConstraint = ArrayConstraint ( 0, Int32.MaxValue )
 
 let combineStringConstraints constraint1 constraint2 =
-    let ( StringConstraint (min1, max1, p1) ) = constraint1
-    let ( StringConstraint (min2, max2, p2) ) = constraint2
-    StringConstraint (Math.Max (min1, min2), Math.Min (max1, max2), Seq.append p1 p2)
+    let ( StringConstraint (min1, max1) ) = constraint1
+    let ( StringConstraint (min2, max2) ) = constraint2
+    StringConstraint (Math.Max (min1, min2), Math.Min (max1, max2) )
 
 let rec gcdInt64 (x:int64) (y:int64) =
     let b = Math.Abs(y)
@@ -39,14 +39,14 @@ let rec gcdFloat (x:float) (y:float) =
 let lcmFloat x y = x * y / gcdFloat x y
 
 let combineIntegerConstraints constraint1 constraint2 =
-    let ( IntegerConstraint (min1, max1, multiple1) ) = constraint1
-    let ( IntegerConstraint (min2, max2, multiple2) ) = constraint2
-    IntegerConstraint ( Math.Max (min1, min2), Math.Min (max1, max2), lcmInt64 multiple1 multiple2)
+    let ( IntegerConstraint (min1, max1) ) = constraint1
+    let ( IntegerConstraint (min2, max2) ) = constraint2
+    IntegerConstraint ( Math.Max (min1, min2), Math.Min (max1, max2) )
 
 let combineNumberConstraints constraint1 constraint2 =
-    let ( NumberConstraint (min1, max1, multiple1) ) = constraint1
-    let ( NumberConstraint (min2, max2, multiple2) ) = constraint2
-    NumberConstraint ( Math.Max (min1, min2), Math.Min (max1, max2), lcmFloat multiple1 multiple2)
+    let ( NumberConstraint (min1, max1) ) = constraint1
+    let ( NumberConstraint (min2, max2) ) = constraint2
+    NumberConstraint ( Math.Max (min1, min2), Math.Min (max1, max2) )
 
 let combineArrayConstraints constraint1 constraint2 =
     let ( ArrayConstraint (min1, max1) ) = constraint1
@@ -97,17 +97,11 @@ let tryConvertToBoolean = function
     | JVal.Boolean b -> Some b
     | _ -> None
 
-let tryConvertToString = function
-    | JVal.String str -> Some str
-    | _ -> None
-
 let keywords = [
     "minLength"
     "maxLength"
-    "pattern"
     "minimum"
     "maximum"
-    "multipleOf"
     "exclusiveMinimum"
     "exclusiveMaximum"
     "minItems"
@@ -128,7 +122,6 @@ let tryGetProperty converter key mapping = Map.tryFind key mapping |> Option.bin
 let tryGetIntegerProperty = tryGetProperty tryConvertToInteger
 let tryGetInteger64Property = tryGetProperty tryConvertToInteger64
 let tryGetFloatProperty = tryGetProperty tryConvertToFloat
-let tryGetStringProperty = tryGetProperty tryConvertToString
 let tryGetBooleanProperty = tryGetProperty tryConvertToBoolean
 
 let (|NullType|_|) = matchPropertyType "null" <| fun _ -> Some ()
@@ -137,28 +130,25 @@ let (|StringType|_|) =
     let handler mapping = 
         let minLength = tryGetIntegerProperty "minLength" mapping
         let maxLength = tryGetIntegerProperty "maxLength" mapping
-        let pattern = tryGetStringProperty "maxLength" mapping
-        Some (minLength, maxLength, pattern)
+        Some (minLength, maxLength)
     matchPropertyType "string" handler
 
 let (|IntegerType|_|) =
     let handler mapping =
         let minimum = tryGetInteger64Property "minimum" mapping
         let maximum = tryGetInteger64Property "maximum" mapping 
-        let multipleOf = tryGetInteger64Property "multipleOf" mapping
         let exclusiveMinimum = tryGetBooleanProperty "exclusiveMinimum" mapping
         let exclusiveMaximum = tryGetBooleanProperty "exclusiveMaximum" mapping
-        Some (minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum)
+        Some (minimum, maximum, exclusiveMinimum, exclusiveMaximum)
     matchPropertyType "integer" handler
     
 let (|NumberType|_|) =
     let handler mapping =
         let minimum = tryGetFloatProperty "minimum" mapping 
         let maximum = tryGetFloatProperty "maximum" mapping
-        let multipleOf = tryGetFloatProperty "multipleOf" mapping
         let exclusiveMinimum = tryGetBooleanProperty "exclusiveMinimum" mapping
         let exclusiveMaximum = tryGetBooleanProperty "exclusiveMaximum" mapping
-        Some (minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum)
+        Some (minimum, maximum, exclusiveMinimum, exclusiveMaximum)
     matchPropertyType "number" handler
 
 let (|ObjectType|_|) =
@@ -249,15 +239,15 @@ let combineSchemas schema1 schema2 =
     | (TBool, TBool)                            -> TBool
     | (TStr c1, TStr c2)                        -> 
         match combineStringConstraints c1 c2 with
-        | StringConstraint (min, max, _) when min > max -> TContradiction
+        | StringConstraint (min, max) when min > max -> TContradiction
         | stringConstraint -> TStr stringConstraint
     | (TInteger c1, TInteger c2)                ->
         match combineIntegerConstraints c1 c2 with
-        | IntegerConstraint (min, max, _) when min > max -> TContradiction
+        | IntegerConstraint (min, max) when min > max -> TContradiction
         | integerConstraint -> TInteger integerConstraint
     | (TNumber c1, TNumber c2)                  ->
         match combineNumberConstraints c1 c2 with
-        | NumberConstraint (min, max, _) when min > max -> TContradiction
+        | NumberConstraint (min, max) when min > max -> TContradiction
         | numberConstraint -> TNumber numberConstraint
     | (TObj (required1, optional1), TObj (required2, optional2)) ->
         let required = List.distinctBy (fun (name, _) -> name) (required1 @ required2)
@@ -271,13 +261,13 @@ let rec toSchema (definitions:Map<string,Schema>) jsonvalue =
         match jsonvalue with
         | NullType -> TNull
         | BoolType -> TBool
-        | StringType (min, max, pattern) -> 
+        | StringType (min, max) -> 
             let minLength = Option.defaultValue 0 min
             let maxLength = Option.defaultValue Int32.MaxValue max
             if minLength > maxLength
             then TContradiction
-            else TStr ( StringConstraint (minLength, maxLength, Option.toList pattern) )
-        | IntegerType (min, max, multiple, exclusiveMin, exclusiveMax) -> 
+            else TStr ( StringConstraint (minLength, maxLength) )
+        | IntegerType (min, max, exclusiveMin, exclusiveMax) -> 
             let exclusiveMin = Option.defaultValue false exclusiveMin
             let exclusiveMax = Option.defaultValue false exclusiveMax
 
@@ -285,8 +275,8 @@ let rec toSchema (definitions:Map<string,Schema>) jsonvalue =
             let max = Option.defaultValue Int64.MaxValue max - (if exclusiveMax then 1L else 0L)
             
             if min > max then TContradiction
-            else TInteger ( IntegerConstraint (min, max, Option.defaultValue 1L multiple) )
-        | NumberType (min, max, multiple, exclusiveMin, exclusiveMax) ->
+            else TInteger ( IntegerConstraint (min, max) )
+        | NumberType (min, max, exclusiveMin, exclusiveMax) ->
             let exclusiveMin = Option.defaultValue false exclusiveMin
             let exclusiveMax = Option.defaultValue false exclusiveMax
 
@@ -294,7 +284,7 @@ let rec toSchema (definitions:Map<string,Schema>) jsonvalue =
             let max = Option.defaultValue Double.MaxValue max - (if exclusiveMax then Double.Epsilon else 0.0)
 
             if min > max then TContradiction
-            else TNumber ( NumberConstraint (min, max, Option.defaultValue 1.0 multiple) )
+            else TNumber ( NumberConstraint (min, max) )
         | RefType name -> Option.defaultValue TContradiction (Map.tryFind name definitions)
         | ObjectType (properties, required) ->
             let toProperty (name:string, value) = (name, toSchema definitions value)
@@ -342,10 +332,10 @@ let rec generateExamples = function
     | TContradiction -> []
     | TNull -> [ JVal.Null ]
     | TBool -> [ JVal.Boolean true ]
-    | TStr ( StringConstraint (min, max, _) ) -> [ JVal.String <| generateString min max ]
-    | TInteger ( IntegerConstraint (min, max, _) ) -> 
+    | TStr ( StringConstraint (min, max) ) -> [ JVal.String <| generateString min max ]
+    | TInteger ( IntegerConstraint (min, max) ) -> 
         [ generateInt64 min max |> decimal |> JVal.Number ]
-    | TNumber (NumberConstraint (min, max, _) ) -> [ generateFloat min max |> JVal.Float ]
+    | TNumber (NumberConstraint (min, max) ) -> [ generateFloat min max |> JVal.Float ]
     | TObj (required, optional) ->
         let optionalExamples =
             List.map (fun (name, schema) -> (name, generateExamples schema)) optional
