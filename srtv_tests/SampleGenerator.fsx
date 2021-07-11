@@ -1,47 +1,33 @@
 ﻿#r "nuget: FSharp.Data"
-#r "nuget: Newtonsoft.Json.Schema"
+#r "nuget: System.Speech"
 
 open FSharp.Data
 open System
 open System.Text.RegularExpressions
-open Newtonsoft.Json.Schema
 
 type JVal = FSharp.Data.JsonValue
 
-type TStrConstraints = {
-    minLength: int
-    maxLength: int
-    patterns: string list
-}
+type StringConstraint = StringConstraint of minLength:int * maxLength:int * patterns:string seq
+type IntegerConstraint = IntegerConstraint of min:int64 * max:int64 * multiple:int64
+type NumberConstraint = NumberConstraint of min:float * max:float * multiple:float
+type ArrayConstraint = ArrayConstraint of minItems:int * maxItems:int
 
-let unboundedStringConstraints = { 
-    minLength = 0
-    maxLength = Int32.MaxValue
-    patterns = []
-}
+let unboundedStringConstraint = StringConstraint ( 0, Int32.MaxValue, [] )
+let unboundedIntegerConstraint = IntegerConstraint ( Int64.MinValue, Int64.MaxValue, 1L )
+let unboundedNumberConstraint = NumberConstraint ( Double.MinValue, Double.MaxValue, 1.0 )
+let unboundedArrayConstraint = ArrayConstraint ( 0, Int32.MaxValue )
 
 let combineStringConstraints constraint1 constraint2 =
-    let { minLength = min1; maxLength = max1; patterns = p1} = constraint1
-    let { minLength = min2; maxLength = max2; patterns = p2} = constraint2
-    {   minLength = Math.Max(min1, min2)
-        maxLength = Math.Min(max1, max2)
-        patterns = p1 @ p2 }
-
-type TIntegerConstraints = {
-    min: int64
-    max: int64
-    multiple: int64
-}
+    let ( StringConstraint (min1, max1, p1) ) = constraint1
+    let ( StringConstraint (min2, max2, p2) ) = constraint2
+    StringConstraint (Math.Max (min1, min2), Math.Min (max1, max2), Seq.append p1 p2)
 
 let rec gcdInt64 (x:int64) (y:int64) =
-    let a = Math.Abs(x)
     let b = Math.Abs(y)
-    let remainder = a % b
-
+    let remainder = Math.Abs(x) % b
     if remainder = 0L then b else gcdInt64 b remainder
 
-let lcmInt64 x y =
-    x * y / gcdInt64 x y
+let lcmInt64 x y = x * y / gcdInt64 x y
 
 let rec gcdFloat (x:float) (y:float) =
     let a = Math.Abs(x)
@@ -50,65 +36,32 @@ let rec gcdFloat (x:float) (y:float) =
     
     if remainder = 0.0 then b else gcdFloat b remainder
 
-let lcmFloat x y =
-    x * y / gcdFloat x y
+let lcmFloat x y = x * y / gcdFloat x y
 
 let combineIntegerConstraints constraint1 constraint2 =
-    {
-        min = Math.Max(constraint1.min, constraint2.min)
-        max = Math.Min(constraint1.max, constraint2.max)
-        multiple = lcmInt64 constraint1.multiple constraint2.multiple
-    }
+    let ( IntegerConstraint (min1, max1, multiple1) ) = constraint1
+    let ( IntegerConstraint (min2, max2, multiple2) ) = constraint2
+    IntegerConstraint ( Math.Max (min1, min2), Math.Min (max1, max2), lcmInt64 multiple1 multiple2)
 
-let unboundedIntegerConstraints = {
-    min = Int64.MinValue
-    max = Int64.MaxValue
-    multiple = 1L
-}
+let combineNumberConstraints constraint1 constraint2 =
+    let ( NumberConstraint (min1, max1, multiple1) ) = constraint1
+    let ( NumberConstraint (min2, max2, multiple2) ) = constraint2
+    NumberConstraint ( Math.Max (min1, min2), Math.Min (max1, max2), lcmFloat multiple1 multiple2)
 
-type TNumberConstraints = {
-    min: float
-    max: float
-    multiple: float
-}
-
-let unboundedNumberConstraints = {
-    min = Double.MinValue
-    max = Double.MaxValue
-    multiple = 1.0
-}
-
-let combineNumberConstraints (constraint1:TNumberConstraints) (constraint2:TNumberConstraints) =
-    { 
-        min = Math.Max(constraint1.min, constraint2.min)
-        max = Math.Min(constraint1.max, constraint2.max)
-        multiple = lcmFloat constraint1.multiple constraint2.multiple
-    }
-
-type TArrayConstraints = {
-    minItems: int
-    maxItems: int
-}
-
-let unboundedArrayConstraints = {
-    minItems = 0
-    maxItems = Int32.MaxValue
-}
-
-let combineArrayConstraints constraint1 constraint2 = {
-    minItems = Math.Max(constraint1.minItems, constraint2.minItems)
-    maxItems = Math.Min(constraint1.maxItems, constraint2.maxItems)
-}
+let combineArrayConstraints constraint1 constraint2 =
+    let ( ArrayConstraint (min1, max1) ) = constraint1
+    let ( ArrayConstraint (min2, max2) ) = constraint2
+    ArrayConstraint (Math.Max (min1, min2), Math.Min (max1, max2))
 
 type Schema =
     | TObj of required:Property list * optional:Property list
-    | TStr of TStrConstraints
+    | TStr of StringConstraint
     | TBool
-    | TNumber of TNumberConstraints
-    | TInteger of TIntegerConstraints
+    | TNumber of NumberConstraint
+    | TInteger of IntegerConstraint
     | TNull
-    | TArrayTuple of TArrayConstraints * Schema list
-    | TArrayObject of TArrayConstraints * Schema
+    | TArrayTuple of ArrayConstraint * Schema list
+    | TArrayObject of ArrayConstraint * Schema
     | TMixed of Schema list
     | TContradiction
     | TAny
@@ -119,45 +72,34 @@ let generateSize minSize maxSize =
     if minSize = maxSize then minSize else minSize + 1
 
 let generateString minLength maxLength =
-    String.init (generateSize minLength maxLength) (fun _ -> "a")
+    String.replicate (generateSize minLength maxLength) "a"
 
-let generateFloat min max = (max-min)/2.0 + min
-let generateInteger min max = (max-min)/2 + min
-let generateInt64 min max = (max-min)/2L + min
+let generateFloat min max = (max+min)/2.0
+let generateInteger min max = (max+min)/2
+let generateInt64 min max = (max+min)/2L
 
-let tryGetProperty = Array.tryPick
+let tryConvertToInteger = function
+    | JVal.Number n when Decimal.Truncate(n) = n -> Some (int n)
+    | JVal.Float fl when Math.Truncate(fl) = fl -> Some (int fl)
+    | _ -> None
 
-//TODO: write match branch for floats that can be represented as integers
-let tryGetIntegerProperty (key:string) =
-    let f = function
-        | (k, JVal.Number n) when key = k -> Some (int n)
-        | _ -> None
-    tryGetProperty f
+let tryConvertToInteger64 = function
+    | JVal.Number n when Decimal.Truncate(n) = n -> Some (int64 n)
+    | JVal.Float fl when Math.Truncate(fl) = fl -> Some (int64 fl)
+    | _ -> None
 
-let tryGetInt64Property (key:string) =
-    let f = function
-        | (k, JVal.Number n) when key = k -> Some (int64 n)
-        | _ -> None
-    tryGetProperty f
+let tryConvertToFloat = function
+    | JVal.Number n when Decimal.Truncate(n) <> n -> Some (float n)
+    | JVal.Float fl -> Some fl
+    | _ -> None
 
-let tryGetFloatProperty (key:string) =
-    let f = function
-        | (k, JVal.Number n) when key = k -> Some (float n)
-        | (k, JVal.Float fl) when key = k -> Some fl
-        | _ -> None
-    tryGetProperty f
+let tryConvertToBoolean = function
+    | JVal.Boolean b -> Some b
+    | _ -> None
 
-let tryGetBooleanProperty (key:string) =
-    let f = function
-        | (k, JVal.Boolean bool) when key = k -> Some bool
-        | _ -> None
-    tryGetProperty f
-
-let tryGetStringProperty (key:string) =
-    let f = function
-        | (k, JVal.String str) when key = k -> Some str
-        | _ -> None
-    tryGetProperty f
+let tryConvertToString = function
+    | JVal.String str -> Some str
+    | _ -> None
 
 let keywords = [
     "minLength"
@@ -178,81 +120,71 @@ let keywords = [
 let matchPropertyType name handler = function
     | JVal.Record properties
         when Array.contains ("type", JVal.String name) properties -> 
-            handler properties
+            handler (Map properties)
     | _ -> None
+
+let tryGetProperty converter key mapping = Map.tryFind key mapping |> Option.bind converter
+
+let tryGetIntegerProperty = tryGetProperty tryConvertToInteger
+let tryGetInteger64Property = tryGetProperty tryConvertToInteger64
+let tryGetFloatProperty = tryGetProperty tryConvertToFloat
+let tryGetStringProperty = tryGetProperty tryConvertToString
+let tryGetBooleanProperty = tryGetProperty tryConvertToBoolean
 
 let (|NullType|_|) = matchPropertyType "null" <| fun _ -> Some ()
 let (|BoolType|_|) = matchPropertyType "boolean" <| fun _ -> Some ()
 let (|StringType|_|) =
-    let handler properties = 
-        let minLength = tryGetIntegerProperty "minLength" properties |> Option.defaultValue 0
-        let maxLength = tryGetIntegerProperty "maxLength" properties |> Option.defaultValue Int32.MaxValue
-        let pattern = 
-            tryGetStringProperty "pattern" properties 
-            |> Option.map List.singleton 
-            |> Option.defaultValue []
+    let handler mapping = 
+        let minLength = tryGetIntegerProperty "minLength" mapping
+        let maxLength = tryGetIntegerProperty "maxLength" mapping
+        let pattern = tryGetStringProperty "maxLength" mapping
         Some (minLength, maxLength, pattern)
     matchPropertyType "string" handler
 
 let (|IntegerType|_|) =
-    let handler properties = 
-        let minimum = tryGetInt64Property "minimum" properties |> Option.defaultValue Int64.MinValue
-        let maximum = tryGetInt64Property "maximum" properties |> Option.defaultValue Int64.MaxValue 
-        let multipleOf = tryGetInt64Property "multipleOf" properties |> Option.defaultValue 1L
-        let exclusiveMinimum = tryGetBooleanProperty "exclusiveMinimum" properties |> Option.defaultValue false
-        let exclusiveMaximum = tryGetBooleanProperty "exclusiveMaximum" properties |> Option.defaultValue false
-        Some (
-            (if exclusiveMinimum then minimum + 1L else minimum), 
-            (if exclusiveMaximum then maximum - 1L else maximum),
-            multipleOf)
+    let handler mapping =
+        let minimum = tryGetInteger64Property "minimum" mapping
+        let maximum = tryGetInteger64Property "maximum" mapping 
+        let multipleOf = tryGetInteger64Property "multipleOf" mapping
+        let exclusiveMinimum = tryGetBooleanProperty "exclusiveMinimum" mapping
+        let exclusiveMaximum = tryGetBooleanProperty "exclusiveMaximum" mapping
+        Some (minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum)
     matchPropertyType "integer" handler
     
-
 let (|NumberType|_|) =
-    let handler properties =
-        let minimum = tryGetFloatProperty "minimum" properties |> Option.defaultValue Double.MinValue
-        let maximum = tryGetFloatProperty "maximum" properties |> Option.defaultValue Double.MaxValue
-        let multipleOf = tryGetFloatProperty "multipleOf" properties |> Option.defaultValue 1.0
-        let exclusiveMinimum = tryGetBooleanProperty "exclusiveMinimum" properties |> Option.defaultValue false
-        let exclusiveMaximum = tryGetBooleanProperty "exclusiveMaximum" properties |> Option.defaultValue false
-        Some (
-            (if exclusiveMinimum then minimum + Double.Epsilon else minimum),
-            (if exclusiveMaximum then maximum - Double.Epsilon else maximum),
-            multipleOf)
+    let handler mapping =
+        let minimum = tryGetFloatProperty "minimum" mapping 
+        let maximum = tryGetFloatProperty "maximum" mapping
+        let multipleOf = tryGetFloatProperty "multipleOf" mapping
+        let exclusiveMinimum = tryGetBooleanProperty "exclusiveMinimum" mapping
+        let exclusiveMaximum = tryGetBooleanProperty "exclusiveMaximum" mapping
+        Some (minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum)
     matchPropertyType "number" handler
 
 let (|ObjectType|_|) =
-    let handler p =
-        let properties = 
-            Array.tryPick (function | ("properties", JVal.Record p1) -> Some p1 | _ -> None) p 
-            |> Option.defaultValue [||]
-        let requiredKeys =
-            Array.tryPick (function| ("required", JVal.Array arr) -> Some arr | _ -> None) p 
-            |> Option.defaultValue [||]
-
-        let (required, optional) =
-            Array.partition (fun (key, _) -> Array.exists (function | JVal.String str -> str = key | _ -> false) requiredKeys) properties
-        Some (required, optional)
+    let handler mapping =
+        let properties = tryGetProperty (function | JVal.Record p -> Some p | _ -> None) "properties" mapping
+        let required = tryGetProperty (function | JVal.Array arr -> Array.choose (function | JVal.String str -> Some str | _ -> None) arr |> Some | _ -> None) "required" mapping
+        Some (properties, required)
     matchPropertyType "object" handler
 
 let (|RefType|_|) = function
     | JVal.Record [| ("$ref", JVal.String name) |] ->
         let ref = Regex.Match(name, @"^#/definitions/(\w+)$")
-        if ref.Groups.[1].Success then Some (ref.Groups.[1].Value) else None
+        Some (ref.Groups.[1].Value) |> Option.filter (fun _ -> ref.Groups.[1].Success)
     | _ -> None
 
 let (|ArrayType|_|) =
-    let handler properties =
-        let items = Array.tryPick (function | ("items", value) -> Some value | _ -> None) properties
-        let minItems = tryGetIntegerProperty "minItems" properties |> Option.defaultValue 0
-        let maxItems = tryGetIntegerProperty "maxItems" properties |> Option.defaultValue Int32.MaxValue
+    let handler mapping =
+        let items = tryGetProperty Some "items" mapping
+        let minItems = tryGetIntegerProperty "minItems" mapping
+        let maxItems = tryGetIntegerProperty "maxItems" mapping
         Some (items, minItems, maxItems)
     matchPropertyType "array" handler
             
 let (|MixedType|_|) schema =  
-    let addValue t properties =
-        properties |> Array.append [| ("type", t) |] |> JVal.Record
-    let addType name = addValue (JVal.String name)
+    let addValue t = JVal.Record << Array.append [| ("type", t) |]
+    let addType = addValue << JVal.String
     match schema with
     | JVal.Record properties 
         when Array.forall (fun (name, _) -> name <> "type") properties 
@@ -266,9 +198,10 @@ let (|MixedType|_|) schema =
                  addType "array" properties
                  addType "object" properties ]
     | JVal.Record properties ->
-        match Array.tryPick (function | ("type", JVal.Array arr) -> Some arr | _ -> None) properties with
-            | Some arr -> Array.map (fun t -> addValue t properties) arr |> Array.toList |> Some
-            | _ -> None
+        let p = Array.filter (fun (name, _) -> name <> "type") properties
+        Array.tryPick (function | ("type", JVal.Array arr) -> Some arr | _ -> None) properties
+        |> Option.map ( Array.map <| fun t -> addValue t p )
+        |> Option.map Array.toList
     | _ -> None
 
 let (|AllOf|_|) = function
@@ -287,18 +220,17 @@ let (|OneOf|_|) = function
     | _ -> None
 
 let (|Not|_|) = function
-    | JVal.Record properties ->
-        Array.tryPick (function | ("not", (JVal.Record _ as r)) -> Some r | _ -> None) properties
+    | JVal.Record properties -> Map properties |> Map.tryFind "not"
     | _ -> None
 
 let anySchema = [
     TNull
     TBool
     TObj ([], [])
-    TStr unboundedStringConstraints
-    TInteger unboundedIntegerConstraints
-    TNumber unboundedNumberConstraints
-    TArrayObject (unboundedArrayConstraints, TAny)
+    TStr unboundedStringConstraint
+    TInteger unboundedIntegerConstraint
+    TNumber unboundedNumberConstraint
+    TArrayObject (unboundedArrayConstraint, TAny)
 ]
 
 let negateSchema = function
@@ -307,6 +239,8 @@ let negateSchema = function
     | TBool | TNull as schema -> 
         TMixed <| List.except [schema] anySchema
 
+
+
 let combineSchemas schema1 schema2 =
     match (schema1, schema2) with
     | (TContradiction, _) | (_, TContradiction) -> TContradiction
@@ -314,59 +248,78 @@ let combineSchemas schema1 schema2 =
     | (TNull, TNull)                            -> TNull
     | (TBool, TBool)                            -> TBool
     | (TStr c1, TStr c2)                        -> 
-        let constraints = combineStringConstraints c1 c2
-        if constraints.minLength > constraints.maxLength then TContradiction else TStr constraints
+        match combineStringConstraints c1 c2 with
+        | StringConstraint (min, max, _) when min > max -> TContradiction
+        | stringConstraint -> TStr stringConstraint
     | (TInteger c1, TInteger c2)                ->
-        let constraints = combineIntegerConstraints c1 c2
-        if constraints.min > constraints.max then TContradiction else TInteger constraints
+        match combineIntegerConstraints c1 c2 with
+        | IntegerConstraint (min, max, _) when min > max -> TContradiction
+        | integerConstraint -> TInteger integerConstraint
     | (TNumber c1, TNumber c2)                  ->
-        let constraints = combineNumberConstraints c1 c2
-        if constraints.min > constraints.max then TContradiction else TNumber constraints
+        match combineNumberConstraints c1 c2 with
+        | NumberConstraint (min, max, _) when min > max -> TContradiction
+        | numberConstraint -> TNumber numberConstraint
     | (TObj (required1, optional1), TObj (required2, optional2)) ->
         let required = List.distinctBy (fun (name, _) -> name) (required1 @ required2)
         let optional = List.distinctBy (fun (name, _) -> name) (optional1 @ optional2)
         TObj (required, optional)
-    
     | (TMixed s1, TMixed s2) -> s1 @ s2 |> List.distinct |> TMixed
     | _                                         -> TContradiction
 
-let rec toSchema (definitions:(string*Schema) list) jsonvalue =
+let rec toSchema (definitions:Map<string,Schema>) jsonvalue =
     let schema = 
         match jsonvalue with
         | NullType -> TNull
         | BoolType -> TBool
         | StringType (min, max, pattern) -> 
-            if min > max then TContradiction 
-            else TStr { minLength = min; maxLength = max; patterns = pattern }
-        | IntegerType (min, max, multiple) -> 
+            let minLength = Option.defaultValue 0 min
+            let maxLength = Option.defaultValue Int32.MaxValue max
+            if minLength > maxLength
+            then TContradiction
+            else TStr ( StringConstraint (minLength, maxLength, Option.toList pattern) )
+        | IntegerType (min, max, multiple, exclusiveMin, exclusiveMax) -> 
+            let exclusiveMin = Option.defaultValue false exclusiveMin
+            let exclusiveMax = Option.defaultValue false exclusiveMax
+
+            let min = Option.defaultValue Int64.MinValue min + (if exclusiveMin then 1L else 0L)
+            let max = Option.defaultValue Int64.MaxValue max - (if exclusiveMax then 1L else 0L)
+            
             if min > max then TContradiction
-            else TInteger { min = min; max = max; multiple = multiple }
-        | NumberType (min, max, multiple) ->
+            else TInteger ( IntegerConstraint (min, max, Option.defaultValue 1L multiple) )
+        | NumberType (min, max, multiple, exclusiveMin, exclusiveMax) ->
+            let exclusiveMin = Option.defaultValue false exclusiveMin
+            let exclusiveMax = Option.defaultValue false exclusiveMax
+
+            let min = Option.defaultValue Double.MinValue min + (if exclusiveMin then Double.Epsilon else 0.0)
+            let max = Option.defaultValue Double.MaxValue max - (if exclusiveMax then Double.Epsilon else 0.0)
+
             if min > max then TContradiction
-            else TNumber { min = min; max = max; multiple = multiple }
-        | RefType name -> 
-            List.tryFind (fun (n, _) -> n = name) definitions 
-            |> Option.map snd
-            |> Option.defaultValue TContradiction
-        | ObjectType (required, optional) ->
+            else TNumber ( NumberConstraint (min, max, Option.defaultValue 1.0 multiple) )
+        | RefType name -> Option.defaultValue TContradiction (Map.tryFind name definitions)
+        | ObjectType (properties, required) ->
             let toProperty (name:string, value) = (name, toSchema definitions value)
+            
+            let properties = Option.defaultValue [||] properties
+            let requiredKeys = Option.defaultValue [||] required
+            let (required, optional) = 
+                Array.partition (fun (name, _) -> Array.contains name requiredKeys) properties
+            
             match Array.map toProperty required with
             | required when Array.exists (fun (_, schema) -> schema = TContradiction) required
                 -> TContradiction
             | required ->
                 TObj (Array.toList required, Array.map toProperty optional |> Array.toList)
         | ArrayType (items, minItems, maxItems) ->
-            let constraints = {minItems = minItems; maxItems = maxItems}
+            let constraints = ArrayConstraint ( Option.defaultValue 0 minItems, Option.defaultValue Int32.MaxValue maxItems )
             match items with
                 | None  -> TArrayObject (constraints, TAny)
                 | Some (JVal.Record _ as r) ->
                     match toSchema definitions r with
                     | TContradiction -> TContradiction
-                    | schema         -> TArrayObject (constraints, TAny)
+                    | schema         -> TArrayObject (constraints, schema)
                 | Some (JVal.Array arr) ->
                     match Array.map (toSchema definitions) arr with
-                    | schemas when Array.contains TContradiction schemas ->
-                        TContradiction
+                    | schemas when Array.contains TContradiction schemas -> TContradiction
                     | schemas -> TArrayTuple (constraints, Array.toList schemas)
                 | _ -> TContradiction
         | MixedType values ->
@@ -385,18 +338,14 @@ let rec toSchema (definitions:(string*Schema) list) jsonvalue =
         TMixed <| List.map f oneOfSchemas
     | _       -> schema
 
-
- 
 let rec generateExamples = function
     | TContradiction -> []
     | TNull -> [ JVal.Null ]
     | TBool -> [ JVal.Boolean true ]
-    | TStr { minLength = min; maxLength = max } -> 
-        [ generateString min max |> JVal.String ]
-    | TInteger { min = min; max = max} ->
+    | TStr ( StringConstraint (min, max, _) ) -> [ JVal.String <| generateString min max ]
+    | TInteger ( IntegerConstraint (min, max, _) ) -> 
         [ generateInt64 min max |> decimal |> JVal.Number ]
-    | TNumber {min = min; max = max} ->
-        [ generateFloat min max |> JVal.Float ]
+    | TNumber (NumberConstraint (min, max, _) ) -> [ generateFloat min max |> JVal.Float ]
     | TObj (required, optional) ->
         let optionalExamples =
             List.map (fun (name, schema) -> (name, generateExamples schema)) optional
@@ -410,22 +359,27 @@ let rec generateExamples = function
 
         List.map (JVal.Record << List.toArray) examples
 
-    | TArrayObject ({minItems = min; maxItems = max}, schema) ->
+    | TArrayObject (ArrayConstraint ( min, max ), schema) ->
         match generateSize min max with
         | 0 -> [ JVal.Array [| |] ]
         | size -> 
             let examples = generateExamples schema
             List.mapi (fun i _ -> Array.init size (fun j -> examples.[if j = 0 then i else 0]) |> JVal.Array ) examples
     
-    | TArrayTuple ({minItems = min; maxItems = max}, schemas) ->
-        match generateSize min max with
-        | 0 -> [ JVal.Array [| |] ]
-        | size ->
-            let examples = List.map generateExamples schemas
+    | TArrayTuple (ArrayConstraint ( _, max ), schemas) ->
+        match max with
+        | 0 -> [ JVal.Array [| |]]
+        | _ ->
+            let examples = 
+                List.replicate (Math.Max (max - schemas.Length, 0)) (let x = generateExamples TAny in x)
+                |> List.append (List.map generateExamples schemas.[0 .. max - 1])
+            
+            List.mapi (fun i exs -> (i, exs)) examples
+            |> List.collect (fun (i, exs) -> List.map (fun ex -> Array.init examples.Length (fun j -> if j = i then ex else examples.[j].[0]) |> JVal.Array) exs)
 
     | TMixed schemas -> List.collect generateExamples schemas
     | TAny -> 
-        let hd = TArrayTuple (unboundedArrayConstraints, [])
-        hd :: List.except [TArrayObject TAny] anySchema
+        let hd = TArrayTuple (unboundedArrayConstraint, [])
+        hd :: List.except [TArrayObject (unboundedArrayConstraint, TAny)] anySchema
         |> List.collect generateExamples
 
