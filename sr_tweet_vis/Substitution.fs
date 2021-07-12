@@ -2,6 +2,8 @@
 
 module Substitution =
     open System
+    open System.Text.RegularExpressions
+
     open Humanizer
 
     module Punctuation =
@@ -50,18 +52,14 @@ module Substitution =
         let parseForEmoji text = tryFindNext text emojiTrie
 
     module Numbers =
-        let singleDigits = [
-            "zero"
-            "one"
-            "two"
-            "three"
-            "four"
-            "five"
-            "six"
-            "seven"
-            "eight"
-            "nine"
-        ]
+        let toWords : int64 -> string = Humanizer.NumberToWordsExtension.ToWords
+
+        let processDecimals text =
+            let evaluator (m:Match) =
+                let integral = int64 m.Groups.[2].Value |> toWords
+                let fractional = Seq.toList m.Groups.[3].Value |> List.map (string >> int64 >> toWords)
+                $"""%s{m.Groups.[1].Value}%s{integral} point %s{String.concat " " fractional}"""
+            Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
 
     let rec private processEmojis' acc =
         function
@@ -71,6 +69,7 @@ module Substitution =
             processEmojis' (value :: acc) text.[ length .. ]
 
     let private processEmojis = processEmojis' []
+    let private processNumbers = Numbers.processDecimals
 
-    let processSpeakText = processEmojis
+    let processSpeakText = processEmojis >> processNumbers
 
