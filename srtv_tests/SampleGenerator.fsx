@@ -4,10 +4,11 @@
 open FSharp.Data
 open System
 open System.Text.RegularExpressions
+open System.IO
 
 type JVal = FSharp.Data.JsonValue
 
-type StringConstraint = StringConstraint of minLength:int * maxLength:int
+type StringConstraint = StringConstraint of minLength:int * maxLength:int   
 type IntegerConstraint = IntegerConstraint of min:int64 * max:int64
 type NumberConstraint = NumberConstraint of min:float * max:float
 type ArrayConstraint = ArrayConstraint of minItems:int * maxItems:int
@@ -21,22 +22,6 @@ let combineStringConstraints constraint1 constraint2 =
     let ( StringConstraint (min1, max1) ) = constraint1
     let ( StringConstraint (min2, max2) ) = constraint2
     StringConstraint (Math.Max (min1, min2), Math.Min (max1, max2) )
-
-let rec gcdInt64 (x:int64) (y:int64) =
-    let b = Math.Abs(y)
-    let remainder = Math.Abs(x) % b
-    if remainder = 0L then b else gcdInt64 b remainder
-
-let lcmInt64 x y = x * y / gcdInt64 x y
-
-let rec gcdFloat (x:float) (y:float) =
-    let a = Math.Abs(x)
-    let b = Math.Abs(y)
-    let remainder = a % b
-    
-    if remainder = 0.0 then b else gcdFloat b remainder
-
-let lcmFloat x y = x * y / gcdFloat x y
 
 let combineIntegerConstraints constraint1 constraint2 =
     let ( IntegerConstraint (min1, max1) ) = constraint1
@@ -223,15 +208,40 @@ let anySchema = [
     TArrayObject (unboundedArrayConstraint, TAny)
 ]
 
-let negateSchema = function
+let rec negateSchema = function
     | TAny           -> TContradiction
     | TContradiction -> TAny
     | TBool | TNull as schema -> 
         TMixed <| List.except [schema] anySchema
-
-
-
-let combineSchemas schema1 schema2 =
+    | TStr ( StringConstraint (min, max) ) ->
+        [ StringConstraint (0, min-1); StringConstraint(max+1, Int32.MaxValue)]
+        |> List.filter (function | StringConstraint (min, max) -> min >= 0 && max > min)
+        |> List.map TStr
+        |> List.append (List.except [TStr unboundedStringConstraint ] anySchema)
+        |> TMixed
+    | TInteger ( IntegerConstraint (min, max) ) ->
+        [ IntegerConstraint (Int64.MinValue, min-1L); IntegerConstraint (max+1L, Int64.MaxValue) ]
+        |> List.filter (fun x -> x <> unboundedIntegerConstraint)
+        |> List.map TInteger
+        |> List.append (List.except [TInteger unboundedIntegerConstraint ] anySchema)
+        |> TMixed
+    | TNumber ( NumberConstraint (min, max) ) ->
+        [ NumberConstraint (Double.MinValue, min - Double.Epsilon); NumberConstraint (max + Double.Epsilon, Double.MaxValue) ]
+        |> List.filter (fun x -> x <> unboundedNumberConstraint)
+        |> List.map TNumber
+        |> List.append (List.except [TNumber unboundedNumberConstraint ] anySchema)
+        |> TMixed
+    | TArrayObject ( ArrayConstraint (min, max), s ) -> TAny
+    | TArrayTuple ( ArrayConstraint (min, max), s) -> TAny
+    | TObj (required, optional) -> 
+        let r' = List.map (fun (n, s) -> TObj ((n, negateSchema s) :: List.filter (fun (n1, _) -> n <> n1) required, optional) ) required
+        let o' = List.map (fun (n, s) -> TObj (required, (n, negateSchema s) :: List.filter (fun (n1, _) -> n <> n1) optional) ) optional
+        if List.contains TContradiction r' || List.contains TContradiction o'
+        then TContradiction
+        else TMixed (List.except [TObj ([], [])] anySchema |> List.append r' |> List.append o') 
+    | TMixed schemas -> TAny       
+        
+let rec combineSchemas schema1 schema2 =
     match (schema1, schema2) with
     | (TContradiction, _) | (_, TContradiction) -> TContradiction
     | (TAny, other) | (other, TAny)             -> other
@@ -254,6 +264,27 @@ let combineSchemas schema1 schema2 =
         let optional = List.distinctBy (fun (name, _) -> name) (optional1 @ optional2)
         TObj (required, optional)
     | (TMixed s1, TMixed s2) -> s1 @ s2 |> List.distinct |> TMixed
+    | (TMixed s1, s2) | (s2, TMixed s1) -> 
+        match List.map (combineSchemas s2) s1 with
+        | schemas when List.contains TContradiction schemas -> TContradiction
+        | schemas -> TMixed (List.distinct schemas)
+    | (TArrayObject (c1, s1), TArrayObject (c2, s2)) ->
+        match combineArrayConstraints c1 c2 with
+        | ArrayConstraint (min, max) when min > max -> TContradiction
+        | arrayConstraint -> TArrayObject (arrayConstraint, combineSchemas s1 s2)
+    | (TArrayTuple (c1, s1), TArrayTuple (c2, s2)) ->
+        let s1' = s1 @ List.replicate ( Math.Max (0, s2.Length - s1.Length) ) TAny
+        let s2' = s2 @ List.replicate ( Math.Max (0, s1.Length - s2.Length) ) TAny
+        match (combineArrayConstraints c1 c2, List.map2 combineSchemas s1' s2') with
+        | (ArrayConstraint (min, max), cs) when min > max || List.contains TContradiction cs ->
+            TContradiction
+        | (arrayConstraint, cs) -> TArrayTuple (arrayConstraint, cs)
+    | (TArrayObject (c1, s1), TArrayTuple (c2, s2))
+    | (TArrayTuple (c2, s2), TArrayObject (c1, s1)) ->
+        match (combineArrayConstraints c1 c2, List.map (combineSchemas s1) s2) with
+        | (ArrayConstraint (min, max), cs) when min > max || List.contains TContradiction cs ->
+            TContradiction
+        | (arrayConstraint, cs) -> TArrayTuple (arrayConstraint, cs)
     | _                                         -> TContradiction
 
 let rec toSchema (definitions:Map<string,Schema>) jsonvalue =
@@ -264,7 +295,7 @@ let rec toSchema (definitions:Map<string,Schema>) jsonvalue =
         | StringType (min, max) -> 
             let minLength = Option.defaultValue 0 min
             let maxLength = Option.defaultValue Int32.MaxValue max
-            if minLength > maxLength
+            if minLength > maxLength || maxLength < 0
             then TContradiction
             else TStr ( StringConstraint (minLength, maxLength) )
         | IntegerType (min, max, exclusiveMin, exclusiveMax) -> 
@@ -373,3 +404,27 @@ let rec generateExamples = function
         hd :: List.except [TArrayObject (unboundedArrayConstraint, TAny)] anySchema
         |> List.collect generateExamples
 
+let parseDictionary = function
+    | JVal.Record properties ->
+        Map properties
+        |> Map.tryFind "definitions"
+        |> Option.bind (function | JVal.Record p -> Some p | _ -> None)
+        |> Option.map (Map << Array.map (fun (n, v) -> (n, toSchema Map.empty v)))
+        |> Option.defaultValue Map.empty 
+    | _ -> Map.empty
+
+
+let generateExamplesFromFile (filename:string) (outfile:string) =
+    let examples = 
+        match JVal.Load(filename) with
+        | JVal.Record _ as r ->
+            toSchema (parseDictionary r) r
+            |> generateExamples
+        | _ -> []
+        |> List.toArray
+        |> JVal.Array
+    File.WriteAllText ( outfile, examples.ToString () )
+
+match fsi.CommandLineArgs with
+    | [| _; schemaFile |]    -> generateExamplesFromFile schemaFile "examples.json"
+    | _                   -> ()
