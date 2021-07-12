@@ -127,6 +127,7 @@ type ``test tweets are valid examples``() =
     
     [<InlineData("punctuation/hashtag.json")>]
     [<InlineData("punctuation/percent.json")>]
+    [<InlineData("punctuation/underscore.json")>]
 
     [<InlineData("basicPrivateTweet.json")>]
     [<InlineData("basicReply.json")>]
@@ -139,6 +140,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("unverifiedTweet.json")>]
     [<InlineData("urlCard.json")>]
     [<InlineData("videoAttribution.json")>]
+    [<InlineData("multipleTcoLinks.json")>]
 
     member __.``examples are valid``(relativeFilepath:string) =
         let testTweet = fetchTweet(relativeFilepath)
@@ -230,16 +232,29 @@ type ``punctuation is properly converted to words``() =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring " hashtag "
-        speakText |> should not' (matchPattern @"#\S+")
+        speakText |> should not' (haveSubstring "#")
 
-    [<Fact>]
-    member __.``Underscores are replaced with the word "underscore"``() =
-        raise noTest
+    [<Theory>]
+    [<InlineData("punctuation/underscore.json")>]
+    member __.``Underscores are replaced with the word "underscore"``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring " underscore "
+        speakText |> should not' (haveSubstring "_")
 
     [<Theory>]
     [<InlineData("punctuation/percent.json")>]
-    member __.``"%" is replaced with the word percent``(filepath:string) =
+    member __.``"%" is replaced with the word "percent"``(filepath:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring " percent "
         speakText |> should not' (haveSubstring "%")
+
+    [<Theory>]
+    [<InlineData("urlCard.json")>]
+    [<InlineData("imagesAltText.json")>]
+    [<InlineData("multipleTcoLinks.json")>]
+    member __.``t.co links are removed from the tweet``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should not' (haveSubstring "t.co/")
