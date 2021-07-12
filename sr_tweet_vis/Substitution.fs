@@ -2,6 +2,7 @@
 
 module Substitution =
     open System
+    open Humanizer
 
     module Punctuation =
         let replace = ""
