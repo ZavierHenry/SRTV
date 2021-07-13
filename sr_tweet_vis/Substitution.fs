@@ -53,13 +53,24 @@ module Substitution =
 
     module Numbers =
         let toWords : int64 -> string = Humanizer.NumberToWordsExtension.ToWords
+        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords
 
+        //TODO: change function to change decimals without a leading number (e.g .75)
         let processDecimals text =
             let evaluator (m:Match) =
                 let integral = int64 m.Groups.[2].Value |> toWords
                 let fractional = Seq.toList m.Groups.[3].Value |> List.map (string >> int64 >> toWords)
                 $"""%s{m.Groups.[1].Value}%s{integral} point %s{String.concat " " fractional}"""
             Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
+
+        let processOrdinals text =
+            let evaluator (m:Match) =
+                sprintf "%s%s%s%s"
+                    <| m.Groups.["start"].Value
+                    <| if m.Groups.["startNumber"].Success then (int64 >> toWords) m.Groups.["startNumber"].Value else ""
+                    <| (int >> toOrdinalWords) m.Groups.["endNumber"].Value
+                    <| m.Groups.["end"].Value
+            Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d*?)(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
 
     let rec private processEmojis' acc =
         function
@@ -69,7 +80,8 @@ module Substitution =
             processEmojis' (value :: acc) text.[ length .. ]
 
     let private processEmojis = processEmojis' []
-    let private processNumbers = Numbers.processDecimals
+    let private processNumbers = 
+        Numbers.processDecimals >> Numbers.processOrdinals
 
     let processSpeakText = processEmojis >> processNumbers
 
