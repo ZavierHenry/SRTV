@@ -104,7 +104,7 @@ let fetchTweet filename =
     let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
     TestTweet.Load(directory + filename)
 
-let noTest = System.NotImplementedException("Tests have not been implemented")
+let inline noTest () = failwith<unit> "Test has not been implement as of yet"
 
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
@@ -124,6 +124,7 @@ type ``test tweets are valid examples``() =
     
     [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumber.json")>]
+    [<InlineData("numbers/decimalPercentage.json")>]
     
     [<InlineData("punctuation/hashtag.json")>]
     [<InlineData("punctuation/percent.json")>]
@@ -202,9 +203,27 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstring (" minus ")
         speakText |> should not' (haveSubstring "-")
 
+    [<Theory>]
+    [<InlineData("numbers/decimalPercentage.json", "67.94", "sixty seven point nine four")>]
+    [<InlineData("numbers/decimalPercentage.json", "58.41", "fifty eight point four one")>]
+    member __.``decimal numbers (e.g. 3.45) are converted to the form "three point four five"``(filepath:string, decimal:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring decimal)
+
+
     [<Fact>]
-    member __.``fractional numbers are converted properly``() =
-        raise noTest
+    member __.``whole numbers are converted to word form``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``ordinal numbers (e.g. 2nd) are converted to word form``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``obvious years are properly converted to words``() =
+        noTest ()
 
 type ``emojis are properly converted to words``() =
 
@@ -222,7 +241,11 @@ type ``emojis are properly converted to words``() =
 type ``currency is properly converted to words``() =    
     [<Fact>]
     member __.``Dollar amounts are properly indicated``() =
-        raise noTest
+       noTest ()
+
+    [<Fact>]
+    member __.``Euro amounts are properly indicated``() =
+        noTest ()
         
 type ``punctuation is properly converted to words``() = 
 
