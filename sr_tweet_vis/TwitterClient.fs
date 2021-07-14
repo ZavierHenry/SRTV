@@ -122,7 +122,7 @@ module TwitterClient =
 
         member this.makeTwitterCall<'a> failureMessage (thunk:unit -> Async<'a>) = async {
             try
-                let! result = thunk()
+                let! result = thunk ()
                 return Success result
             with
             | exn   -> return TwitterError (failureMessage, exn)
