@@ -7,7 +7,17 @@ module Substitution =
     open Humanizer
 
     module Punctuation =
-        let replace = ""
+        let simpleReplacement =
+            [
+                ("_", "underscore");
+                ("%", "percent");
+                ("#", "hashtag");
+                ("°", "degree");
+                ("@", "at");
+                ("&", "and")
+            ]
+
+        let removal = ['-']
 
     module Emojis =
         open FSharp.Data
@@ -52,8 +62,8 @@ module Substitution =
         let parseForEmoji text = tryFindNext text emojiTrie
 
     module Numbers =
-        let toWords (number:int64) = Humanizer.NumberToWordsExtension.ToWords number |> fun x -> x.Replace("-", " ")
-        let toOrdinalWords (number:int) =  Humanizer.NumberToWordsExtension.ToOrdinalWords number |> fun x -> x.Replace("-", " ")
+        let toWords : int64 -> string = Humanizer.NumberToWordsExtension.ToWords
+        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords
 
         //TODO: change function to change decimals without a leading number (e.g .75)
         let processDecimals text =
@@ -61,7 +71,22 @@ module Substitution =
                 let integral = int64 m.Groups.[2].Value |> toWords
                 let fractional = Seq.toList m.Groups.[3].Value |> List.map (string >> int64 >> toWords)
                 $"""%s{m.Groups.[1].Value}%s{integral} point %s{String.concat " " fractional}"""
-            Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator)).Replace("-", "")
+            Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
+
+        let processWholeNumbers text =
+            let evaluator (m:Match) = toWords <| int64 m.Value
+            Regex.Replace (text, @"\d+", MatchEvaluator(evaluator))
+
+        let processRanges text =
+            let evaluator (m:Match) =
+                let left = m.Groups.["left"].Value
+                let right = m.Groups.["right"].Value
+                let hasPeriod = String.exists (fun c -> c = '.')
+                let numbersToWords text = 
+                    if hasPeriod text then processDecimals text else processWholeNumbers text
+                $"{numbersToWords left} to {numbersToWords right}"
+            Regex.Replace (text, @"(?<left>\d+|\d*(?:\.\d+))-(?<right>\d+|\d*(?:\.\d+))", MatchEvaluator(evaluator))
+        
 
         let processOrdinals text =
             let evaluator (m:Match) =
@@ -81,7 +106,15 @@ module Substitution =
 
     let private processEmojis = processEmojis' []
     let private processNumbers = 
-        Numbers.processDecimals >> Numbers.processOrdinals
+        Numbers.processRanges >> Numbers.processDecimals >> Numbers.processOrdinals
 
-    let processSpeakText = processEmojis >> processNumbers
+    let private simpleSubstitution = 
+        Punctuation.simpleReplacement
+        |> Seq.foldBack (fun (key, replacement) state -> Regex.Replace(state, key, $" {replacement} "))
+
+    let private simpleRemoval = String.filter (fun c -> not <| List.contains c Punctuation.removal)
+
+    //Ensure that simple substitution and simple removal are the last two functions called when processing text
+    //Not doing so may lead to some unexpected incorrect processing, especially with ranges that require the "-" character
+    let processSpeakText = processEmojis >> processNumbers >> simpleSubstitution >> simpleRemoval
 
