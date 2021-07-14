@@ -52,9 +52,7 @@ module TwitterClient =
                 splitTwitterText' text (index+url.Length) (count + URLLength) (List.tail urls) acc
             else splitTwitterText' text (index+1) (count+1) urls acc        
 
-        let splitTwitterText text =
-            let urls = extractUrls text
-            splitTwitterText' text 0 0 urls []
+        let splitTwitterText text = splitTwitterText' text 0 0 (extractUrls text) []
 
     
 
@@ -215,13 +213,10 @@ module TwitterClient =
         }
 
         member this.handleTweetAsync(text: string list, ?mediaID: uint64) = async {
-            match (text, mediaID) with
-            | ([], _)       -> return Success ()
-            | (t :: rest, Some mediaID) ->
-                let! result = this.sendTweetAsync(t, mediaID)
-                return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
-            | (t :: rest, None) ->
-                let! result = this.sendTweetAsync(t)
+            match text with
+            | []        -> return Success ()
+            | t :: rest ->
+                let! result = match mediaID with | Some mediaID -> this.sendTweetAsync(t, mediaID) | None -> this.sendTweetAsync(t)
                 return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
         }
 
