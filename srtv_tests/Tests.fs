@@ -128,6 +128,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("punctuation/hashtag.json")>]
     [<InlineData("punctuation/percent.json")>]
     [<InlineData("punctuation/underscore.json")>]
+    [<InlineData("punctuation/atSymbol.json")>]
 
     [<InlineData("basicPrivateTweet.json")>]
     [<InlineData("basicReply.json")>]
@@ -184,13 +185,45 @@ type ``poll tweets are properly parsed``() =
 
     [<Fact>]
     member __.``Finished polls should indicate that they are finished``() =
-        raise <| System.NotImplementedException("Test has not been implemented")
+        noTest ()
 
     [<Theory>]
     [<InlineData("", " three minutes left ")>]
     member __.``Unfinished polls should indicate the time they have left``(filepath:string, expected:string) =
-        raise <| System.NotImplementedException("Test has not been implemented")
+       noTest ()
 
+type ``image tweets are properly parsed``() =
+    
+    [<Fact>]
+    member __.``images without alt text output the word "image"``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``images with alt text show the alt text``() =
+        noTest ()
+
+
+type ``video tweets are properly parsed`` () =
+
+    [<Fact>]
+    member __.``videos with attribution display that attribution``() =
+        noTest ()
+
+type  ``gif tweets are properly parsed``() =
+    
+    [<Fact>]
+    member __.``GIFs without alt text output the words "animated image"``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``GIFs with alt text show the alt text``() =
+        noTest ()
+
+type ``replies are properly parsed``() =
+    
+    [<Fact>]
+    member __.``replies properly show the screen names of the accounts being replied to``() =
+        noTest ()
 
 type ``numbers are properly converted to words``() =
 
@@ -242,6 +275,7 @@ type ``emojis are properly converted to words``() =
     [<InlineData("emojis/fire.json", " fire ")>]
     [<InlineData("emojis/smilies.json", " smiling face with smiling eyes ")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json", " skull ")>]
+    [<InlineData("emojis/loudlyCryingWithSkull.json", " loudly crying face ")>]
     [<InlineData("emojis/faceScreamingInFear.json", " face screaming in fear ")>]
     member __.``Emojis should have correct speak text``(filepath:string, name:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
@@ -293,6 +327,17 @@ type ``punctuation is properly converted to words``() =
         let speakText = mockTweet.ToSpeakText()
         speakText |> should not' (haveSubstring "t.co/")
 
-    [<Fact>]
-    member __.``at symbol is replaced with the word "at" ``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("punctuation/atSymbol.json")>]
+    member __.``at symbol is replaced with the word "at" ``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should not' (haveSubstring "@")
+
+    [<Theory>]
+    [<InlineData("basicReply.json")>]
+    member __.``beginning replies are removed from the tweet``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        mockTweet.RepliedTo
+        |> Seq.iter (fun screenname -> speakText |> should not' (startWith screenname))
