@@ -52,8 +52,8 @@ module Substitution =
         let parseForEmoji text = tryFindNext text emojiTrie
 
     module Numbers =
-        let toWords : int64 -> string = Humanizer.NumberToWordsExtension.ToWords
-        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords
+        let toWords (number:int64) = Humanizer.NumberToWordsExtension.ToWords number |> fun x -> x.Replace("-", " ")
+        let toOrdinalWords (number:int) =  Humanizer.NumberToWordsExtension.ToOrdinalWords number |> fun x -> x.Replace("-", " ")
 
         //TODO: change function to change decimals without a leading number (e.g .75)
         let processDecimals text =
@@ -61,7 +61,7 @@ module Substitution =
                 let integral = int64 m.Groups.[2].Value |> toWords
                 let fractional = Seq.toList m.Groups.[3].Value |> List.map (string >> int64 >> toWords)
                 $"""%s{m.Groups.[1].Value}%s{integral} point %s{String.concat " " fractional}"""
-            Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
+            Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator)).Replace("-", "")
 
         let processOrdinals text =
             let evaluator (m:Match) =

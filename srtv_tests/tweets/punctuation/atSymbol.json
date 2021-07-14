@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with an @ symbol that is not at the beginning",
+  "tweet": {
+    "id": "1415114300167839750",
+    "dateCreated": "2021-07-14T01:01:55.000Z",
+    "text": "1971 @MLBNetwork ASG https://t.co/TyhAqmJaJC",
+    "author": {
+      "name": "Chuck D",
+      "screenName": "MrChuckD",
+      "protected": false,
+      "verified": true
+    },
+    "videoAttribution": ""
+  }
+}

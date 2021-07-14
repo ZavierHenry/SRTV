@@ -1,0 +1,16 @@
+﻿{
+  "label": "Tweet with a decimal percentage",
+  "tweet": {
+    "id": "1413207562443493384",
+    "author": {
+      "name": "Drought Center",
+      "screenName": "DroughtCenter",
+      "protected": false,
+      "verified": false
+    },
+    "dateCreated": "2021-07-08T18:45:13.000Z",
+    "text": "@jvhurley @DroughtGov @NOAA @NOAAClimate @NOAANCEIclimate @USDAClimateHubs @USDA @NWSCPC @NWS @stateclimate @WRCCclimate @NWSWestern Great Q, John: The most exceptional drought (D4) coverage recorded in California in the USDM's 21-year is 58.41% (14 times in 2014). \n\nThe most extreme drought (D3) was recorded in May of this year, 67.94%. \n\nThe highest combined D3-D4 coverage is the current amount, 85.44%. https://t.co/2JcPS6fJPi",
+    "repliedTo": [ "jvhurley", "DroughtGov", "NOAA", "NOAAClimate", "NOAANCEIclimate", "USDAClimateHubs", "USDA", "NWSCPC", "NWS", "stateclimate", "WRCCclimate", "NWSWestern" ],
+    "imageAltTexts": [ "" ]
+  }
+}

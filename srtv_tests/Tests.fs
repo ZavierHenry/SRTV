@@ -7,7 +7,6 @@ open FsUnit.Xunit
 open SRTV.TweetMedia
 open FSharp.Data
 
-open NHamcrest
 open NHamcrest.Core
 
 open Newtonsoft.Json.Schema
@@ -45,8 +44,8 @@ type SchemaMatcher(sample:string) =
 
 let matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
 let matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
-let matchPattern (pattern:string) (input:string) = Regex.IsMatch(input, pattern) |> equal
-    
+let inline matchPattern (pattern:string) (input:string) = Regex.IsMatch(input, pattern) |> equal
+
 let pollToMedia (poll:TestTweet.Poll) =
     let endDate = DateTime.Parse(poll.EndDate)
     let options = 
@@ -65,23 +64,23 @@ let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
     let poll = 
         tweet.Poll
-        |> Option.map (pollToMedia >> List.singleton)
-        |> Option.defaultValue []
+        |> Option.map pollToMedia
+        |> Option.toList
 
     let card =
         tweet.UrlCard
-        |> Option.map (urlCardToMedia >> List.singleton) 
-        |> Option.defaultValue []
+        |> Option.map urlCardToMedia
+        |> Option.toList
 
     let gif = 
         tweet.GifAltText
-        |> Option.map (gifAltTextToMedia >> List.singleton)
-        |> Option.defaultValue []
+        |> Option.map gifAltTextToMedia
+        |> Option.toList
 
     let video =
         tweet.VideoAttribution
-        |> Option.map (videoAttributionToMedia >> List.singleton)
-        |> Option.defaultValue []
+        |> Option.map videoAttributionToMedia
+        |> Option.toList
 
     let images =
         tweet.ImageAltTexts
@@ -104,7 +103,7 @@ let fetchTweet filename =
     let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
     TestTweet.Load(directory + filename)
 
-let noTest = System.NotImplementedException("Tests have not been implemented")
+let inline noTest () = failwith<unit> "Test has not been implement as of yet"
 
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
@@ -124,10 +123,12 @@ type ``test tweets are valid examples``() =
     
     [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumber.json")>]
+    [<InlineData("numbers/decimalPercentage.json")>]
     
     [<InlineData("punctuation/hashtag.json")>]
     [<InlineData("punctuation/percent.json")>]
     [<InlineData("punctuation/underscore.json")>]
+    [<InlineData("punctuation/atSymbol.json")>]
 
     [<InlineData("basicPrivateTweet.json")>]
     [<InlineData("basicReply.json")>]
@@ -184,13 +185,55 @@ type ``poll tweets are properly parsed``() =
 
     [<Fact>]
     member __.``Finished polls should indicate that they are finished``() =
-        raise <| System.NotImplementedException("Test has not been implemented")
+        noTest ()
 
     [<Theory>]
     [<InlineData("", " three minutes left ")>]
     member __.``Unfinished polls should indicate the time they have left``(filepath:string, expected:string) =
-        raise <| System.NotImplementedException("Test has not been implemented")
+       noTest ()
 
+type ``image tweets are properly parsed``() =
+    
+    [<Fact>]
+    member __.``images without alt text output the word "image"``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``images with alt text show the alt text``() =
+        noTest ()
+
+
+type ``video tweets are properly parsed`` () =
+
+    [<Fact>]
+    member __.``videos with attribution display that attribution``() =
+        noTest ()
+
+type  ``gif tweets are properly parsed``() =
+    
+    [<Fact>]
+    member __.``GIFs without alt text output the words "animated image"``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``GIFs with alt text show the alt text``() =
+        noTest ()
+
+type ``replies are properly parsed``() =
+    
+    [<Fact>]
+    member __.``replies properly show the screen names of the accounts being replied to``() =
+        noTest ()
+
+type ``quoted tweets are properly parsed``() =
+    
+    [<Fact>]
+    member __.``quoted tweets should be shown``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``quoted tweets with polls in the quote tweet should be indicated``() =
+        noTest ()
 
 type ``numbers are properly converted to words``() =
 
@@ -202,9 +245,38 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstring (" minus ")
         speakText |> should not' (haveSubstring "-")
 
+    [<Theory>]
+    [<InlineData("numbers/decimalPercentage.json", "67.94", "sixty seven point nine four")>]
+    [<InlineData("numbers/decimalPercentage.json", "58.41", "fifty eight point four one")>]
+    member __.``decimal numbers (e.g. 3.45) are converted to the form "three point four five"``(filepath:string, decimal:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring decimal)
+
     [<Fact>]
-    member __.``fractional numbers are converted properly``() =
-        raise noTest
+    member __.``whole numbers are converted to word form``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``ordinal numbers (e.g. 2nd) are converted to word form``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``obvious years are properly converted to words``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``number ranges are converted to words``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``times are converted to words``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``abbreviated numbers (e.g. 50K, 100M) are converted to words``() =
+        noTest ()
 
 type ``emojis are properly converted to words``() =
 
@@ -212,6 +284,7 @@ type ``emojis are properly converted to words``() =
     [<InlineData("emojis/fire.json", " fire ")>]
     [<InlineData("emojis/smilies.json", " smiling face with smiling eyes ")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json", " skull ")>]
+    [<InlineData("emojis/loudlyCryingWithSkull.json", " loudly crying face ")>]
     [<InlineData("emojis/faceScreamingInFear.json", " face screaming in fear ")>]
     member __.``Emojis should have correct speak text``(filepath:string, name:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
@@ -222,7 +295,15 @@ type ``emojis are properly converted to words``() =
 type ``currency is properly converted to words``() =    
     [<Fact>]
     member __.``Dollar amounts are properly indicated``() =
-        raise noTest
+       noTest ()
+
+    [<Fact>]
+    member __.``Euro amounts are properly indicated``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``British pound amounts are properly indicated``() =
+        noTest ()
         
 type ``punctuation is properly converted to words``() = 
 
@@ -258,3 +339,19 @@ type ``punctuation is properly converted to words``() =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should not' (haveSubstring "t.co/")
+
+    [<Theory>]
+    [<InlineData("punctuation/atSymbol.json")>]
+    member __.``at symbol is replaced with the word "at" ``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should not' (haveSubstring "@")
+
+    [<Fact>]
+    member __.``degree symbol is replaced with the word "degree"``() =
+        noTest ()
+
+    [<Theory>]
+    [<InlineData("basicReply.json")>]
+    member __.``beginning replies are removed from the tweet``(filepath:string) =
+        noTest ()
