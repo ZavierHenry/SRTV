@@ -7,7 +7,6 @@ open FsUnit.Xunit
 open SRTV.TweetMedia
 open FSharp.Data
 
-open NHamcrest
 open NHamcrest.Core
 
 open Newtonsoft.Json.Schema
@@ -65,23 +64,23 @@ let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
     let poll = 
         tweet.Poll
-        |> Option.map (pollToMedia >> List.singleton)
-        |> Option.defaultValue []
+        |> Option.map pollToMedia
+        |> Option.toList
 
     let card =
         tweet.UrlCard
-        |> Option.map (urlCardToMedia >> List.singleton) 
-        |> Option.defaultValue []
+        |> Option.map urlCardToMedia
+        |> Option.toList
 
     let gif = 
         tweet.GifAltText
-        |> Option.map (gifAltTextToMedia >> List.singleton)
-        |> Option.defaultValue []
+        |> Option.map gifAltTextToMedia
+        |> Option.toList
 
     let video =
         tweet.VideoAttribution
-        |> Option.map (videoAttributionToMedia >> List.singleton)
-        |> Option.defaultValue []
+        |> Option.map videoAttributionToMedia
+        |> Option.toList
 
     let images =
         tweet.ImageAltTexts
@@ -225,6 +224,18 @@ type ``numbers are properly converted to words``() =
     member __.``obvious years are properly converted to words``() =
         noTest ()
 
+    [<Fact>]
+    member __.``number ranges are converted to words``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``times are converted to words``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``abbreviated numbers (e.g. 50K, 100M) are converted to words``() =
+        noTest ()
+
 type ``emojis are properly converted to words``() =
 
     [<Theory>]
@@ -281,3 +292,7 @@ type ``punctuation is properly converted to words``() =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should not' (haveSubstring "t.co/")
+
+    [<Fact>]
+    member __.``at symbol is replaced with the word "at" ``() =
+        noTest ()
