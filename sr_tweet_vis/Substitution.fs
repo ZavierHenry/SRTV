@@ -11,7 +11,10 @@ module Substitution =
             [
                 ("_", "underscore");
                 ("%", "percent");
-                ("#", "hashtag")
+                ("#", "hashtag");
+                ("°", "degree");
+                ("@", "at");
+                ("&", "and")
             ]
 
         let removal = ['-']
