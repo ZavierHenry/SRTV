@@ -73,6 +73,21 @@ module Substitution =
                 $"""%s{m.Groups.[1].Value}%s{integral} point %s{String.concat " " fractional}"""
             Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
 
+        let processWholeNumbers text =
+            let evaluator (m:Match) = toWords <| int64 m.Value
+            Regex.Replace (text, @"\d+", MatchEvaluator(evaluator))
+
+        let processRanges text =
+            let evaluator (m:Match) =
+                let left = m.Groups.["left"].Value
+                let right = m.Groups.["right"].Value
+                let hasPeriod = String.exists (fun c -> c = '.')
+                let numbersToWords text = 
+                    if hasPeriod text then processDecimals text else processWholeNumbers text
+                $"{numbersToWords left} to {numbersToWords right}"
+            Regex.Replace (text, @"(?<left>\d+|\d*(?:\.\d+))-(?<right>\d+|\d*(?:\.\d+))", MatchEvaluator(evaluator))
+        
+
         let processOrdinals text =
             let evaluator (m:Match) =
                 sprintf "%s%s%s%s"
@@ -91,7 +106,7 @@ module Substitution =
 
     let private processEmojis = processEmojis' []
     let private processNumbers = 
-        Numbers.processDecimals >> Numbers.processOrdinals
+        Numbers.processRanges >> Numbers.processDecimals >> Numbers.processOrdinals
 
     let private simpleSubstitution = 
         Punctuation.simpleReplacement
