@@ -47,12 +47,11 @@ let matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(tem
 let inline matchPattern (pattern:string) (input:string) = Regex.IsMatch(input, pattern) |> equal
 
 let pollToMedia (poll:TestTweet.Poll) =
-    let endDate = DateTime.Parse(poll.EndDate)
     let options = 
         poll.Options
         |> Array.map (fun opt -> (opt.Option, int opt.Votes))
         |> Array.toList
-    Poll (options, endDate)
+    Poll ( options, DateTime.Parse (poll.EndDate) )
 
 let urlCardToMedia (card:TestTweet.UrlCard) =
     Card (card.Title, card.Description, card.Url)
@@ -62,30 +61,14 @@ let videoAttributionToMedia = wrapStringIfNotBlank >> Video
 
 let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
-    let poll = 
-        tweet.Poll
-        |> Option.map pollToMedia
-        |> Option.toList
+    let toMedia (f:'a -> Media) = Option.toList << Option.map f
+    
+    let poll = toMedia pollToMedia tweet.Poll
+    let card = toMedia urlCardToMedia tweet.UrlCard
+    let gif = toMedia gifAltTextToMedia tweet.GifAltText
+    let video = toMedia videoAttributionToMedia tweet.VideoAttribution
 
-    let card =
-        tweet.UrlCard
-        |> Option.map urlCardToMedia
-        |> Option.toList
-
-    let gif = 
-        tweet.GifAltText
-        |> Option.map gifAltTextToMedia
-        |> Option.toList
-
-    let video =
-        tweet.VideoAttribution
-        |> Option.map videoAttributionToMedia
-        |> Option.toList
-
-    let images =
-        tweet.ImageAltTexts
-        |> Array.map (wrapStringIfNotBlank >> Image)
-        |> Array.toList
+    let images = tweet.ImageAltTexts |> Array.map (wrapStringIfNotBlank >> Image) |> Array.toList
         
     MockTweet(
         tweet.Text,
@@ -187,10 +170,13 @@ type ``poll tweets are properly parsed``() =
     member __.``Finished polls should indicate that they are finished``() =
         noTest ()
 
-    [<Theory>]
-    [<InlineData("", " three minutes left ")>]
+    [<Fact>]
     member __.``Unfinished polls should indicate the time they have left``(filepath:string, expected:string) =
        noTest ()
+
+    [<Fact>]
+    member __.``Polls should display the options and number of tweets``() =
+        noTest ()
 
 type ``image tweets are properly parsed``() =
     
@@ -223,6 +209,12 @@ type ``replies are properly parsed``() =
     
     [<Fact>]
     member __.``replies properly show the screen names of the accounts being replied to``() =
+        noTest ()
+
+type ``retweets are properly parsed``() =
+
+    [<Fact>]
+    member __.``retweets properly show the name of the account retweeting the tweet``() =
         noTest ()
 
 type ``quoted tweets are properly parsed``() =
@@ -272,6 +264,10 @@ type ``numbers are properly converted to words``() =
 
     [<Fact>]
     member __.``times are converted to words``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``obvious dates are converted into words``() =
         noTest ()
 
     [<Fact>]
@@ -349,6 +345,14 @@ type ``punctuation is properly converted to words``() =
 
     [<Fact>]
     member __.``degree symbol is replaced with the word "degree"``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``parens do not appear in the tweet``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``dashes/hyphens do not appear in tweets``() =
         noTest ()
 
     [<Theory>]
