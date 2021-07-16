@@ -112,7 +112,7 @@ module Substitution =
         Punctuation.simpleReplacement
         |> Seq.foldBack (fun (key, replacement) state -> Regex.Replace(state, key, $" {replacement} "))
 
-    let private simpleRemoval = String.filter (fun c -> not <| List.contains c Punctuation.removal)
+    let private simpleRemoval = String.map (fun c -> if List.contains c Punctuation.removal then ' ' else c)
 
     //Ensure that simple substitution and simple removal are the last two functions called when processing text
     //Not doing so may lead to some unexpected incorrect processing, especially with ranges that require the "-" character

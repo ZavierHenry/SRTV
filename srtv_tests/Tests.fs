@@ -99,6 +99,7 @@ type ``test json schema is valid``() =
 type ``test tweets are valid examples``() =
     
     [<Theory>]
+    [<InlineData("emojis/seeNoEvilMonkey.json")>]
     [<InlineData("emojis/faceScreamingInFear.json")>]
     [<InlineData("emojis/fire.json")>]
     [<InlineData("emojis/smilies.json")>]
@@ -107,12 +108,16 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumber.json")>]
     [<InlineData("numbers/decimalPercentage.json")>]
+
+    [<InlineData("numbers/dates/mddyy.json")>]
+    [<InlineData("numbers/dates/jan6.json")>]
     
     [<InlineData("punctuation/hashtag.json")>]
     [<InlineData("punctuation/percent.json")>]
     [<InlineData("punctuation/underscore.json")>]
     [<InlineData("punctuation/atSymbol.json")>]
 
+    [<InlineData("retweet.json")>]
     [<InlineData("basicPrivateTweet.json")>]
     [<InlineData("basicReply.json")>]
     [<InlineData("basicVerifiedTweet.json")>]
@@ -171,11 +176,11 @@ type ``poll tweets are properly parsed``() =
         noTest ()
 
     [<Fact>]
-    member __.``Unfinished polls should indicate the time they have left``(filepath:string, expected:string) =
+    member __.``Unfinished polls should indicate the time they have left``() =
        noTest ()
 
     [<Fact>]
-    member __.``Polls should display the options and number of tweets``() =
+    member __.``Polls should display the options and number of votes``() =
         noTest ()
 
 type ``image tweets are properly parsed``() =
@@ -207,8 +212,9 @@ type  ``gif tweets are properly parsed``() =
 
 type ``replies are properly parsed``() =
     
-    [<Fact>]
-    member __.``replies properly show the screen names of the accounts being replied to``() =
+    [<Theory>]
+    [<InlineData("basicReply.json")>]
+    member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
         noTest ()
 
 type ``retweets are properly parsed``() =
@@ -266,8 +272,16 @@ type ``numbers are properly converted to words``() =
     member __.``times are converted to words``() =
         noTest ()
 
+    [<Theory>]
+    [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
+    member __.``obvious dates are converted into words``(filepath:string, date:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring date)
+
     [<Fact>]
-    member __.``obvious dates are converted into words``() =
+    member __.``date ranges are converted into words``() =
         noTest ()
 
     [<Fact>]
@@ -282,6 +296,7 @@ type ``emojis are properly converted to words``() =
     [<InlineData("emojis/loudlyCryingWithSkull.json", " skull ")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json", " loudly crying face ")>]
     [<InlineData("emojis/faceScreamingInFear.json", " face screaming in fear ")>]
+    [<InlineData("emojis/seeNoEvilMonkey.json", " see no evil monkey ")>]
     member __.``Emojis should have correct speak text``(filepath:string, name:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
@@ -344,15 +359,11 @@ type ``punctuation is properly converted to words``() =
         speakText |> should not' (haveSubstring "@")
 
     [<Fact>]
-    member __.``degree symbol is replaced with the word "degree"``() =
+    member __.``symbols that should be replaced are properly replaced``() =
         noTest ()
 
     [<Fact>]
-    member __.``parens do not appear in the tweet``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``dashes/hyphens do not appear in tweets``() =
+    member __.``symbols that should be removed are properly removed``() =
         noTest ()
 
     [<Theory>]
