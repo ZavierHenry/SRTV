@@ -52,9 +52,7 @@ module TwitterClient =
                 splitTwitterText' text (index+url.Length) (count + URLLength) (List.tail urls) acc
             else splitTwitterText' text (index+1) (count+1) urls acc        
 
-        let splitTwitterText text =
-            let urls = extractUrls text
-            splitTwitterText' text 0 0 urls []
+        let splitTwitterText text = splitTwitterText' text 0 0 (extractUrls text) []
 
     
 
@@ -124,19 +122,37 @@ module TwitterClient =
 
         member this.makeTwitterCall<'a> failureMessage (thunk:unit -> Async<'a>) = async {
             try
-                let! result = thunk()
+                let! result = thunk ()
                 return Success result
             with
             | exn   -> return TwitterError (failureMessage, exn)
         }
 
-        member this.makeTwitterQuery<'a> failureMessage (q:Linq.IQueryable<'a>) = ""
+        member this.makeTwitterListQuery<'a> failure (thunkQuery:unit ->Linq.IQueryable<'a>) =
+            let call() = async {
+                let query = query {
+                    for q in thunkQuery () do
+                        select q
+                }
+                let! queryList = query.ToListAsync() |> Async.AwaitTask
+                return Seq.toList queryList
+            }
+            this.makeTwitterCall failure call
+
+        member this.makeTwitterSingleQuery<'a> failureMessage (thunkQuery:unit -> Linq.IQueryable<'a>) =
+            let call() = async {
+                let query = query {
+                    for q in thunkQuery () do 
+                        select q
+                        headOrDefault
+                }
+                return query
+            }
+            this.makeTwitterCall failureMessage call
                 
 
-        member this.QueryPolls() = ""
-
-        member this.GetMentions(lastQueriedTime: DateTime, ?paginationToken:string) = 
-            query {
+        member this.GetMentions(lastQueriedTime: DateTime, ?paginationToken:string) =
+            let query () = query {
                 for tweet in context.Tweets do
                     where (tweet.Type = TweetType.MentionsTimeline
                         && tweet.ID = userID
@@ -144,23 +160,9 @@ module TwitterClient =
                         && Option.forall (fun token -> token = tweet.PaginationToken) paginationToken
                         )
                     select tweet
-                    headOrDefault
             }
 
-        member private this.getMentions'(lastQueriedTime: DateTime, ?paginationToken:string) =
-            let call() = async {
-                return query {
-                    for tweet in context.Tweets do
-                        where (tweet.Type = TweetType.MentionsTimeline
-                            && tweet.ID = userID
-                            && tweet.EndTime = lastQueriedTime
-                            && Option.forall (fun token -> token = tweet.PaginationToken) paginationToken
-                        )
-                        select tweet
-                        headOrDefault
-                }
-            }
-            this.makeTwitterCall $"Error getting mentions from last queried time {lastQueriedTime}" call
+            this.makeTwitterListQuery $"Problem getting mentions after the last queried time ${lastQueriedTime.ToLongTimeString()}" query
 
         member private this.uploadAudioAsync(filename: Audio) =
             try
@@ -174,7 +176,6 @@ module TwitterClient =
             let mime = "image/jpg"
             let mediaCategory = "tweet_image"
             this.uploadMediaAsync mime mediaCategory image
-
 
         member private this.uploadMediaAsync mime mediaCategory media : AsyncClientResult<uint64> = async {
             let twitterCall() = context.UploadMediaAsync(media, mime, mediaCategory) |> Async.AwaitTask
@@ -215,13 +216,10 @@ module TwitterClient =
         }
 
         member this.handleTweetAsync(text: string list, ?mediaID: uint64) = async {
-            match (text, mediaID) with
-            | ([], _)       -> return Success ()
-            | (t :: rest, Some mediaID) ->
-                let! result = this.sendTweetAsync(t, mediaID)
-                return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
-            | (t :: rest, None) ->
-                let! result = this.sendTweetAsync(t)
+            match text with
+            | []        -> return Success ()
+            | t :: rest ->
+                let! result = match mediaID with | Some mediaID -> this.sendTweetAsync(t, mediaID) | None -> this.sendTweetAsync(t)
                 return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
         }
 
@@ -297,40 +295,25 @@ module TwitterClient =
         member this.getTweetMediaEntities(tweetIDs: uint64 seq) =
             let ids = Seq.map string tweetIDs |> String.concat ","
 
-            let call() = async {
-                return query {
-                    for tweet in context.Status do
-                        where (tweet.Type = StatusType.Mentions
-                            && tweet.TweetIDs = ids
-                        )
-                        select (tweet.ID, tweet.ExtendedEntities.MediaEntities |> Seq.toList)
-                        headOrDefault
+            let query () = query {
+                for tweet in context.Status do
+                    where (tweet.Type = StatusType.Mentions
+                        && tweet.TweetIDs = ids
+                    )
+                    select (tweet.ID, tweet.ExtendedEntities.MediaEntities |> Seq.toList)
                 }
-            }
-            this.makeTwitterCall $"Problem trying to retrieve extended entities for {tweetIDs}" call
 
-        member this.getTweetExtendedEntities(tweetIDs: uint64 seq) = query {
-            let ids = Seq.map string tweetIDs |> String.concat ","
-
-            for tweet in context.Status do
-                where (tweet.Type = StatusType.Mentions
-                    && tweet.TweetIDs = ids
-                )
-        }
+            this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
 
         member this.rawQueryAsync (p:string) (url:string) =
             let queryString = $"{url}?{p}"
 
-            let call() = async {
-                let resp = query {
-                    for raw in context.RawQuery do
-                        where (raw.QueryString = queryString)
-                        select raw
-                        headOrDefault
+            let q () = query {
+                for raw in context.RawQuery do
+                    where (raw.QueryString = queryString)
+                    select raw.Response
                 }
-                return resp.Response
-            }
 
-            this.makeTwitterCall $"Problem retrieving raw request from {url} with parameters {p}" call
+            this.makeTwitterSingleQuery $"Problem retrieving raw request from {url} with parameters {p}" q
 
 
