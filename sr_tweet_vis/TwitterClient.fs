@@ -305,18 +305,6 @@ module TwitterClient =
 
             this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
 
-        member this.getTweetAltTexts(tweetIDs: uint64 seq) = 
-            let ids = Seq.map string tweetIDs |> String.concat ","
-            let query () = query {
-                for tweet in context.Status do
-                    where (tweet.Type = StatusType.Mentions
-                        && tweet.TweetIDs = ids
-                        && tweet.IncludeAltText = true
-                    )
-                    select (tweet.ID, tweet.ExtendedEntities.MediaEntities)
-            }
-            this.makeTwitterListQuery $"Problem trying to retrieve alt texts for {ids}" query
-
         member this.rawQueryAsync (p:string) (url:string) =
             let queryString = $"{url}?{p}"
 
