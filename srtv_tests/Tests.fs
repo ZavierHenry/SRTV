@@ -136,6 +136,12 @@ type ``test tweets are valid examples``() =
         let schema = TestTweetSchema.GetSample()
         testTweet.JsonValue |> should matchSchema schema
 
+type ``tweet times are properly shown``() =
+
+    [<Fact>]
+    member __.``tweet times are correctly displayed``() =
+        noTest ()
+
 type ``verified tweets are properly parsed``() =
 
     [<Theory>]
@@ -185,13 +191,22 @@ type ``poll tweets are properly parsed``() =
 
 type ``image tweets are properly parsed``() =
     
-    [<Fact>]
-    member __.``images without alt text output the word "image"``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("imageTweetNoAltText.json")>]
+    member __.``images without alt text output the word "image"``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring " image "
 
-    [<Fact>]
-    member __.``images with alt text show the alt text``() =
-        noTest ()
+    //TODO: fix test to account for the processing of the speak text
+    //For example, alt text including the number "32" would fail when it shouldn't because the text is changed to "thirty two"
+    [<Theory>]
+    [<InlineData("imageAltText.json")>]
+    member __.``images with alt text show the alt text``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        Seq.iter (fun altText -> speakText |> should haveSubstring altText) testTweet.Tweet.ImageAltTexts
+
 
 
 type ``video tweets are properly parsed`` () =
@@ -200,7 +215,7 @@ type ``video tweets are properly parsed`` () =
     member __.``videos with attribution display that attribution``() =
         noTest ()
 
-type  ``gif tweets are properly parsed``() =
+type ``gif tweets are properly parsed``() =
     
     [<Fact>]
     member __.``GIFs without alt text output the words "animated image"``() =
@@ -288,6 +303,10 @@ type ``numbers are properly converted to words``() =
     member __.``abbreviated numbers (e.g. 50K, 100M) are converted to words``() =
         noTest ()
 
+    [<Fact>]
+    member __.``units of measurement (e.g. cm, ft, yds) are converted to words``() =
+        noTest ()
+
 type ``emojis are properly converted to words``() =
 
     [<Theory>]
@@ -315,32 +334,26 @@ type ``currency is properly converted to words``() =
     [<Fact>]
     member __.``British pound amounts are properly indicated``() =
         noTest ()
+
+    [<Fact>]
+    member __.``Japanese yen amounts are properly indicated``() =
+        noTest ()
         
 type ``punctuation is properly converted to words``() = 
 
     [<Theory>]
-    [<InlineData("punctuation/hashtag.json")>]
-    member __.``# is replaced with the word "hashtag"``(filepath:string) =
+    [<InlineData("punctuation/hashtag.json", "#", " hashtag ")>]
+    [<InlineData("punctuation/underscore.json", "_", " underscore ")>]
+    [<InlineData("punctuation/percent.json", "%", " percent ")>]
+    member __.``symbols that should be replaced are properly replaced``(filepath:string, symbol:string, replacement:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring " hashtag "
-        speakText |> should not' (haveSubstring "#")
+        speakText |> should haveSubstring replacement
+        speakText |> should not' (haveSubstring symbol)
 
-    [<Theory>]
-    [<InlineData("punctuation/underscore.json")>]
-    member __.``Underscores are replaced with the word "underscore"``(filepath:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring " underscore "
-        speakText |> should not' (haveSubstring "_")
-
-    [<Theory>]
-    [<InlineData("punctuation/percent.json")>]
-    member __.``"%" is replaced with the word "percent"``(filepath:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring " percent "
-        speakText |> should not' (haveSubstring "%")
+    [<Fact>]
+    member __.``ellipses properly indicate a long pause``() =
+        noTest ()
 
     [<Theory>]
     [<InlineData("urlCard.json")>]
@@ -359,14 +372,10 @@ type ``punctuation is properly converted to words``() =
         speakText |> should not' (haveSubstring "@")
 
     [<Fact>]
-    member __.``symbols that should be replaced are properly replaced``() =
-        noTest ()
-
-    [<Fact>]
     member __.``symbols that should be removed are properly removed``() =
         noTest ()
 
     [<Theory>]
     [<InlineData("basicReply.json")>]
-    member __.``beginning replies are removed from the tweet``(filepath:string) =
+    member __.``beginning replies are removed from the tweet text``(filepath:string) =
         noTest ()
