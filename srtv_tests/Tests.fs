@@ -253,6 +253,14 @@ type ``quoted tweets are properly parsed``() =
         noTest ()
 
 type ``numbers are properly converted to words``() =
+    
+    [<Theory>]
+    [<InlineData("numbers/phoneNumber.json", "912-612-4665", "nine one two six one two four six six five")>]
+    member __.``phone numbers are converted to words properly``(filepath:string, number:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring number)
 
     [<Theory>]
     [<InlineData("numbers/negativeNumber.json")>]
@@ -308,10 +316,6 @@ type ``numbers are properly converted to words``() =
         noTest ()
 
     [<Fact>]
-    member __.``abbreviated numbers (e.g. 50K, 100M) are converted to words``() =
-        noTest ()
-
-    [<Fact>]
     member __.``units of measurement (e.g. cm, ft, yds) are converted to words``() =
         noTest ()
 
@@ -353,6 +357,8 @@ type ``punctuation is properly converted to words``() =
     [<InlineData("punctuation/hashtag.json", "#", " hashtag ")>]
     [<InlineData("punctuation/underscore.json", "_", " underscore ")>]
     [<InlineData("punctuation/percent.json", "%", " percent ")>]
+    [<InlineData("punctuation/mathEquation.json", "=", " equals ")>]
+    [<InlineData("punctuation/mathEquation.json", "^", " caret ")>]
     member __.``symbols that should be replaced are properly replaced``(filepath:string, symbol:string, replacement:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()

@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with math operators such as \"^\" and \"=\"",
+  "tweet": {
+    "id": "1414044025074638849",
+    "dateCreated": "2021-07-11T02:09:01.000Z",
+    "text": "@MathMind71 When x = y = 6/7 and z = 9/7 we get the maximum of the expression:\nmax(x^2•y^2•z^3) = 944,784/823,543",
+    "author": {
+      "name": "Juan Pablo",
+      "screenName": "JuanPV_78",
+      "protected": false,
+      "verified": false
+    },
+    "repliedTo": [ "MathMind71" ]
+  }
+}
