@@ -128,7 +128,16 @@ module TwitterClient =
             | exn   -> return TwitterError (failureMessage, exn)
         }
 
-        member this.makeTwitterQuery<'a> failureMessage (q:Linq.IQueryable<'a>) = ""
+        member this.makeTwitterQuery<'a> failureMessage (queryable:Linq.IQueryable<'a>) =
+            let call() = async {
+                let q = query {
+                    for q in queryable do 
+                        select q
+                        headOrDefault
+                }
+                return q
+            }
+            this.makeTwitterCall failureMessage call
                 
 
         member this.QueryPolls() = ""
@@ -293,39 +302,39 @@ module TwitterClient =
             let ids = Seq.map string tweetIDs |> String.concat ","
 
             let call() = async {
-                return query {
+                let q = query {
                     for tweet in context.Status do
                         where (tweet.Type = StatusType.Mentions
                             && tweet.TweetIDs = ids
                         )
                         select (tweet.ID, tweet.ExtendedEntities.MediaEntities |> Seq.toList)
                         headOrDefault
-                }
+                    }
+                return q
             }
             this.makeTwitterCall $"Problem trying to retrieve extended entities for {tweetIDs}" call
 
-        member this.getTweetExtendedEntities(tweetIDs: uint64 seq) = query {
+        member this.getTweetAltTexts(tweetIDs: uint64 seq) = query {
             let ids = Seq.map string tweetIDs |> String.concat ","
 
             for tweet in context.Status do
-                where (tweet.Type = StatusType.Mentions
+                where (tweet.Type = StatusType.User
                     && tweet.TweetIDs = ids
+                    && tweet.IncludeAltText = true
                 )
+                select (tweet.ID, tweet.ExtendedEntities.MediaEntities)
+                headOrDefault
         }
 
         member this.rawQueryAsync (p:string) (url:string) =
             let queryString = $"{url}?{p}"
 
-            let call() = async {
-                let resp = query {
-                    for raw in context.RawQuery do
-                        where (raw.QueryString = queryString)
-                        select raw
-                        headOrDefault
+            let q = query {
+                for raw in context.RawQuery do
+                    where (raw.QueryString = queryString)
+                    select raw.Response
                 }
-                return resp.Response
-            }
 
-            this.makeTwitterCall $"Problem retrieving raw request from {url} with parameters {p}" call
+            this.makeTwitterQuery $"Problem retrieving raw request from {url} with parameters {p}" q
 
 
