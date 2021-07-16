@@ -201,25 +201,29 @@ type ``image tweets are properly parsed``() =
     //TODO: fix test to account for the processing of the speak text
     //For example, alt text including the number "32" would fail when it shouldn't because the text is changed to "thirty two"
     [<Theory>]
-    [<InlineData("imageAltText.json")>]
+    [<InlineData("imagesAltText.json")>]
     member __.``images with alt text show the alt text``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
         Seq.iter (fun altText -> speakText |> should haveSubstring altText) testTweet.Tweet.ImageAltTexts
 
-
-
 type ``video tweets are properly parsed`` () =
 
-    [<Fact>]
-    member __.``videos with attribution display that attribution``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("videoAttribution.json")>]
+    member __.``videos with attribution display that attribution``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring (Option.get testTweet.Tweet.VideoAttribution)
 
 type ``gif tweets are properly parsed``() =
     
-    [<Fact>]
-    member __.``GIFs without alt text output the words "animated image"``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("gifNoAltText.json")>]
+    member __.``GIFs without alt text output the words "animated image"``(filepath:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring "animated image"
 
     [<Fact>]
     member __.``GIFs with alt text show the alt text``() =
@@ -267,9 +271,13 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstring expected
         speakText |> should not' (haveSubstring decimal)
 
-    [<Fact>]
-    member __.``whole numbers are converted to word form``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
+    member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring number)
 
     [<Fact>]
     member __.``ordinal numbers (e.g. 2nd) are converted to word form``() =
