@@ -252,6 +252,9 @@ type ``quoted tweets are properly parsed``() =
     member __.``quoted tweets should be shown``() =
         noTest ()
 
+    member __.``there should be an indication that a tweet is being quoted``() =
+        noTest ()
+
     [<Fact>]
     member __.``quoted tweets with polls in the quote tweet should be indicated``() =
         noTest ()
@@ -371,6 +374,10 @@ type ``punctuation is properly converted to words``() =
 
     [<Fact>]
     member __.``ellipses properly indicate a long pause``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``periods properly indicate a long pause``() =
         noTest ()
 
     [<Theory>]
