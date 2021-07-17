@@ -207,6 +207,10 @@ type ``image tweets are properly parsed``() =
         let speakText = (toMockTweet testTweet).ToSpeakText()
         Seq.iter (fun altText -> speakText |> should haveSubstring altText) testTweet.Tweet.ImageAltTexts
 
+    [<Fact>]
+    member __.``image alt text is shown in the correct order``() =
+        noTest ()
+
 type ``video tweets are properly parsed`` () =
 
     [<Theory>]
