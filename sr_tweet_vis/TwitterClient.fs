@@ -1,5 +1,7 @@
 ﻿namespace SRTV
 
+open Utilities
+
 module SRTVResponse = 
 
     type Audio = string
@@ -10,12 +12,13 @@ module SRTVResponse =
         | ImageTweet of image:Image * text:string * altText:string
         | TextTweet of text:string
 
-
 module TwitterClient =
     open System
+
     open LinqToTwitter
     open LinqToTwitter.Common
     open LinqToTwitter.OAuth
+
     open System.IO
     open SRTVResponse
     open System.Text.RegularExpressions
@@ -54,7 +57,6 @@ module TwitterClient =
 
         let splitTwitterText text = splitTwitterText' text 0 0 (extractUrls text) []
 
-    
 
     let private equalsTweetID ID (tweet:Tweet) = tweet.ID = ID
     let private equalsUserID ID (user:TwitterUser) = user.ID = ID
