@@ -1,0 +1,3 @@
+[submodule "LinqToTwitter"]
+	path = LinqToTwitter
+	url = https://github.com/ZavierHenry/LinqToTwitter
