@@ -208,16 +208,17 @@ module TweetMedia =
                     yield! polls
                 }
             )
+
+        member this.ToUnprocessedText() : string = 
+            sprintf "%s%s%s%s@%s%s %s%s"
+            <| match this.Retweeter with | Some name -> $"Retweeted by @%s{name} " | None -> ""
+            <| this.Name
+            <| if this.IsVerified then " verified account " else " "
+            <| if this.IsProtected then " protected account " else " "
+            <| this.ScreenName
+            <| repliesToString repliedTo
+            <| this.Text 
+            <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
     
         member this.ToSpeakText() : string = 
-            let text = 
-                sprintf "%s%s%s%s@%s%s %s%s"
-                <| match this.Retweeter with | Some name -> $"Retweeted by @%s{name} " | None -> ""
-                <| this.Name
-                <| if this.IsVerified then " verified account " else " "
-                <| if this.IsProtected then " protected account " else " "
-                <| this.ScreenName
-                <| repliesToString repliedTo
-                <| this.Text 
-                <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
-            processSpeakText text
+            processSpeakText <| this.ToUnprocessedText()
