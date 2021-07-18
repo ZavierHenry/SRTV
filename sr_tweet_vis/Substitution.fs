@@ -17,7 +17,7 @@ module Substitution =
                 ("&", "and")
             ]
 
-        let removal = ['-', '(', ')']
+        let removal = ['-'; '('; ')']
 
     module Emojis =
         open FSharp.Data
