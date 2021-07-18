@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet containing date in the format mmm d (e.g. Jan 6)",
+  "tweet": {
+    "text": "There's been this weird sense among Democrats since Jan. 6 that the Capitol insurrection was Trump's big plan, and that we should focus on making sure everyone knows how bad Jan. 6 is, but in that rush we've kind of raced past a lot of evidence that Jan. 6 WASN'T Trump's big plan",
+    "id": "1415704688759132164",
+    "dateCreated": "2021-07-15T16:07:54.000Z",
+    "author": {
+      "name": "Will Stancil",
+      "screenName": "whstancil",
+      "protected": false,
+      "verified": false
+    },
+    "repliedTo": [ "whstancil" ]
+  }
+}

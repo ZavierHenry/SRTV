@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with a date in the format m/dd/yy (e.g. 5/17/21)",
+  "tweet": {
+    "id": "1413206675218214923",
+    "dateCreated": "2021-07-08T18:41:42.000Z",
+    "text": "Wish the image had been taken sharper at the time, but here is another look at the decaying mesocyclone over Lubbock, TX on 5/17/21. #txwx @StormHour @ThePhotoHour #wxtwitter https://t.co/IPyX5rLsBC",
+    "imageAltTexts": [ "" ],
+    "author": {
+      "name": "Vincent Craighead",
+      "screenName": "VincentC5000",
+      "protected": false,
+      "verified": false
+    }
+  }
+}
