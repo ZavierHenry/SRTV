@@ -113,6 +113,40 @@ module TwitterClient =
         let auth = new SingleUserAuthorizer()
         let userID = Environment.GetEnvironmentVariable("user_id")
 
+        let toParams = String.concat ","
+
+        let userFields = seq {
+            UserField.Name
+            UserField.UserName
+            UserField.Protected
+            UserField.Verified
+            UserField.ProfileImageUrl
+        }
+
+        let tweetFields = seq {
+            TweetField.Text
+            TweetField.Attachments
+            TweetField.AuthorID
+            TweetField.CreatedAt
+            TweetField.Entities
+            TweetField.ReferencedTweets
+            TweetField.ReplySettings
+            TweetField.Source
+        }
+
+        let expansions = seq {
+            ExpansionField.ReferencedTweetAuthorID
+            ExpansionField.ReferencedTweetID
+            ExpansionField.MediaKeys
+            ExpansionField.PollIds
+            ExpansionField.AuthorID
+        }
+
+        let pollFields = seq {
+            PollField.Options
+            PollField.EndDateTime
+        }
+
         do
             credentialStore.AccessToken <- Environment.GetEnvironmentVariable("access_token")
             credentialStore.AccessTokenSecret <- Environment.GetEnvironmentVariable("access_token_secret")
@@ -156,15 +190,33 @@ module TwitterClient =
         member this.GetMentions(lastQueriedTime: DateTime, ?paginationToken:string) =
             let query () = query {
                 for tweet in context.Tweets do
-                    where (tweet.Type = TweetType.MentionsTimeline
-                        && tweet.ID = userID
-                        && tweet.EndTime = lastQueriedTime
-                        && Option.forall (fun token -> token = tweet.PaginationToken) paginationToken
+                    where (
+                        tweet.Type = TweetType.MentionsTimeline &&
+                        tweet.ID = userID &&
+                        tweet.EndTime = lastQueriedTime &&
+                        tweet.TweetFields = toParams tweetFields &&
+                        tweet.UserFields = toParams userFields &&
+                        tweet.Expansions = toParams expansions &&
+                        tweet.PollFields = toParams pollFields &&
+                        Option.forall (fun token -> token = tweet.PaginationToken) paginationToken
                         )
                     select tweet
             }
 
-            this.makeTwitterListQuery $"Problem getting mentions after the last queried time ${lastQueriedTime.ToLongTimeString()}" query
+            this.makeTwitterListQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
+
+        member this.GetUser(userID:string) =
+            let query () = query {
+                for user in context.TwitterUser do
+                    where ( 
+                        user.Type = UserType.IdLookup && 
+                        user.ID = userID &&
+                        user.UserFields = toParams userFields
+                        )
+                    select user
+            }
+
+            this.makeTwitterSingleQuery $"Problem getting user with ID {userID}" query
 
         member private this.uploadAudioAsync(filename: Audio) =
             try
@@ -306,16 +358,5 @@ module TwitterClient =
                 }
 
             this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
-
-        member this.rawQueryAsync (p:string) (url:string) =
-            let queryString = $"{url}?{p}"
-
-            let q () = query {
-                for raw in context.RawQuery do
-                    where (raw.QueryString = queryString)
-                    select raw.Response
-                }
-
-            this.makeTwitterSingleQuery $"Problem retrieving raw request from {url} with parameters {p}" q
 
 
