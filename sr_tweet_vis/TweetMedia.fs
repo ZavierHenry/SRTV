@@ -132,7 +132,7 @@ module TweetMedia =
         member this.Retweeter : string option = retweeter
         member this.RepliedTo : string list = repliedTo
         member this.QuotedTweet : QuotedTweet option = None
-        member this.Media : Media list = media
+        member this.Media : Media seq = media
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
@@ -162,13 +162,11 @@ module TweetMedia =
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Photo)
                 |> Seq.map (fun x -> extendedPhotoEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
                 |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Image)
-                |> Seq.toList
 
             let videos = 
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Video)
                 |> Seq.map (fun _ -> Video None)
-                |> Seq.toList
 
             let gifs = 
                 let extendedGifEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "animated_gif")
@@ -176,13 +174,11 @@ module TweetMedia =
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.AnimatedGif)
                 |> Seq.map (fun x -> extendedGifEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
                 |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Gif)
-                |> Seq.toList
 
-            let poll =
+            let polls =
                 includes.Polls
                 |> Seq.filter (fun poll -> Seq.contains poll.ID tweet.Attachments.PollIds)
                 |> Seq.map (fun poll -> Poll (poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList, poll.EndDatetime))
-                |> Seq.toList
 
             let card = 
                 tweet.Entities.Urls
@@ -191,7 +187,6 @@ module TweetMedia =
                     let host = Uri(url.UnwoundUrl).Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
                     Card (url.Title, url.Description, host))
-                |> Seq.toList
 
             MockTweet(
                 originalTweet.Text,
@@ -202,7 +197,13 @@ module TweetMedia =
                 author.Protected,
                 retweeter,
                 repliedTo,
-                photos @ videos @ gifs @ card @ poll
+                seq {
+                    yield! photos
+                    yield! videos
+                    yield! gifs
+                    yield! card
+                    yield! polls
+                }
             )
     
         member this.ToSpeakText() : string = 
@@ -215,5 +216,5 @@ module TweetMedia =
                 <| this.ScreenName
                 <| repliesToString repliedTo
                 <| this.Text 
-                <| (if this.Media.IsEmpty then "" else " ") + String.concat " " (List.map mediaToText this.Media)
+                <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
             processSpeakText text
