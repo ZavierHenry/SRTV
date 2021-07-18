@@ -87,7 +87,7 @@ module TweetMedia =
             screenName : string *
             name : string *
             verified : bool *
-            locked: bool *
+            protected: bool *
             date : DateTime *
             repliedTo : string list *
             text : string *
@@ -137,16 +137,16 @@ module TweetMedia =
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
             let originalTweet = 
-                match tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets with
-                | None      -> tweet
-                | Some ref  -> findTweetById ref.ID includes
+                tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets 
+                |> Option.map (fun ref -> findTweetById ref.ID includes)
+                |> Option.defaultValue tweet
 
             let author = findUserById originalTweet.AuthorID includes
 
             let repliedTo = 
-                match tryFindUserById originalTweet.InReplyToUserID includes with
-                | None -> []
-                | Some user -> [user.Username]
+                tryFindUserById originalTweet.InReplyToUserID includes
+                |> Option.map (fun user -> user.Username)
+                |> Option.toList
 
             let retweeter =
                 if originalTweet.ID <> tweet.ID
@@ -178,7 +178,11 @@ module TweetMedia =
                 |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Gif)
                 |> Seq.toList
 
-            let poll = []
+            let poll =
+                includes.Polls
+                |> Seq.filter (fun poll -> Seq.contains poll.ID tweet.Attachments.PollIds)
+                |> Seq.map (fun poll -> Poll (poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList, poll.EndDatetime))
+                |> Seq.toList
 
             let card = 
                 tweet.Entities.Urls
