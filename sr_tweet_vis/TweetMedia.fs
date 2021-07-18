@@ -72,7 +72,8 @@ module TweetMedia =
                 |> String.concat " "
             $"""%s{choices} %d{total} %s{pluralize "vote" total} Final results"""
 
-    let wrapStringIfNotBlank str = Some str |> Option.filter (String.IsNullOrEmpty >> not)
+    let wrapStringIfNotBlank str = 
+        Some str |> Option.filter (String.IsNullOrEmpty >> not)
 
     let repliesToString = function
         | []                -> ""
@@ -132,21 +133,23 @@ module TweetMedia =
         member this.Retweeter : string option = retweeter
         member this.RepliedTo : string list = repliedTo
         member this.QuotedTweet : QuotedTweet option = None
-        member this.Media : Media list = media
+        member this.Media : Media seq = media
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
             let originalTweet = 
-                match tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets with
-                | None      -> tweet
-                | Some ref  -> findTweetById ref.ID includes
+                tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets 
+                |> Option.map (fun ref -> findTweetById ref.ID includes)
+                |> Option.defaultValue tweet
 
             let author = findUserById originalTweet.AuthorID includes
 
             let repliedTo = 
-                match tryFindUserById originalTweet.InReplyToUserID includes with
-                | None -> []
-                | Some user -> [user.Username]
+                tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets
+                |> Option.bind (fun ref -> tryFindTweetById ref.ID includes)
+                |> Option.bind (fun tweet -> tryFindUserById tweet.AuthorID includes)
+                |> Option.map (fun user -> user.Username)
+                |> Option.toList
 
             let retweeter =
                 if originalTweet.ID <> tweet.ID
@@ -161,24 +164,24 @@ module TweetMedia =
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Photo)
                 |> Seq.map (fun x -> extendedPhotoEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Image)
-                |> Seq.toList
+                |> Seq.map (fun x -> Image <| wrapStringIfNotBlank x.AltText)
 
             let videos = 
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Video)
                 |> Seq.map (fun _ -> Video None)
-                |> Seq.toList
 
             let gifs = 
                 let extendedGifEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "animated_gif")
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.AnimatedGif)
                 |> Seq.map (fun x -> extendedGifEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Gif)
-                |> Seq.toList
+                |> Seq.map (fun x -> Gif <| wrapStringIfNotBlank x.AltText)
 
-            let poll = []
+            let polls =
+                includes.Polls
+                |> Seq.filter (fun poll -> Seq.contains poll.ID tweet.Attachments.PollIds)
+                |> Seq.map (fun poll -> Poll (poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList, poll.EndDatetime))
 
             let card = 
                 tweet.Entities.Urls
@@ -187,7 +190,6 @@ module TweetMedia =
                     let host = Uri(url.UnwoundUrl).Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
                     Card (url.Title, url.Description, host))
-                |> Seq.toList
 
             MockTweet(
                 originalTweet.Text,
@@ -198,18 +200,25 @@ module TweetMedia =
                 author.Protected,
                 retweeter,
                 repliedTo,
-                photos @ videos @ gifs @ card @ poll
+                seq {
+                    yield! photos
+                    yield! videos
+                    yield! gifs
+                    yield! card
+                    yield! polls
+                }
             )
+
+        member this.ToUnprocessedText() : string = 
+            sprintf "%s%s%s%s@%s%s %s%s"
+            <| match this.Retweeter with | Some name -> $"Retweeted by @%s{name} " | None -> ""
+            <| this.Name
+            <| if this.IsVerified then " verified account " else " "
+            <| if this.IsProtected then " protected account " else " "
+            <| this.ScreenName
+            <| repliesToString repliedTo
+            <| this.Text 
+            <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
     
         member this.ToSpeakText() : string = 
-            let text = 
-                sprintf "%s%s%s%s@%s%s %s%s"
-                <| match this.Retweeter with | Some name -> $"Retweeted by @%s{name} " | None -> ""
-                <| this.Name
-                <| if this.IsVerified then " verified account " else " "
-                <| if this.IsProtected then " protected account " else " "
-                <| this.ScreenName
-                <| repliesToString repliedTo
-                <| this.Text 
-                <| (if this.Media.IsEmpty then "" else " ") + String.concat " " (List.map mediaToText this.Media)
-            processSpeakText text
+            processSpeakText <| this.ToUnprocessedText()
