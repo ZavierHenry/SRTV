@@ -11,59 +11,50 @@ module Utilities =
         interface IDisposable with
             member this.Dispose() = File.Delete(path)
 
+    let pluralize (singular:string) plural = function | 1 -> singular | _ -> plural
+    let pluralizePrefix prefix = pluralize prefix $"{prefix}s"
+    let tryNonBlankString str = Some str |> Option.filter (not << String.IsNullOrEmpty)
 
-    let pluralize singular plural number : string = 
-        if number = 1 then singular else plural
+    module DateTimePatterns =
 
+        let private toTimeAgo (span:float) =
+            Some span |> Option.filter (fun span -> span >= 0.0) |> Option.map int
 
-    module DateTimeUtil = 
+        let private toTimeFromNow (span:float) =
+            toTimeAgo (-span)
 
         let (|BeforeThisYear|_|) (now:DateTime) (datetime:DateTime) =
-            if now.Year < datetime.Year 
-            then Some(datetime.Year, datetime.Month, datetime.Day) 
-            else None
+            let x = now - datetime
+            Some (datetime.Year, datetime.Month, datetime.Day)
+            |> Option.filter (fun (y, _, _) -> now.Year > y)
     
         let (|BeforeThisWeek|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = now - datetime
-            if now.Year = datetime.Year && timespan.TotalDays >= 7.0 
-            then Some(datetime.Month, datetime.Day) 
-            else None
+            Some (datetime.Year, datetime.Month, datetime.Day) 
+            |> Option.filter (fun _ -> (now-datetime).TotalDays > 7.0)
 
-        let (|BeforeToday|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = now - datetime
-            if timespan.Days > 0 && timespan.Days < 7
-            then Some(timespan.Days)
-            else None
+        let (|DaysAgo|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeAgo (now-datetime).TotalDays
 
-        let (|BeforeThisHour|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = now - datetime
-            if timespan.Hours > 0 && timespan.TotalHours < 24.0
-            then Some(timespan.Hours)
-            else None
+        let (|HoursAgo|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeAgo (now-datetime).TotalHours
 
-        let (|BeforeThisMinute|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = now - datetime
-            if timespan.Minutes > 0 && timespan.TotalMinutes < 60.0
-            then Some(timespan.Minutes)
-            else None
+        let (|MinutesAgo|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeAgo (now-datetime).TotalMinutes
+            
+        let (|SecondsAgo|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeAgo (now-datetime).TotalSeconds
 
-        let (|BeforeThisSecond|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = now - datetime
-            if timespan.Seconds > 0 && timespan.TotalSeconds < 60.0
-            then Some(timespan.Seconds)
-            else None
+        let (|SecondsFromNow|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeFromNow (now-datetime).TotalSeconds
 
-        let (|InLessThanOneMinute|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = datetime - now
-            if timespan.Seconds > 0 && timespan.Minutes = 0
-            then Some(timespan.Seconds)
-            else None
+        let (|MinutesFromNow|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeFromNow (now-datetime).TotalMinutes
 
-        let (|InLessThanOneHour|_|) (now:DateTime) (datetime:DateTime) =
-            let timespan = datetime - now
-            if timespan.Minutes > 0 && timespan.Hours = 0 
-            then Some(timespan.Minutes) 
-            else None
+        let (|HoursFromNow|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeFromNow (now-datetime).TotalHours
+
+        let (|DaysFromNow|_|) (now:DateTime) (datetime:DateTime) =
+            toTimeFromNow (now-datetime).TotalDays
 
 
 

@@ -7,8 +7,8 @@ module TweetMedia =
     open System.Text.RegularExpressions
     open Substitution
 
-    let pluralize prefix (number:int) =
-        prefix + if number = 1 then "s" else ""
+    open Utilities
+    open Utilities.DateTimePatterns
 
     type SpeakMode = | Timeline | Expanded
 
@@ -20,42 +20,41 @@ module TweetMedia =
         | Poll of options : (string*int) list * endDateTime : DateTime
 
     let toTimeDeltaText (datetime:DateTime) =
-    
-        let datetime = datetime.ToUniversalTime()
         let now = DateTime.UtcNow
-        let oneWeekAgo = now.AddDays(-7.0)
-        let timespan = now - datetime
+        match datetime.ToUniversalTime() with
+        | BeforeThisYear now _ as d -> d.ToString("dd MMM yy")
+        | BeforeThisWeek now _ as d -> d.ToString("dd MMM")
+        | DaysAgo now days when days > 0 ->
+            $"""%d{days} %s{pluralizePrefix "day" days} ago"""
+        | MinutesAgo now min when min > 0 ->
+            $"""%d{min} %s{pluralizePrefix "minute" min} ago"""
+        | SecondsAgo now sec ->
+            $"""%d{sec} %s{pluralizePrefix "second" sec} ago"""
+        | datetime -> datetime.ToLongTimeString()
     
-        if now.Year - datetime.Year > 0 then datetime.ToString("dd MMM yy")
-        else if now < oneWeekAgo then datetime.ToString("dd MMM")
-        else if timespan.Days > 0 then $"""%d{timespan.Days} %s{if timespan.Days = 1 then "days" else "day"} ago"""
-        else if timespan.Minutes > 0 then $"""%d{timespan.Minutes} %s{if timespan.Minutes = 1 then "minutes" else "minute"} ago"""
-        else $"""%d{timespan.Seconds} %s{if timespan.Seconds = 1 then "seconds" else "second" } ago"""
-
     let endDateTimeToText (endDate: DateTime) =
         let now = DateTime.UtcNow
-        let (|SecondsLeft|_|) (timespan:TimeSpan) = 
-            if timespan.TotalSeconds < 60.0 then Some timespan.Seconds else None
-        let (|MinutesLeft|_|) (timespan:TimeSpan) =
-            if timespan.TotalMinutes < 60.0 then Some timespan.Minutes else None
-        let (|HoursLeft|_|) (timespan:TimeSpan) =
-            if timespan.TotalHours < 24.0 then Some timespan.Hours else None
-
-        let addPlural num = if num = 1 then "s" else ""
-
-        match (endDate - now) with
-        | SecondsLeft sec -> $"""%d{sec} second%s{addPlural sec}"""
-        | MinutesLeft min -> $"""%d{min} minute%s{addPlural min}"""
-        | HoursLeft hrs   -> $"""%d{hrs} hour%s{addPlural hrs}"""
-        | x               -> let days = x.Days in $"""%d{days} day%s{addPlural days}"""
+        match endDate.ToUniversalTime() with
+        | SecondsFromNow now sec when sec < 60 -> 
+            $"""%d{sec} %s{pluralizePrefix "second" sec} left"""
+        | MinutesFromNow now min when min < 60 -> 
+            $"""%d{min} %s{pluralizePrefix "minute" min} left"""
+        | HoursFromNow now hrs -> 
+            $"""%d{hrs} %s{pluralizePrefix "hour" hrs} left"""
+        | DaysFromNow now days ->
+            $"""%d{days} day%s{pluralizePrefix "day" days} left"""
+        | date               -> 
+            let days = int (date-now).TotalDays
+            $"""%d{days} day%s{pluralizePrefix "day" days} left"""
 
     let mediaToText = function
         | Image alt         -> Option.defaultValue "image" alt
         | Video None        -> "embedded video"
         | Video (Some attribution) -> 
             $"embedded video attributed to %s{attribution}"
-        | Gif   None        -> "embedded video gif"
-        | Gif   (Some text) -> $"%s{text} gif"
+        | Gif text -> 
+            let text = Option.defaultValue "embedded video" text
+            $"%s{text} gif"
         | Card  (title, desc, host) -> 
             $"%s{title} %s{desc} %s{host}"
         | Poll  (options, endTime) when endTime > DateTime.UtcNow ->
@@ -64,16 +63,14 @@ module TweetMedia =
             let choices = 
                 List.map fst options
                 |> String.concat " " 
-            $"""%s{choices} %d{votes} %s{pluralize "vote" votes} %s{endDateText} left"""
+            $"""%s{choices} %d{votes} %s{pluralizePrefix "vote" votes} %s{endDateText}"""
         | Poll (options, _) ->
-            let total = List.sumBy snd options
+            let total = List.sumBy (fun (_, votes) -> votes) options
             let choices =
-                List.map (fun (choice, votes) -> $"%s{choice} %.1f{float votes / float total * 100.0}%%") options
+                options
+                |> List.map (fun (choice, votes) -> $"%s{choice} %.1f{float votes / float total * 100.0}%%")
                 |> String.concat " "
-            $"""%s{choices} %d{total} %s{pluralize "vote" total} Final results"""
-
-    let wrapStringIfNotBlank str = 
-        Some str |> Option.filter (String.IsNullOrEmpty >> not)
+            $"""%s{choices} %d{total} %s{pluralizePrefix "vote" total} Final results"""
 
     let repliesToString = function
         | []                -> ""
@@ -164,7 +161,7 @@ module TweetMedia =
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Photo)
                 |> Seq.map (fun x -> extendedPhotoEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> Image <| wrapStringIfNotBlank x.AltText)
+                |> Seq.map (fun x -> Image <| tryNonBlankString x.AltText)
 
             let videos = 
                 media
@@ -176,7 +173,7 @@ module TweetMedia =
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.AnimatedGif)
                 |> Seq.map (fun x -> extendedGifEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> Gif <| wrapStringIfNotBlank x.AltText)
+                |> Seq.map (fun x -> Gif <| tryNonBlankString x.AltText)
 
             let polls =
                 includes.Polls
