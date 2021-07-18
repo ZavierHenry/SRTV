@@ -7,7 +7,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "sr_tweet_vis", "sr_tweet_vi
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "srtv_tests", "srtv_tests\srtv_tests.fsproj", "{82B90E62-AFE8-434C-899D-97E3215F6105}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LinqToTwitter", "..\LinqToTwitter\src\LinqToTwitter6\LinqToTwitter\LinqToTwitter.csproj", "{3B9CEB23-C37A-4CA7-8903-F18DA4E42D6D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LinqToTwitter", "LinqToTwitter\src\LinqToTwitter6\LinqToTwitter\LinqToTwitter.csproj", "{6B41B65D-DE29-42A2-A9E1-EBDDDE4DD722}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +23,10 @@ Global
 		{82B90E62-AFE8-434C-899D-97E3215F6105}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{82B90E62-AFE8-434C-899D-97E3215F6105}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{82B90E62-AFE8-434C-899D-97E3215F6105}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3B9CEB23-C37A-4CA7-8903-F18DA4E42D6D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3B9CEB23-C37A-4CA7-8903-F18DA4E42D6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3B9CEB23-C37A-4CA7-8903-F18DA4E42D6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3B9CEB23-C37A-4CA7-8903-F18DA4E42D6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B41B65D-DE29-42A2-A9E1-EBDDDE4DD722}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B41B65D-DE29-42A2-A9E1-EBDDDE4DD722}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B41B65D-DE29-42A2-A9E1-EBDDDE4DD722}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B41B65D-DE29-42A2-A9E1-EBDDDE4DD722}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
