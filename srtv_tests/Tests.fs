@@ -4,7 +4,10 @@ open System
 
 open Xunit
 open FsUnit.Xunit
+
 open SRTV.TweetMedia
+open SRTV.Utilities
+
 open FSharp.Data
 
 open NHamcrest.Core
@@ -56,8 +59,8 @@ let pollToMedia (poll:TestTweet.Poll) =
 let urlCardToMedia (card:TestTweet.UrlCard) =
     Card (card.Title, card.Description, card.Url)
 
-let gifAltTextToMedia = wrapStringIfNotBlank >> Gif
-let videoAttributionToMedia = wrapStringIfNotBlank >> Video
+let gifAltTextToMedia = Gif << tryNonBlankString
+let videoAttributionToMedia = Video << tryNonBlankString
 
 let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
@@ -68,7 +71,7 @@ let toMockTweet(root:TestTweet.Root) =
     let gif = toMedia gifAltTextToMedia tweet.GifAltText
     let video = toMedia videoAttributionToMedia tweet.VideoAttribution
 
-    let images = tweet.ImageAltTexts |> Array.map (wrapStringIfNotBlank >> Image) |> Array.toList
+    let images = tweet.ImageAltTexts |> Array.map (Image << tryNonBlankString) |> Array.toList
         
     MockTweet(
         tweet.Text,
