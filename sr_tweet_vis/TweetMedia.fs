@@ -72,7 +72,8 @@ module TweetMedia =
                 |> String.concat " "
             $"""%s{choices} %d{total} %s{pluralize "vote" total} Final results"""
 
-    let wrapStringIfNotBlank str = Some str |> Option.filter (String.IsNullOrEmpty >> not)
+    let wrapStringIfNotBlank str = 
+        Some str |> Option.filter (String.IsNullOrEmpty >> not)
 
     let repliesToString = function
         | []                -> ""
@@ -87,7 +88,7 @@ module TweetMedia =
             screenName : string *
             name : string *
             verified : bool *
-            protected: bool *
+            locked: bool *
             date : DateTime *
             repliedTo : string list *
             text : string *
@@ -144,7 +145,9 @@ module TweetMedia =
             let author = findUserById originalTweet.AuthorID includes
 
             let repliedTo = 
-                tryFindUserById originalTweet.InReplyToUserID includes
+                tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets
+                |> Option.bind (fun ref -> tryFindTweetById ref.ID includes)
+                |> Option.bind (fun tweet -> tryFindUserById tweet.AuthorID includes)
                 |> Option.map (fun user -> user.Username)
                 |> Option.toList
 
@@ -161,7 +164,7 @@ module TweetMedia =
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Photo)
                 |> Seq.map (fun x -> extendedPhotoEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Image)
+                |> Seq.map (fun x -> Image <| wrapStringIfNotBlank x.AltText)
 
             let videos = 
                 media
@@ -173,7 +176,7 @@ module TweetMedia =
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.AnimatedGif)
                 |> Seq.map (fun x -> extendedGifEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> wrapStringIfNotBlank x.AltText |> Gif)
+                |> Seq.map (fun x -> Gif <| wrapStringIfNotBlank x.AltText)
 
             let polls =
                 includes.Polls
