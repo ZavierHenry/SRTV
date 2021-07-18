@@ -17,7 +17,7 @@ module Substitution =
                 ("&", "and")
             ]
 
-        let removal = ['-']
+        let removal = ['-'; '('; ')']
 
     module Emojis =
         open FSharp.Data
@@ -63,8 +63,8 @@ module Substitution =
 
     module Numbers =
         let toWords : int64 -> string = Humanizer.NumberToWordsExtension.ToWords
-        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords
-
+        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords 
+        
         //TODO: change function to change decimals without a leading number (e.g .75)
         let processDecimals text =
             let evaluator (m:Match) =
@@ -97,6 +97,20 @@ module Substitution =
                     <| m.Groups.["end"].Value
             Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d*?)(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
 
+        let processAmericanPhoneNumbers text =
+            let evaluator (m:Match) =
+                let number = 
+                    m.Groups.["number"].Value.Replace("-", "").Replace(" ", "")
+                    |> Seq.map (string >> Convert.ToInt64 >> toWords)
+                    |> Seq.indexed
+                    |> Seq.groupBy (fun (index, _) -> if index < 3 then 0 else if index < 6 then 1 else 2)
+                    |> Seq.map (fun (_, group) -> Seq.map snd group |> String.concat " ")
+                    |> String.concat "...."
+                m.Groups.["start"].Value + number + m.Groups.["end"].Value
+            Regex.Replace(text, @"(?<start>^|\s)(?<number>\d{3}(?:[ \-])\d{3}(?:[ \-])\d{4})(?<end>\s|$)", MatchEvaluator(evaluator))
+
+        let processPhoneNumbers = processAmericanPhoneNumbers
+                
     let rec private processEmojis' acc =
         function
         | ""    -> List.rev acc |> String.concat ""
@@ -106,8 +120,11 @@ module Substitution =
 
     let private processEmojis = processEmojis' []
     let private processNumbers = 
-        Numbers.processRanges >> Numbers.processDecimals >> Numbers.processOrdinals
-
+        Numbers.processPhoneNumbers >>
+        Numbers.processRanges >> 
+        Numbers.processDecimals >> 
+        Numbers.processOrdinals
+        
     let private simpleSubstitution = 
         Punctuation.simpleReplacement
         |> Seq.foldBack (fun (key, replacement) state -> Regex.Replace(state, key, $" {replacement} "))
