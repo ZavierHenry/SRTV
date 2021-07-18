@@ -27,11 +27,14 @@
     <PackageReference Include="FSharp.Data" Version="4.1.1" />
     <PackageReference Include="Humanizer" Version="2.11.10" />
     <PackageReference Include="Humanizer.Core" Version="2.11.10" />
-    <PackageReference Include="linqtotwitter" Version="6.7.1" />
     <PackageReference Include="PuppeteerSharp" Version="5.0.0" />
     <PackageReference Include="System.Speech" Version="5.0.0" />
     <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
     <PackageReference Include="Xabe.FFmpeg" Version="5.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\LinqToTwitter\src\LinqToTwitter6\LinqToTwitter\LinqToTwitter.csproj" />
   </ItemGroup>
 
   <ItemGroup>
