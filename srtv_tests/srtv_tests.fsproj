@@ -24,7 +24,7 @@
     <Content Include="tweets\numbers\decimalPercentage.json" />
     <Content Include="tweets\numbers\numberWithComma.json" />
     <Content Include="tweets\numbers\negativeNumber.json" />
-    <Content Include="tweets\numbers\phoneNumber.json" />
+    <Content Include="tweets\numbers\phoneNumberOnePlus.json" />
     <Content Include="tweets\punctuation\mathEquation.json" />
     <Content Include="tweets\punctuation\atSymbol.json" />
     <Content Include="tweets\punctuation\hashtag.json" />

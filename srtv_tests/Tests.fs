@@ -122,7 +122,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("emojis/loudlyCryingWithSkull.json")>]
     
     [<InlineData("numbers/negativeNumber.json")>]
-    [<InlineData("numbers/phoneNumber.json")>]
+    [<InlineData("numbers/phoneNumberOnePlus.json")>]
     [<InlineData("numbers/decimalPercentage.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
@@ -278,7 +278,7 @@ type ``quoted tweets are properly parsed``() =
 type ``numbers are properly converted to words``() =
     
     [<Theory>]
-    [<InlineData("numbers/phoneNumber.json", "912-612-4665", "nine one two....six one two....four six six five")>]
+    [<InlineData("numbers/phoneNumberOnePlus.json", "+1 912-612-4665", "nine one two. six one two. four six six five")>]
     member __.``phone numbers are converted to words properly``(filepath:string, number:string, expected:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
