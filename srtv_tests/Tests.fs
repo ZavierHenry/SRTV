@@ -124,6 +124,10 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
     [<InlineData("numbers/decimalPercentage.json")>]
+    [<InlineData("numbers/numberWithComma.json")>]
+    [<InlineData("numbers/temperatures.json")>]
+    [<InlineData("numbers/height.json")>]
+    [<InlineData("numbers/phoneNumberDots.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]

@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with the phone number separated by periods",
+  "tweet": {
+    "id": "1415332765101346819",
+    "dateCreated": "2021-07-14T15:30:01.000Z",
+    "text": "We're excited to be Presenting Sponsor for South West Transit Association's (SWTA) 2021 Summer University Conference on July 19-22, 2021.\n\nCall us at 888.633.8380 to schedule an appointment with a Sales representative. https://t.co/Btzp4QmxQ0",
+    "author": {
+      "protected": false,
+      "verified": false,
+      "name": "Creative Bus Sales",
+      "screenName": "creativebussale"
+    },
+    "imageAltTexts": [ "" ]
+  }
+}
