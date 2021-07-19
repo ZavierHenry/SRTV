@@ -103,6 +103,13 @@ let fetchTweet filename =
     TestTweet.Load(directory + filename)
 
 let inline noTest () = failwith<unit> "Test has not been implement as of yet"
+let inline replacementTest filepath text replacement =
+    let mockTweet = toMockTweet (fetchTweet filepath)
+    let speakText = mockTweet.ToSpeakText()
+    speakText |> should haveSubstring replacement
+    speakText |> should not' (haveSubstring text)
+
+
 
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
@@ -298,43 +305,28 @@ type ``numbers are properly converted to words``() =
     [<Theory>]
     [<InlineData("numbers/negativeNumber.json")>]
     member __.``numbers under zero include "minus"``(filepath:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring (" minus ")
-        speakText |> should not' (haveSubstring "-")
+        replacementTest filepath "-" " minus "
 
     [<Theory>]
     [<InlineData("numbers/decimalPercentage.json", "67.94", "sixty seven point nine four")>]
     [<InlineData("numbers/decimalPercentage.json", "58.41", "fifty eight point four one")>]
     member __.``decimal numbers (e.g. 3.45) are converted to the form "three point four five"``(filepath:string, decimal:string, expected:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring expected
-        speakText |> should not' (haveSubstring decimal)
+        replacementTest filepath decimal expected
 
     [<Theory>]
     [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
     member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring expected
-        speakText |> should not' (haveSubstring number)
+        replacementTest filepath number expected
 
     [<Theory>]
     [<InlineData("numbers/second.json", "2nd", "second")>]
     member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring expected
-        speakText |> should not' (haveSubstring ordinal)
+        replacementTest filepath ordinal expected
 
     [<Theory>]
     [<InlineData("numbers/year.json", "2008", "two thousand eight")>]
     member __.``obvious years are properly converted to words``(filepath:string, year:string, expected:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring expected
-        speakText |> should not' (haveSubstring year)
+        replacementTest filepath year expected
 
     [<Fact>]
     member __.``number ranges are converted to words``() =
