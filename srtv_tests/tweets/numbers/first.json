@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with the ordinal number 1st",
+  "tweet": {
+    "author": {
+      "protected": false,
+      "verified": true,
+      "name": "New York Yankees",
+      "screenName": "Yankees"
+    },
+    "id": "1416951452258426880",
+    "text": "LaMarre's 1st Homer in Pinstripes 👏 https://t.co/EXG6D9YMNw",
+    "dateCreated": "2021-07-19T02:42:06.000Z",
+    "videoAttribution": ""
+  }
+}

@@ -1,0 +1,14 @@
+﻿{
+  "label": "Tweet with a display url with no card",
+  "tweet": {
+    "author": {
+      "protected": false,
+      "name": "southpaw",
+      "verified": false,
+      "screenName": "nycsouthpaw"
+    },
+    "dateCreated": "2021-07-19T01:47:41.000Z",
+    "text": "Four years of Caitlyn Jenner’s tax returns posted here, along with 4-5 years for most of the other candidates. https://t.co/Gz3SSKXwpe",
+    "id": "1416937756727578626"
+  }
+}

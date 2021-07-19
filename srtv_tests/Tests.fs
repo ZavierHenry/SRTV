@@ -7,6 +7,7 @@ open FsUnit.Xunit
 
 open SRTV.TweetMedia
 open SRTV.Utilities
+open SRTV.Substitution
 
 open FSharp.Data
 
@@ -26,28 +27,43 @@ type TestTweet = JsonProvider<samplesFile, SampleIsList=true, InferTypesFromValu
 type SchemaTemplate = JsonProvider<templateFile>
 type TestTweetSchema = JsonProvider<schemaFile>
 
-type SchemaMatcher(sample:string) = 
-    inherit Matcher<obj>()
+module Matchers = 
 
-    let schema = JSchema.Parse <| sample
-    let mutable messages = List() :> IList<string>
+    type SchemaMatcher(sample:string) = 
+        inherit Matcher<obj>()
 
-    override this.DescribeTo(description) =
-        description.AppendText("JSON should validate against this schema") |> ignore
+        let schema = JSchema.Parse <| sample
+        let mutable messages = List() :> IList<string>
 
-    override this.Matches(item:obj) =
-        let token = item :?> JsonValue
-        let token = JToken.Parse <| token.ToString()
-        token.IsValid(schema, &messages)
+        override this.DescribeTo(description) =
+            description.AppendText("JSON should validate against this schema") |> ignore
 
-    override this.DescribeMismatch(item, mismatchDescription) =
-        Seq.iter (fun err -> mismatchDescription.AppendText(err + "\n\n") |> ignore) messages
+        override this.Matches(item:obj) =
+            let token = item :?> JsonValue
+            let token = JToken.Parse <| token.ToString()
+            token.IsValid(schema, &messages)
 
-    static member matchSchema(value:JsonValue) = SchemaMatcher <| value.ToString()
+        override this.DescribeMismatch(item, mismatchDescription) =
+            Seq.iter (fun err -> mismatchDescription.AppendText(err + "\n\n") |> ignore) messages
 
-let matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
-let matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
-let inline matchPattern (pattern:string) (input:string) = Regex.IsMatch(input, pattern) |> equal
+        static member matchSchema(value:JsonValue) = SchemaMatcher <| value.ToString()
+
+    let inline matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
+    let inline matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
+
+    type PatternMatcher(pattern:string) =
+        inherit Matcher<obj>()
+
+        let regex = Regex(pattern)
+
+        override this.DescribeTo(description) =
+            description.AppendText($"String should match the pattern {pattern}") |> ignore
+
+        override this.Matches(item:obj) = Regex.IsMatch(item :?> string, pattern)
+
+        static member matchPattern(pattern:string) = PatternMatcher(pattern)
+
+    let inline matchPattern pattern = PatternMatcher.matchPattern pattern
 
 let pollToMedia (poll:TestTweet.Poll) =
     let options = 
@@ -70,7 +86,7 @@ let toMockTweet(root:TestTweet.Root) =
     let card = toMedia urlCardToMedia tweet.UrlCard
     let gif = toMedia gifAltTextToMedia tweet.GifAltText
     let video = toMedia videoAttributionToMedia tweet.VideoAttribution
-
+    
     let images = tweet.ImageAltTexts |> Array.map (Image << tryNonBlankString) |> Array.toList
         
     MockTweet(
@@ -85,11 +101,18 @@ let toMockTweet(root:TestTweet.Root) =
         images @ video @ gif @ poll @ card
     )
 
+open Matchers
+
 let fetchTweet filename = 
     let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
     TestTweet.Load(directory + filename)
 
 let inline noTest () = failwith<unit> "Test has not been implement as of yet"
+let inline replacementTest filepath text replacement =
+    let mockTweet = toMockTweet (fetchTweet filepath)
+    let speakText = mockTweet.ToSpeakText()
+    speakText |> should haveSubstring replacement
+    speakText |> should not' (haveSubstring text)
 
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
@@ -109,8 +132,14 @@ type ``test tweets are valid examples``() =
     [<InlineData("emojis/loudlyCryingWithSkull.json")>]
     
     [<InlineData("numbers/negativeNumber.json")>]
-    [<InlineData("numbers/phoneNumber.json")>]
+    [<InlineData("numbers/phoneNumberOnePlus.json")>]
     [<InlineData("numbers/decimalPercentage.json")>]
+    [<InlineData("numbers/numberWithComma.json")>]
+    [<InlineData("numbers/temperatures.json")>]
+    [<InlineData("numbers/height.json")>]
+    [<InlineData("numbers/phoneNumberDots.json")>]
+    [<InlineData("numbers/second.json")>]
+    [<InlineData("numbers/year.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]
@@ -133,6 +162,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("urlCard.json")>]
     [<InlineData("videoAttribution.json")>]
     [<InlineData("multipleTcoLinks.json")>]
+    [<InlineData("noCardUrlDisplay.json")>]
 
     member __.``examples are valid``(relativeFilepath:string) =
         let testTweet = fetchTweet(relativeFilepath)
@@ -180,16 +210,19 @@ type ``tweets from protected accounts are properly parsed``() =
 
 type ``poll tweets are properly parsed``() =
 
-    [<Fact>]
-    member __.``Finished polls should indicate that they are finished``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("poll.json")>]
+    member __.``Finished polls should indicate that they are finished``(filepath) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText().ToLower()
+        speakText |> should haveSubstring "final results"
 
     [<Fact>]
     member __.``Unfinished polls should indicate the time they have left``() =
        noTest ()
 
     [<Fact>]
-    member __.``Polls should display the options and number of votes``() =
+    member __.``Finished should display the options and percentages of votes``() =
         noTest ()
 
 type ``image tweets are properly parsed``() =
@@ -201,18 +234,12 @@ type ``image tweets are properly parsed``() =
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring " image "
 
-    //TODO: fix test to account for the processing of the speak text
-    //For example, alt text including the number "32" would fail when it shouldn't because the text is changed to "thirty two"
     [<Theory>]
     [<InlineData("imagesAltText.json")>]
     member __.``images with alt text show the alt text``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        Seq.iter (fun altText -> speakText |> should haveSubstring altText) testTweet.Tweet.ImageAltTexts
-
-    [<Fact>]
-    member __.``image alt text is shown in the correct order``() =
-        noTest ()
+        Seq.iter (fun altText -> speakText |> should haveSubstring (processSpeakText altText)) testTweet.Tweet.ImageAltTexts
 
 type ``video tweets are properly parsed`` () =
 
@@ -265,7 +292,7 @@ type ``quoted tweets are properly parsed``() =
 type ``numbers are properly converted to words``() =
     
     [<Theory>]
-    [<InlineData("numbers/phoneNumber.json", "912-612-4665", "nine one two....six one two....four six six five")>]
+    [<InlineData("numbers/phoneNumberOnePlus.json", "+1 912-612-4665", "nine one two. six one two. four six six five")>]
     member __.``phone numbers are converted to words properly``(filepath:string, number:string, expected:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
@@ -275,35 +302,28 @@ type ``numbers are properly converted to words``() =
     [<Theory>]
     [<InlineData("numbers/negativeNumber.json")>]
     member __.``numbers under zero include "minus"``(filepath:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring (" minus ")
-        speakText |> should not' (haveSubstring "-")
+        replacementTest filepath "-" " minus "
 
     [<Theory>]
     [<InlineData("numbers/decimalPercentage.json", "67.94", "sixty seven point nine four")>]
     [<InlineData("numbers/decimalPercentage.json", "58.41", "fifty eight point four one")>]
     member __.``decimal numbers (e.g. 3.45) are converted to the form "three point four five"``(filepath:string, decimal:string, expected:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring expected
-        speakText |> should not' (haveSubstring decimal)
+        replacementTest filepath decimal expected
 
     [<Theory>]
     [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
     member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring expected
-        speakText |> should not' (haveSubstring number)
+        replacementTest filepath number expected
 
-    [<Fact>]
-    member __.``ordinal numbers (e.g. 2nd) are converted to word form``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/second.json", "2nd", "second")>]
+    member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
+        replacementTest filepath ordinal expected
 
-    [<Fact>]
-    member __.``obvious years are properly converted to words``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/year.json", "2008", "two thousand eight")>]
+    member __.``obvious years are properly converted to words``(filepath:string, year:string, expected:string) =
+        replacementTest filepath year expected
 
     [<Fact>]
     member __.``number ranges are converted to words``() =
@@ -366,18 +386,14 @@ type ``punctuation is properly converted to words``() =
     [<Theory>]
     [<InlineData("punctuation/hashtag.json", "#", " hashtag ")>]
     [<InlineData("punctuation/underscore.json", "_", " underscore ")>]
-    [<InlineData("punctuation/percent.json", "%", " percent ")>]
-    [<InlineData("punctuation/mathEquation.json", "=", " equals ")>]
-    [<InlineData("punctuation/mathEquation.json", "^", " caret ")>]
+    [<InlineData("punctuation/percent.json", "%", "percent")>]
+    [<InlineData("punctuation/mathEquation.json", "=", "equals")>]
+    [<InlineData("punctuation/mathEquation.json", "^", "caret")>]
     member __.``symbols that should be replaced are properly replaced``(filepath:string, symbol:string, replacement:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring replacement
         speakText |> should not' (haveSubstring symbol)
-
-    [<Fact>]
-    member __.``ellipses properly indicate a long pause``() =
-        noTest ()
 
     [<Fact>]
     member __.``periods properly indicate a long pause``() =
