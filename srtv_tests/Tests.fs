@@ -200,16 +200,19 @@ type ``tweets from protected accounts are properly parsed``() =
 
 type ``poll tweets are properly parsed``() =
 
-    [<Fact>]
-    member __.``Finished polls should indicate that they are finished``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("poll.json")>]
+    member __.``Finished polls should indicate that they are finished``(filepath) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText().ToLower()
+        speakText |> should haveSubstring "final results"
 
     [<Fact>]
     member __.``Unfinished polls should indicate the time they have left``() =
        noTest ()
 
     [<Fact>]
-    member __.``Polls should display the options and number of votes``() =
+    member __.``Finished should display the options and percentages of votes``() =
         noTest ()
 
 type ``image tweets are properly parsed``() =
@@ -317,13 +320,21 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstring expected
         speakText |> should not' (haveSubstring number)
 
-    [<Fact>]
-    member __.``ordinal numbers (e.g. 2nd) are converted to word form``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/second.json", "2nd", "second")>]
+    member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring ordinal)
 
-    [<Fact>]
-    member __.``obvious years are properly converted to words``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/year.json", "2008", "two thousand eight")>]
+    member __.``obvious years are properly converted to words``(filepath:string, year:string, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet filepath)
+        let speakText = mockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
+        speakText |> should not' (haveSubstring year)
 
     [<Fact>]
     member __.``number ranges are converted to words``() =
