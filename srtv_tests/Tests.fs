@@ -45,9 +45,22 @@ type SchemaMatcher(sample:string) =
 
     static member matchSchema(value:JsonValue) = SchemaMatcher <| value.ToString()
 
-let matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
-let matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
-let inline matchPattern (pattern:string) (input:string) = Regex.IsMatch(input, pattern) |> equal
+let inline matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
+let inline matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
+
+type PatternMatcher(pattern:string) =
+    inherit Matcher<obj>()
+
+    let regex = Regex(pattern)
+
+    override this.DescribeTo(description) =
+        description.AppendText($"String should match the pattern {pattern}") |> ignore
+
+    override this.Matches(item:obj) = Regex.IsMatch(item :?> string, pattern)
+
+    static member matchPattern(pattern:string) = PatternMatcher(pattern)
+
+let inline matchPattern pattern = PatternMatcher.matchPattern pattern
 
 let pollToMedia (poll:TestTweet.Poll) =
     let options = 
