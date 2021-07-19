@@ -27,41 +27,43 @@ type TestTweet = JsonProvider<samplesFile, SampleIsList=true, InferTypesFromValu
 type SchemaTemplate = JsonProvider<templateFile>
 type TestTweetSchema = JsonProvider<schemaFile>
 
-type SchemaMatcher(sample:string) = 
-    inherit Matcher<obj>()
+module Matchers = 
 
-    let schema = JSchema.Parse <| sample
-    let mutable messages = List() :> IList<string>
+    type SchemaMatcher(sample:string) = 
+        inherit Matcher<obj>()
 
-    override this.DescribeTo(description) =
-        description.AppendText("JSON should validate against this schema") |> ignore
+        let schema = JSchema.Parse <| sample
+        let mutable messages = List() :> IList<string>
 
-    override this.Matches(item:obj) =
-        let token = item :?> JsonValue
-        let token = JToken.Parse <| token.ToString()
-        token.IsValid(schema, &messages)
+        override this.DescribeTo(description) =
+            description.AppendText("JSON should validate against this schema") |> ignore
 
-    override this.DescribeMismatch(item, mismatchDescription) =
-        Seq.iter (fun err -> mismatchDescription.AppendText(err + "\n\n") |> ignore) messages
+        override this.Matches(item:obj) =
+            let token = item :?> JsonValue
+            let token = JToken.Parse <| token.ToString()
+            token.IsValid(schema, &messages)
 
-    static member matchSchema(value:JsonValue) = SchemaMatcher <| value.ToString()
+        override this.DescribeMismatch(item, mismatchDescription) =
+            Seq.iter (fun err -> mismatchDescription.AppendText(err + "\n\n") |> ignore) messages
 
-let inline matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
-let inline matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
+        static member matchSchema(value:JsonValue) = SchemaMatcher <| value.ToString()
 
-type PatternMatcher(pattern:string) =
-    inherit Matcher<obj>()
+    let inline matchSchema (schema:TestTweetSchema.Root) = SchemaMatcher.matchSchema(schema.JsonValue)
+    let inline matchTemplate (template:SchemaTemplate.Root) = SchemaMatcher.matchSchema(template.JsonValue)
 
-    let regex = Regex(pattern)
+    type PatternMatcher(pattern:string) =
+        inherit Matcher<obj>()
 
-    override this.DescribeTo(description) =
-        description.AppendText($"String should match the pattern {pattern}") |> ignore
+        let regex = Regex(pattern)
 
-    override this.Matches(item:obj) = Regex.IsMatch(item :?> string, pattern)
+        override this.DescribeTo(description) =
+            description.AppendText($"String should match the pattern {pattern}") |> ignore
 
-    static member matchPattern(pattern:string) = PatternMatcher(pattern)
+        override this.Matches(item:obj) = Regex.IsMatch(item :?> string, pattern)
 
-let inline matchPattern pattern = PatternMatcher.matchPattern pattern
+        static member matchPattern(pattern:string) = PatternMatcher(pattern)
+
+    let inline matchPattern pattern = PatternMatcher.matchPattern pattern
 
 let pollToMedia (poll:TestTweet.Poll) =
     let options = 
@@ -98,6 +100,8 @@ let toMockTweet(root:TestTweet.Root) =
         Array.toList tweet.RepliedTo,
         images @ video @ gif @ poll @ card
     )
+
+open Matchers
 
 let fetchTweet filename = 
     let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
