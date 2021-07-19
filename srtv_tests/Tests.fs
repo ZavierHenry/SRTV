@@ -7,6 +7,7 @@ open FsUnit.Xunit
 
 open SRTV.TweetMedia
 open SRTV.Utilities
+open SRTV.Substitution
 
 open FSharp.Data
 
@@ -83,7 +84,7 @@ let toMockTweet(root:TestTweet.Root) =
     let card = toMedia urlCardToMedia tweet.UrlCard
     let gif = toMedia gifAltTextToMedia tweet.GifAltText
     let video = toMedia videoAttributionToMedia tweet.VideoAttribution
-
+    
     let images = tweet.ImageAltTexts |> Array.map (Image << tryNonBlankString) |> Array.toList
         
     MockTweet(
@@ -108,8 +109,6 @@ let inline replacementTest filepath text replacement =
     let speakText = mockTweet.ToSpeakText()
     speakText |> should haveSubstring replacement
     speakText |> should not' (haveSubstring text)
-
-
 
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
@@ -231,18 +230,12 @@ type ``image tweets are properly parsed``() =
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring " image "
 
-    //TODO: fix test to account for the processing of the speak text
-    //For example, alt text including the number "32" would fail when it shouldn't because the text is changed to "thirty two"
     [<Theory>]
     [<InlineData("imagesAltText.json")>]
     member __.``images with alt text show the alt text``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        Seq.iter (fun altText -> speakText |> should haveSubstring altText) testTweet.Tweet.ImageAltTexts
-
-    [<Fact>]
-    member __.``image alt text is shown in the correct order``() =
-        noTest ()
+        Seq.iter (fun altText -> speakText |> should haveSubstring (processSpeakText altText)) testTweet.Tweet.ImageAltTexts
 
 type ``video tweets are properly parsed`` () =
 
@@ -389,18 +382,14 @@ type ``punctuation is properly converted to words``() =
     [<Theory>]
     [<InlineData("punctuation/hashtag.json", "#", " hashtag ")>]
     [<InlineData("punctuation/underscore.json", "_", " underscore ")>]
-    [<InlineData("punctuation/percent.json", "%", " percent ")>]
-    [<InlineData("punctuation/mathEquation.json", "=", " equals ")>]
-    [<InlineData("punctuation/mathEquation.json", "^", " caret ")>]
+    [<InlineData("punctuation/percent.json", "%", "percent")>]
+    [<InlineData("punctuation/mathEquation.json", "=", "equals")>]
+    [<InlineData("punctuation/mathEquation.json", "^", "caret")>]
     member __.``symbols that should be replaced are properly replaced``(filepath:string, symbol:string, replacement:string) =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should haveSubstring replacement
         speakText |> should not' (haveSubstring symbol)
-
-    [<Fact>]
-    member __.``ellipses properly indicate a long pause``() =
-        noTest ()
 
     [<Fact>]
     member __.``periods properly indicate a long pause``() =
