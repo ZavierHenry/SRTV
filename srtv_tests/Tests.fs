@@ -128,6 +128,8 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/temperatures.json")>]
     [<InlineData("numbers/height.json")>]
     [<InlineData("numbers/phoneNumberDots.json")>]
+    [<InlineData("numbers/second.json")>]
+    [<InlineData("numbers/year.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]
@@ -150,6 +152,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("urlCard.json")>]
     [<InlineData("videoAttribution.json")>]
     [<InlineData("multipleTcoLinks.json")>]
+    [<InlineData("noCardUrlDisplay.json")>]
 
     member __.``examples are valid``(relativeFilepath:string) =
         let testTweet = fetchTweet(relativeFilepath)

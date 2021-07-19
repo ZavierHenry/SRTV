@@ -1,0 +1,14 @@
+﻿{
+  "label": "Tweet that has the ordinal number 2nd",
+  "tweet": {
+    "id": "1415540357492740097",
+    "text": "2nd dose of Pfizer vaccine done💪🏻",
+    "dateCreated": "2021-07-15T05:14:55.000Z",
+    "author": {
+      "verified": false,
+      "screenName": "BaguioBuddy",
+      "protected": false,
+      "name": "𝕪𝕠𝕦𝕣 𝕭𝖆𝖌𝖚𝖎𝖔 𝕭𝖚𝖉𝖉𝖞🌲"
+    }
+  }
+}
