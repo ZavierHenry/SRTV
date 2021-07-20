@@ -6,16 +6,11 @@ open SRTV.TweetMedia
 open SRTV.TweetAudio
 open SRTV.TweetImage
 
+open SRTV.TwitterClient
+
 open System.IO
-open System.Web
 
-open SRTV.Utilities
 
-open FSharp.Data
-open FSharp.Data.HtmlActivePatterns
-
-open PuppeteerSharp
-open PuppeteerSharp.Media
 
 let exampleMockTweet =
     MockTweet(
@@ -49,12 +44,16 @@ let toImage'(output:string) =
         return File.WriteAllBytes(output, bytes)
     }
     
-    
-
 [<EntryPoint>]
 let main argv =
-    match argv with
-    | [| imagefile; outputfile |]   -> synthesize imagefile outputfile |> Async.RunSynchronously
-    | [| outfile |]                 -> toImage' outfile |> Async.RunSynchronously
-    | _                             -> speak ()
+    let client = Client()
+
+    let startDate = 
+        match argv with
+        | [| |]     -> DateTime.UtcNow.AddMonths(-1)
+        | argv      -> DateTime.Parse <| Array.head argv
+
+    let mentions = client.GetMentions(startDate)
     0
+
+    
