@@ -6,9 +6,10 @@ open SRTV.TweetMedia
 open SRTV.TweetAudio
 open SRTV.TweetImage
 
+open SRTV.TwitterClient
+
 open System.IO
 
-open System.Threading
 
 
 let exampleMockTweet =
@@ -42,47 +43,17 @@ let toImage'(output:string) =
         let! bytes = toImage exampleMockTweet profileUrl source
         return File.WriteAllBytes(output, bytes)
     }
-
-type Listener(source:CancellationTokenSource, ?counter:int, ?startTime:DateTime) =
-    
-    let counter = Option.defaultValue 0 counter
-    let startTime = 
-        Option.defaultValue ( DateTime(2021, 7, 19).ToUniversalTime() ) startTime
-
-    member __.Token = source.Token
-    member __.Counter = counter
-    member __.Date = startTime.ToLongTimeString()
-    member __.Increment () = Listener (source, counter + 1, DateTime.UtcNow)
-    member __.Cancel () =
-        match counter with
-        | 10 -> source.Cancel ()
-        | _ -> ()
-
-  
-let rec loop (listener:Listener) = async {
-    let interval = 1500
-    do! Async.Sleep(interval)
-    printfn $"Counter = {listener.Counter}, Date = {listener.Date}"
-    listener.Cancel()
-    return! loop (listener.Increment ())
-}
-
-let listen source = async {
-    try
-        let listener = Listener(source)
-        do! loop listener
-    finally
-        printfn "Program is finished..."
-}
     
 [<EntryPoint>]
 let main argv =
-    match argv with
-    | [| imagefile; outputfile |]   -> printfn "Two args"; synthesize imagefile outputfile |> Async.RunSynchronously
-    | [| outfile |]                 -> printfn "One arg"; toImage' outfile |> Async.RunSynchronously
-    | _                             -> 
-        printfn "No args"
-        use cancellation = new CancellationTokenSource() 
-        Async.Start( listen cancellation, cancellation.Token)
-        Thread.Sleep(60 * 1000)
+    let client = Client()
+
+    let startDate = 
+        match argv with
+        | [| |]     -> DateTime.UtcNow.AddMonths(-1)
+        | argv      -> DateTime.Parse <| Array.head argv
+
+    let mentions = client.GetMentions(startDate)
     0
+
+    
