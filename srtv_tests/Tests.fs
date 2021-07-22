@@ -241,7 +241,7 @@ type ``poll tweets are properly parsed``() =
         speakText |> should haveSubstring expected
 
     [<Fact>]
-    member __.``Finished should display the options and percentages of votes``() =
+    member __.``Finished polls should display the options and percentages of votes``() =
         noTest ()
 
     [<Fact>]
