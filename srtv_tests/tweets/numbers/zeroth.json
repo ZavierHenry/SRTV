@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with the 0th ordinal number",
+  "tweet": {
+    "text": "This is a really cool computation, but I have no idea how to interpret that 0th piece of the homology for 𝔾ₘ https://t.co/MGu3yViVXT",
+    "dateCreated": "2021-07-18T01:59:13.000Z",
+    "id": "1416578270296948738",
+    "author": {
+      "screenName": "dzackgarza",
+      "name": "D. Zack Garza ( ℂ̲→Ω⁰→Ω¹→Ω²→ ⋯ )",
+      "verified": false,
+      "protected": false
+    },
+    "imageAltTexts": [ "" ]
+  }
+}
