@@ -467,11 +467,10 @@ type ``punctuation is properly converted to words``() =
     [<InlineData("punctuation/percent.json", "%", "percent")>]
     [<InlineData("punctuation/mathEquation.json", "=", "equals")>]
     [<InlineData("punctuation/mathEquation.json", "^", "caret")>]
+    [<InlineData("punctuation/atSymbol.json", "@", "at")>]
     member __.``symbols that should be replaced are properly replaced``(filepath:string, symbol:string, replacement:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should haveSubstring replacement
-        speakText |> should not' (haveSubstring symbol)
+        let speakText = fetchSpeakText filepath
+        speakText |> should haveSubstitution (symbol, replacement)
 
     [<Fact>]
     member __.``periods properly indicate a long pause``() =
@@ -485,13 +484,6 @@ type ``punctuation is properly converted to words``() =
         let mockTweet = toMockTweet (fetchTweet filepath)
         let speakText = mockTweet.ToSpeakText()
         speakText |> should not' (haveSubstring "t.co/")
-
-    [<Theory>]
-    [<InlineData("punctuation/atSymbol.json")>]
-    member __.``at symbol is replaced with the word "at" ``(filepath:string) =
-        let mockTweet = toMockTweet (fetchTweet filepath)
-        let speakText = mockTweet.ToSpeakText()
-        speakText |> should not' (haveSubstring "@")
 
     [<Fact>]
     member __.``symbols that should be removed are properly removed``() =
