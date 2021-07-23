@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet with a grimacing face emoji",
+  "tweet": {
+    "text": "dropped my saliva off for covid testing - won’t have to do that again for a few days - and visited the convenience store here at the MPC. bought what I’m hoping is a churro-type pastry, dried mango, a cup of ice and more coffee 😬",
+    "id": "1418392690123689984",
+    "dateCreated": "2021-07-23T02:09:04.000Z",
+    "author": {
+      "protected": false,
+      "name": "shalise manza young",
+      "screenName": "shalisemyoung",
+      "verified": true
+    },
+    "repliedTo": [ "shalisemyoung" ]
+  }
+}

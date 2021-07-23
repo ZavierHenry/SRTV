@@ -1,0 +1,14 @@
+﻿{
+  "label": "Tweet with the ordinal third in it",
+  "tweet": {
+    "dateCreated": "2021-07-23T02:56:56.000Z",
+    "id": "1418404736445857796",
+    "text": "Hope Texas is happy when they’re battling Mizzou every year for 3rd place in the SEC Northwest",
+    "author": {
+      "verified": true,
+      "name": "RedditCFB",
+      "screenName": "RedditCFB",
+      "protected": false
+    }
+  }
+}

@@ -1,0 +1,14 @@
+﻿{
+  "label": "Tweet with a star-struck emoji and a rocket emoji",
+  "tweet": {
+    "id": "1418420605490286592",
+    "text": "Going to onboard 7 more scholars 🤩🚀",
+    "dateCreated": "2021-07-23T03:59:59.000Z",
+    "author": {
+      "screenName": "brycent_",
+      "protected": false,
+      "verified": false,
+      "name": "bryce"
+    }
+  }
+}

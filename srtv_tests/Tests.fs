@@ -107,7 +107,7 @@ let fetchTweet filename =
     let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
     TestTweet.Load(directory + filename)
 
-let inline noTest () = failwith<unit> "Test has not been implement as of yet"
+let inline noTest () = failwith<unit> "Test has not been implemented as of yet"
 let inline replacementTest filepath text replacement =
     let mockTweet = toMockTweet (fetchTweet filepath)
     let speakText = mockTweet.ToSpeakText()
@@ -130,6 +130,8 @@ type ``test tweets are valid examples``() =
     [<InlineData("emojis/fire.json")>]
     [<InlineData("emojis/smilies.json")>]
     [<InlineData("emojis/loudlyCryingWithSkull.json")>]
+    [<InlineData("emojis/grimacingFace.json")>]
+    [<InlineData("emojis/starstruckRocket.json")>]
     
     [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
@@ -143,6 +145,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/centimeters.json")>]
     [<InlineData("numbers/first.json")>]
     [<InlineData("numbers/feet.json")>]
+    [<InlineData("numbers/third.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]
