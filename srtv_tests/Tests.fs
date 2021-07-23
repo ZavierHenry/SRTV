@@ -140,6 +140,9 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/phoneNumberDots.json")>]
     [<InlineData("numbers/second.json")>]
     [<InlineData("numbers/year.json")>]
+    [<InlineData("numbers/centimeters.json")>]
+    [<InlineData("numbers/first.json")>]
+    [<InlineData("numbers/feet.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]
@@ -148,6 +151,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("punctuation/percent.json")>]
     [<InlineData("punctuation/underscore.json")>]
     [<InlineData("punctuation/atSymbol.json")>]
+    [<InlineData("punctuation/mathEquation.json")>]
 
     [<InlineData("retweet.json")>]
     [<InlineData("basicPrivateTweet.json")>]
