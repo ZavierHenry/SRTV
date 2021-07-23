@@ -140,6 +140,9 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/phoneNumberDots.json")>]
     [<InlineData("numbers/second.json")>]
     [<InlineData("numbers/year.json")>]
+    [<InlineData("numbers/centimeters.json")>]
+    [<InlineData("numbers/first.json")>]
+    [<InlineData("numbers/feet.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]
@@ -148,6 +151,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("punctuation/percent.json")>]
     [<InlineData("punctuation/underscore.json")>]
     [<InlineData("punctuation/atSymbol.json")>]
+    [<InlineData("punctuation/mathEquation.json")>]
 
     [<InlineData("retweet.json")>]
     [<InlineData("basicPrivateTweet.json")>]
@@ -217,13 +221,55 @@ type ``poll tweets are properly parsed``() =
         let speakText = mockTweet.ToSpeakText().ToLower()
         speakText |> should haveSubstring "final results"
 
-    [<Fact>]
-    member __.``Unfinished polls should indicate the time they have left``() =
-       noTest ()
+    [<Theory>]
+    [<InlineData(420, "7 minutes left")>]
+    [<InlineData(15, "15 seconds left")>]
+    [<InlineData(10800, "3 hours left")>]
+    [<InlineData(432000, "5 days left")>]
+    member __.``Unfinished polls should indicate the time they have left``(time:int, expected:string) =
+        let mockTweet = toMockTweet (fetchTweet "poll.json")
+        let date = DateTime.UtcNow
+        let newMockTweet = 
+            MockTweet(
+                mockTweet.Text, 
+                mockTweet.ScreenName, 
+                mockTweet.Name, 
+                date.AddSeconds(float time), 
+                mockTweet.IsVerified, 
+                mockTweet.IsProtected, 
+                mockTweet.Retweeter, 
+                mockTweet.RepliedTo, 
+                mockTweet.Media
+            )
+        let speakText = newMockTweet.ToSpeakText()
+        speakText |> should haveSubstring expected
 
     [<Fact>]
-    member __.``Finished should display the options and percentages of votes``() =
+    member __.``Finished polls should display the options and percentages of votes``() =
         noTest ()
+
+    [<Fact>]
+    member __.``Polls should output the list of options``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``Unfinished polls should not have the words "final results"``() =
+        let mockTweet = toMockTweet (fetchTweet "poll.json")
+        let date = DateTime.UtcNow
+        let newMockTweet = 
+            MockTweet(
+                mockTweet.Text, 
+                mockTweet.ScreenName, 
+                mockTweet.Name, 
+                date.AddSeconds(5.0), 
+                mockTweet.IsVerified, 
+                mockTweet.IsProtected, 
+                mockTweet.Retweeter, 
+                mockTweet.RepliedTo, 
+                mockTweet.Media
+            )
+        let speakText = newMockTweet.ToSpeakText()
+        speakText |> should not' (haveSubstring "final results")
 
 type ``image tweets are properly parsed``() =
     

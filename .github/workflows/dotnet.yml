@@ -25,3 +25,18 @@ jobs:
       run: dotnet build --no-restore
     - name: Test for valid examples
       run: dotnet test --no-build --verbosity normal --filter "FullyQualifiedName~schema%20is%20valid|FullyQualifiedName~examples%20are%20valid"
+  
+  examples:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'true'
+    - name: Run example validation script
+      run: "./.github/scripts/example_validation.sh"
+      shell: bash
+
+    
+
