@@ -144,6 +144,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("emojis/grimacingFace.json")>]
     [<InlineData("emojis/starstruckRocket.json")>]
     [<InlineData("emojis/rollingOnTheFloorLaughing.json")>]
+    [<InlineData("emojis/huggingFace.json")>]
     
     [<InlineData("numbers/negativeNumber.json")>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
@@ -426,6 +427,7 @@ type ``emojis are properly converted to words``() =
     [<InlineData("emojis/starstruckRocket.json", "rocket")>]
     [<InlineData("emojis/rollingOnTheFloorLaughing.json", "rolling on the floor laughing")>]
     [<InlineData("emojis/grimacingFace.json", "grimacing face")>]
+    [<InlineData("emojis/huggingFace.json", "hugging face")>]
     member __.``Emojis should have correct speak text``(filepath:string, name:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstring name
