@@ -187,6 +187,8 @@ type ``test tweets are valid examples``() =
     [<InlineData("noCardUrlDisplay.json")>]
     [<InlineData("twoReplyingTo.json")>]
     [<InlineData("threeReplyingTo.json")>]
+    [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
 
     member __.``examples are valid``(relativeFilepath:string) =
         let testTweet = fetchTweet(relativeFilepath)
