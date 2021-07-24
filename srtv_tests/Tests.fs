@@ -143,6 +143,7 @@ type ``test tweets are valid examples``() =
     [<InlineData("numbers/centimeters.json")>]
     [<InlineData("numbers/first.json")>]
     [<InlineData("numbers/feet.json")>]
+    [<InlineData("numbers/zeroth.json")>]
 
     [<InlineData("numbers/dates/mddyy.json")>]
     [<InlineData("numbers/dates/jan6.json")>]
