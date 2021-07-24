@@ -10,6 +10,8 @@ module TweetMedia =
     open Utilities
     open Utilities.DateTimePatterns
 
+    open Humanizer
+
     type SpeakMode = | Timeline | Expanded
 
     type Media =
@@ -25,27 +27,27 @@ module TweetMedia =
         | BeforeThisYear now _ as d -> d.ToString("dd MMM yy")
         | BeforeThisWeek now _ as d -> d.ToString("dd MMM")
         | DaysAgo now days when days > 0 ->
-            $"""%d{days} %s{pluralizePrefix "day" days} ago"""
+            "day".ToQuantity(days) + " ago"
         | MinutesAgo now min when min > 0 ->
-            $"""%d{min} %s{pluralizePrefix "minute" min} ago"""
+            "minute".ToQuantity(min) + " ago"
         | SecondsAgo now sec ->
-            $"""%d{sec} %s{pluralizePrefix "second" sec} ago"""
+            "second".ToQuantity(sec) + " ago"
         | datetime -> datetime.ToLongTimeString()
     
     let endDateTimeToText (endDate: DateTime) =
         let now = DateTime.UtcNow
         match endDate.ToUniversalTime() with
         | SecondsFromNow now sec when sec < 60 -> 
-            $"""%d{sec} %s{pluralizePrefix "second" sec} left"""
+            "second".ToQuantity(sec) + " left"
         | MinutesFromNow now min when min < 60 -> 
-            $"""%d{min} %s{pluralizePrefix "minute" min} left"""
+            "minute".ToQuantity(min) + " left"
         | HoursFromNow now hrs -> 
-            $"""%d{hrs} %s{pluralizePrefix "hour" hrs} left"""
+            "hour".ToQuantity(hrs) + " left"
         | DaysFromNow now days ->
-            $"""%d{days} day%s{pluralizePrefix "day" days} left"""
+            "day".ToQuantity(days) + " left"
         | date               -> 
             let days = int (date-now).TotalDays
-            $"""%d{days} day%s{pluralizePrefix "day" days} left"""
+            "day".ToQuantity(days) + " left"
 
     let mediaToText = function
         | Image alt         -> Option.defaultValue "image" alt
@@ -63,14 +65,14 @@ module TweetMedia =
             let choices = 
                 List.map fst options
                 |> String.concat " " 
-            $"""%s{choices} %d{votes} %s{pluralizePrefix "vote" votes} %s{endDateText}"""
+            $"""%s{choices} %s{"vote".ToQuantity(votes)} %s{endDateText}"""
         | Poll (options, _) ->
             let total = List.sumBy (fun (_, votes) -> votes) options
             let choices =
                 options
                 |> List.map (fun (choice, votes) -> $"%s{choice} %.1f{float votes / float total * 100.0}%%")
                 |> String.concat " "
-            $"""%s{choices} %d{total} %s{pluralizePrefix "vote" total} Final results"""
+            $"""%s{choices} %s{"vote".ToQuantity(total)} final results"""
 
     let repliesToString = function
         | []                -> ""
