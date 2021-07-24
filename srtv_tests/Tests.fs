@@ -16,6 +16,7 @@ open NHamcrest.Core
 open Newtonsoft.Json.Schema
 open Newtonsoft.Json.Linq
 
+open System.IO
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
@@ -134,64 +135,73 @@ type ``test json schema is valid``() =
         schema |> should matchTemplate template
 
 type ``test tweets are valid examples``() =
-    
+
+    static member fetchExamples () =
+        let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
+        Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
+        |> Seq.map (fun x -> x :> obj)
+        |> Seq.map Array.singleton
+        
     [<Theory>]
-    [<InlineData("emojis/seeNoEvilMonkey.json")>]
-    [<InlineData("emojis/faceScreamingInFear.json")>]
-    [<InlineData("emojis/fire.json")>]
-    [<InlineData("emojis/smilies.json")>]
-    [<InlineData("emojis/loudlyCryingWithSkull.json")>]
-    [<InlineData("emojis/grimacingFace.json")>]
-    [<InlineData("emojis/starstruckRocket.json")>]
-    [<InlineData("emojis/rollingOnTheFloorLaughing.json")>]
-    [<InlineData("emojis/huggingFace.json")>]
+    [<MemberData(nameof(``test tweets are valid examples``.fetchExamples))>]
+
+
+    //[<InlineData("emojis/seeNoEvilMonkey.json")>]
+    //[<InlineData("emojis/faceScreamingInFear.json")>]
+    //[<InlineData("emojis/fire.json")>]
+    //[<InlineData("emojis/smilies.json")>]
+    //[<InlineData("emojis/loudlyCryingWithSkull.json")>]
+    //[<InlineData("emojis/grimacingFace.json")>]
+    //[<InlineData("emojis/starstruckRocket.json")>]
+    //[<InlineData("emojis/rollingOnTheFloorLaughing.json")>]
+    //[<InlineData("emojis/huggingFace.json")>]
     
-    [<InlineData("numbers/negativeNumber.json")>]
-    [<InlineData("numbers/phoneNumberOnePlus.json")>]
-    [<InlineData("numbers/decimalPercentage.json")>]
-    [<InlineData("numbers/numberWithComma.json")>]
-    [<InlineData("numbers/temperatures.json")>]
-    [<InlineData("numbers/height.json")>]
-    [<InlineData("numbers/phoneNumberDots.json")>]
-    [<InlineData("numbers/second.json")>]
-    [<InlineData("numbers/year.json")>]
-    [<InlineData("numbers/centimeters.json")>]
-    [<InlineData("numbers/first.json")>]
-    [<InlineData("numbers/feet.json")>]
+    //[<InlineData("numbers/negativeNumber.json")>]
+    //[<InlineData("numbers/phoneNumberOnePlus.json")>]
+    //[<InlineData("numbers/decimalPercentage.json")>]
+    //[<InlineData("numbers/numberWithComma.json")>]
+    //[<InlineData("numbers/temperatures.json")>]
+    //[<InlineData("numbers/height.json")>]
+    //[<InlineData("numbers/phoneNumberDots.json")>]
+    //[<InlineData("numbers/second.json")>]
+    //[<InlineData("numbers/year.json")>]
+    //[<InlineData("numbers/centimeters.json")>]
+    //[<InlineData("numbers/first.json")>]
+    //[<InlineData("numbers/feet.json")>]
 
-    [<InlineData("numbers/third.json")>]
-    [<InlineData("numbers/zeroth.json")>]
+    //[<InlineData("numbers/third.json")>]
+    //[<InlineData("numbers/zeroth.json")>]
 
-    [<InlineData("numbers/dates/mddyy.json")>]
-    [<InlineData("numbers/dates/jan6.json")>]
+    //[<InlineData("numbers/dates/mddyy.json")>]
+    //[<InlineData("numbers/dates/jan6.json")>]
     
-    [<InlineData("punctuation/hashtag.json")>]
-    [<InlineData("punctuation/percent.json")>]
-    [<InlineData("punctuation/underscore.json")>]
-    [<InlineData("punctuation/atSymbol.json")>]
-    [<InlineData("punctuation/mathEquation.json")>]
+    //[<InlineData("punctuation/hashtag.json")>]
+    //[<InlineData("punctuation/percent.json")>]
+    //[<InlineData("punctuation/underscore.json")>]
+    //[<InlineData("punctuation/atSymbol.json")>]
+    //[<InlineData("punctuation/mathEquation.json")>]
 
-    [<InlineData("retweet.json")>]
-    [<InlineData("basicPrivateTweet.json")>]
-    [<InlineData("basicReply.json")>]
-    [<InlineData("basicVerifiedTweet.json")>]
-    [<InlineData("gifNoAltText.json")>]
-    [<InlineData("imagesAltText.json")>]
-    [<InlineData("imageTweetNoAltText.json")>]
-    [<InlineData("poll.json")>]
-    [<InlineData("quotedTweet.json")>]
-    [<InlineData("unverifiedTweet.json")>]
-    [<InlineData("urlCard.json")>]
-    [<InlineData("videoAttribution.json")>]
-    [<InlineData("multipleTcoLinks.json")>]
-    [<InlineData("noCardUrlDisplay.json")>]
-    [<InlineData("twoReplyingTo.json")>]
-    [<InlineData("threeReplyingTo.json")>]
-    [<InlineData("fourReplyingTo.json")>]
-    [<InlineData("sevenReplyingTo.json")>]
+    //[<InlineData("retweet.json")>]
+    //[<InlineData("basicPrivateTweet.json")>]
+    //[<InlineData("basicReply.json")>]
+    //[<InlineData("basicVerifiedTweet.json")>]
+    //[<InlineData("gifNoAltText.json")>]
+    //[<InlineData("imagesAltText.json")>]
+    //[<InlineData("imageTweetNoAltText.json")>]
+    //[<InlineData("poll.json")>]
+    //[<InlineData("quotedTweet.json")>]
+    //[<InlineData("unverifiedTweet.json")>]
+    //[<InlineData("urlCard.json")>]
+    //[<InlineData("videoAttribution.json")>]
+    //[<InlineData("multipleTcoLinks.json")>]
+    //[<InlineData("noCardUrlDisplay.json")>]
+    //[<InlineData("twoReplyingTo.json")>]
+    //[<InlineData("threeReplyingTo.json")>]
+    //[<InlineData("fourReplyingTo.json")>]
+    //[<InlineData("sevenReplyingTo.json")>]
 
-    member __.``examples are valid``(relativeFilepath:string) =
-        let testTweet = fetchTweet(relativeFilepath)
+    member __.``examples are valid``(absoluteFilename:string) =
+        let testTweet = TestTweet.Load absoluteFilename
         let schema = TestTweetSchema.GetSample()
         testTweet.JsonValue |> should matchSchema schema
 
