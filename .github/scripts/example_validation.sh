@@ -3,12 +3,13 @@
 # Checks whether all example tweet files have a corresponding
 # validation test in the validation test file
 
-EXAMPLE_TWEET_DIRECTORY="srtv_tests/tweets"
-VALIDATION_TEST_FILE="srtv_tests/Tests.fs"
+EXAMPLE_TWEET_DIRECTORY='srtv_tests/tweets'
+VALIDATION_TEST_FILE='srtv_tests/Tests.fs'
+VALIDATION_TEST_FUNCTION_NAME='``examples are valid``'
 
-EXAMPLES=$(perl -pe 's/\r?\n//;' < $VALIDATION_TEST_FILE | 
+EXAMPLES=$(perl -pe 's/\r?\n/ /;' < $VALIDATION_TEST_FILE | 
 
-    perl -ne 'if ( /\[<Theory>\]((?:\s*\[<InlineData\(".*?\.json"\)>\])*)/ ) { print $1; }' |
+    perl -ne "if ( /\[<Theory>\]((?:\s*\[<InlineData\(\"[^\"]+\.json\"\)>\])*)\s*member _+\.$VALIDATION_TEST_FUNCTION_NAME/ ) { print \$1; }" |
     perl -pe 's/\[<InlineData\("(.*?\.json)"\)>\]/$1/ge' 
 )
 
