@@ -1,0 +1,15 @@
+﻿{
+  "label": "Tweet where the person is replying to four people",
+  "tweet": {
+    "id": "1413636901656055813",
+    "dateCreated": "2021-07-09T23:11:16.000Z",
+    "text": "@Donut_Machete @saltynostrils @adameargle @edsbs Yeah the \"IU\" logo will never change. There is no true mascot., it's just more of a legend. Nobody knows what a Hoosier is, but it's just what we are lmao",
+    "author": {
+      "protected": false,
+      "screenName": "Ghimbob",
+      "verified": false,
+      "name": "Karl Dandleton ✭"
+    },
+    "repliedTo": [ "Donut_Machete", "saltynostrils", "adameargle", "edsbs" ]
+  }
+}

@@ -45,9 +45,13 @@
     <Content Include="tweets\punctuation\percent.json" />
     <Content Include="tweets\punctuation\underscore.json" />
     <Content Include="tweets\retweet.json" />
+    <Content Include="tweets\fourReplyingTo.json" />
     <Content Include="tweets\multipleTcoLinks.json" />
+    <Content Include="tweets\sevenReplyingTo.json" />
     <Content Include="tweets\basicPrivateTweet.json" />
     <Content Include="tweets\basicReply.json" />
+    <Content Include="tweets\twoReplyingTo.json" />
+    <Content Include="tweets\threeReplyingTo.json" />
     <Content Include="tweets\noCardUrlDisplay.json" />
     <Content Include="tweets\basicVerifiedTweet.json" />
     <Content Include="tweets\gifNoAltText.json" />

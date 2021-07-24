@@ -185,6 +185,8 @@ type ``test tweets are valid examples``() =
     [<InlineData("videoAttribution.json")>]
     [<InlineData("multipleTcoLinks.json")>]
     [<InlineData("noCardUrlDisplay.json")>]
+    [<InlineData("twoReplyingTo.json")>]
+    [<InlineData("threeReplyingTo.json")>]
 
     member __.``examples are valid``(relativeFilepath:string) =
         let testTweet = fetchTweet(relativeFilepath)
@@ -324,6 +326,9 @@ type ``replies are properly parsed``() =
     
     [<Theory>]
     [<InlineData("basicReply.json")>]
+    [<InlineData("twoReplyingTo.json")>]
+    [<InlineData("threeReplyingTo.json")>]
+    [<InlineData("fourReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
         noTest ()
 
@@ -339,8 +344,11 @@ type ``quoted tweets are properly parsed``() =
     member __.``quoted tweets should be shown``() =
         noTest ()
 
-    member __.``there should be an indication that a tweet is being quoted``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("quotedTweet.json")>]
+    member __.``there should be an indication that a tweet is being quoted``(filepath:string) =
+        let speakText = fetchSpeakText filepath
+        speakText |> should haveSubstring "quote tweet"
 
     [<Fact>]
     member __.``quoted tweets with polls in the quote tweet should be indicated``() =
