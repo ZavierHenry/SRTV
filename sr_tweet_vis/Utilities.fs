@@ -11,8 +11,6 @@ module Utilities =
         interface IDisposable with
             member this.Dispose() = File.Delete(path)
 
-    let pluralize (singular:string) plural = function | 1 -> singular | _ -> plural
-    let pluralizePrefix prefix = pluralize prefix $"{prefix}s"
     let tryNonBlankString str = Some str |> Option.filter (not << String.IsNullOrEmpty)
 
     module DateTimePatterns =
