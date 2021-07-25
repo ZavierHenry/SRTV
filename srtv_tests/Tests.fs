@@ -221,7 +221,12 @@ type ``poll tweets are properly parsed``() =
 
     [<Fact>]
     member __.``Polls should output the list of options``() =
-        noTest ()
+        let testTweet = fetchTweet "poll.json"
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        
+        testTweet.Tweet.Poll.Value.Options
+        |> Seq.map (fun opt -> processSpeakText opt.Option)
+        |> Seq.iter (fun opt -> speakText |> should haveSubstring opt)
 
     [<Fact>]
     member __.``Unfinished polls should not have the words "final results"``() =
@@ -285,6 +290,7 @@ type ``replies are properly parsed``() =
     [<InlineData("twoReplyingTo.json")>]
     [<InlineData("threeReplyingTo.json")>]
     [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
         noTest ()
 
