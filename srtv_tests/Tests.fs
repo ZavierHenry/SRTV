@@ -17,10 +17,13 @@ open Newtonsoft.Json.Schema
 open Newtonsoft.Json.Linq
 
 open System.IO
+open System.Net
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
 let [<Literal>] testRepository = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/"
+let [<Literal>] tweetsDirectory = testRepository + "tweets/"
+let [<Literal>] examplesListFile = testRepository + "exampleFilepaths.txt"
 
 let [<Literal>] samplesFile = testRepository + "samples.json"
 let [<Literal>] schemaFile = testRepository + "schema.json"
@@ -119,7 +122,7 @@ let toMockTweet(root:TestTweet.Root) =
 open Matchers
 
 let fetchTweet filename = 
-    let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
+    let directory = tweetsDirectory
     TestTweet.Load(directory + filename)
 
 let speakText (mockTweet:MockTweet) = mockTweet.ToSpeakText()
@@ -129,9 +132,11 @@ let fetchSpeakText = fetchTweet >> toMockTweet >> speakText
 let inline noTest () = failwith<unit> "Test has not been implemented as of yet"
 
 let fetchExamples () = 
-    let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
-    Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
-    |> Seq.map TestTweet.Load
+    use client = new WebClient()
+    client.DownloadString(examplesListFile)
+    |> fun x -> Regex.Split(x, @"\r?\n")
+    |> Array.map ( fun relativeFilepath -> TestTweet.Load(tweetsDirectory + relativeFilepath) )
+    |> Seq.ofArray
 
 let toMemberData data = Seq.map (fun x -> [| x :> obj |]) data
 
