@@ -126,6 +126,13 @@ let fetchSpeakText = fetchTweet >> toMockTweet >> speakText
 
 let inline noTest () = failwith<unit> "Test has not been implemented as of yet"
 
+let fetchExamples () = 
+    let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
+    Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
+    |> Seq.map TestTweet.Load
+
+let toMemberData data = Seq.map (fun x -> [| x :> obj |]) data
+
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
     let schema = TestTweetSchema.GetSample().JsonValue
@@ -135,17 +142,11 @@ type ``test json schema is valid``() =
         schema |> should matchTemplate template
 
 type ``test tweets are valid examples``() =
+    static member fetchExamples () = toMemberData <| fetchExamples ()
 
-    static member fetchExamples () =
-        let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
-        Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
-        |> Seq.map (fun x -> x :> obj)
-        |> Seq.map Array.singleton
-        
     [<Theory>]
     [<MemberData(nameof(``test tweets are valid examples``.fetchExamples))>]
-    member __.``examples are valid``(absoluteFilename:string) =
-        let testTweet = TestTweet.Load absoluteFilename
+    member __.``examples are valid``(testTweet:TestTweet.Root) =
         let schema = TestTweetSchema.GetSample()
         testTweet.JsonValue |> should matchSchema schema
 
