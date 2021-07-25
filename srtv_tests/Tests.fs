@@ -364,11 +364,11 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (number, expected)
 
     [<Theory>]
-    [<InlineData("numbers/second.json", "2nd", "second")>]
-    [<InlineData("numbers/third.json", "3rd", "third")>]
-    [<InlineData("numbers/first.json", "1st", "first")>]
-    [<InlineData("numbers/zeroth.json", "0th", "zeroth")>]
-    [<InlineData("numbers/twentyfourth.json", "24th", "twenty fourth")>]
+    [<InlineData("numbers/ordinals/second.json", "2nd", "second")>]
+    [<InlineData("numbers/ordinals/third.json", "3rd", "third")>]
+    [<InlineData("numbers/ordinals/first.json", "1st", "first")>]
+    [<InlineData("numbers/ordinals/zeroth.json", "0th", "zeroth")>]
+    [<InlineData("numbers/ordinals/twentyfourth.json", "24th", "twenty fourth")>]
     member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (ordinal, expected)
