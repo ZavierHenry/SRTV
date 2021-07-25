@@ -17,11 +17,16 @@ open Newtonsoft.Json.Schema
 open Newtonsoft.Json.Linq
 
 open System.IO
+open System.Net
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
-let [<Literal>] samplesFile = "./samples.json"
-let [<Literal>] schemaFile = "./schema.json"
+let [<Literal>] testRepository = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/"
+let [<Literal>] tweetsDirectory = testRepository + "tweets/"
+let [<Literal>] examplesListFile = testRepository + "exampleFilepaths.txt"
+
+let [<Literal>] samplesFile = testRepository + "samples.json"
+let [<Literal>] schemaFile = testRepository + "schema.json"
 let [<Literal>] templateFile = "http://json-schema.org/draft-04/schema"
 
 type TestTweet = JsonProvider<samplesFile, SampleIsList=true, InferTypesFromValues=false>
@@ -117,7 +122,7 @@ let toMockTweet(root:TestTweet.Root) =
 open Matchers
 
 let fetchTweet filename = 
-    let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
+    let directory = tweetsDirectory
     TestTweet.Load(directory + filename)
 
 let speakText (mockTweet:MockTweet) = mockTweet.ToSpeakText()
@@ -125,6 +130,15 @@ let speakText (mockTweet:MockTweet) = mockTweet.ToSpeakText()
 let fetchSpeakText = fetchTweet >> toMockTweet >> speakText
 
 let inline noTest () = failwith<unit> "Test has not been implemented as of yet"
+
+let fetchExamples () = 
+    use client = new WebClient()
+    client.DownloadString(examplesListFile)
+    |> fun x -> Regex.Split(x, @"\r?\n")
+    |> Array.map ( fun relativeFilepath -> TestTweet.Load(tweetsDirectory + relativeFilepath) )
+    |> Seq.ofArray
+
+let toMemberData data = Seq.map (fun x -> [| x :> obj |]) data
 
 type ``test json schema is valid``() =
     let template = SchemaTemplate.GetSample()
@@ -135,17 +149,11 @@ type ``test json schema is valid``() =
         schema |> should matchTemplate template
 
 type ``test tweets are valid examples``() =
+    static member fetchExamples () = toMemberData <| fetchExamples ()
 
-    static member fetchExamples () =
-        let directory = $"{Environment.CurrentDirectory}/../../../tweets/"
-        Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
-        |> Seq.map (fun x -> x :> obj)
-        |> Seq.map Array.singleton
-        
     [<Theory>]
     [<MemberData(nameof(``test tweets are valid examples``.fetchExamples))>]
-    member __.``examples are valid``(absoluteFilename:string) =
-        let testTweet = TestTweet.Load absoluteFilename
+    member __.``examples are valid``(testTweet:TestTweet.Root) =
         let schema = TestTweetSchema.GetSample()
         testTweet.JsonValue |> should matchSchema schema
 
@@ -157,32 +165,51 @@ type ``tweet times are properly shown``() =
 
 type ``verified tweets are properly parsed``() =
 
-    [<Theory>]
-    [<InlineData("basicVerifiedTweet.json")>]
-    member __.``speak text should indicate that the author is verified for verified accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should haveSubstring " verified account "
+    static member verifiedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> testTweet.Tweet.Author.Verified)
+        |> toMemberData
+
+    static member unverifiedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> not testTweet.Tweet.Author.Verified)
+        |> toMemberData
 
     [<Theory>]
-    [<InlineData("unverifiedTweet.json")>]
-    member __.``speak test should NOT indicate that the author is verified for unverified accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should not' (haveSubstring " verified account ")
+    [<MemberData(nameof(``verified tweets are properly parsed``.verifiedTweets))>]
+    member __.``speak text should indicate that the author is verified for verified accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring "verified account"
+
+    [<Theory>]
+    [<MemberData(nameof(``verified tweets are properly parsed``.unverifiedTweets))>]
+    member __.``speak test should NOT indicate that the author is verified for unverified accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should not' (haveSubstring "verified account")
 
 type ``tweets from protected accounts are properly parsed``() =
-    let testTweet = fetchTweet("basicPrivateTweet.json")
+
+    static member protectedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> testTweet.Tweet.Author.Protected)
+        |> toMemberData
+
+    static member unprotectedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> not testTweet.Tweet.Author.Protected)
+        |> toMemberData
     
     [<Theory>]
-    [<InlineData("basicPrivateTweet.json")>]
-    member __.``speak text should indicate that the author is private for private accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should haveSubstring " protected account "
+    [<MemberData(nameof(``tweets from protected accounts are properly parsed``.protectedTweets))>]
+    member __.``speak text should indicate that the author is private for private accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring "protected account"
 
     [<Theory>]
-    [<InlineData("basicVerifiedTweet.json")>]
-    member __.``speak text should NOT indicate that that author is private for public accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should not' (haveSubstring " protected account ")
+    [<MemberData(nameof(``tweets from protected accounts are properly parsed``.unprotectedTweets))>]
+    member __.``speak text should NOT indicate that that author is private for public accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should not' (haveSubstring "protected account")
 
 type ``poll tweets are properly parsed``() =
 
@@ -221,7 +248,12 @@ type ``poll tweets are properly parsed``() =
 
     [<Fact>]
     member __.``Polls should output the list of options``() =
-        noTest ()
+        let testTweet = fetchTweet "poll.json"
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        
+        testTweet.Tweet.Poll.Value.Options
+        |> Seq.map (fun opt -> processSpeakText opt.Option)
+        |> Seq.iter (fun opt -> speakText |> should haveSubstring opt)
 
     [<Fact>]
     member __.``Unfinished polls should not have the words "final results"``() =
@@ -248,7 +280,7 @@ type ``image tweets are properly parsed``() =
     [<InlineData("imageTweetNoAltText.json")>]
     member __.``images without alt text output the word "image"``(filepath:string) =
         let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstring " image "
+        speakText |> should haveSubstring "image"
 
     [<Theory>]
     [<InlineData("imagesAltText.json")>]
@@ -285,6 +317,7 @@ type ``replies are properly parsed``() =
     [<InlineData("twoReplyingTo.json")>]
     [<InlineData("threeReplyingTo.json")>]
     [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
         noTest ()
 
@@ -314,6 +347,7 @@ type ``numbers are properly converted to words``() =
     
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json", "+1 912-612-4665", "nine one two. six one two. four six six five")>]
+    [<InlineData("numbers/phoneNumberDots.json", "888.633.8380", "eight eight eight. six three three. eight three eight zero")>]
     member __.``phone numbers are converted to words properly``(filepath:string, number:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (number, expected)
@@ -338,10 +372,11 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (number, expected)
 
     [<Theory>]
-    [<InlineData("numbers/second.json", "2nd", "second")>]
-    [<InlineData("numbers/third.json", "3rd", "third")>]
-    [<InlineData("numbers/first.json", "1st", "first")>]
-    [<InlineData("numbers/zeroth.json", "0th", "zeroth")>]
+    [<InlineData("numbers/ordinals/second.json", "2nd", "second")>]
+    [<InlineData("numbers/ordinals/third.json", "3rd", "third")>]
+    [<InlineData("numbers/ordinals/first.json", "1st", "first")>]
+    [<InlineData("numbers/ordinals/zeroth.json", "0th", "zeroth")>]
+    [<InlineData("numbers/ordinals/twentyfourth.json", "24th", "twenty fourth")>]
     member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (ordinal, expected)
@@ -445,5 +480,9 @@ type ``punctuation is properly converted to words``() =
 
     [<Theory>]
     [<InlineData("basicReply.json")>]
+    [<InlineData("twoReplyingTo.json")>]
+    [<InlineData("threeReplyingTo.json")>]
+    [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
         noTest ()

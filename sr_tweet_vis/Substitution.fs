@@ -95,7 +95,7 @@ module Substitution =
                     <| if m.Groups.["startNumber"].Success then (int64 >> toWords) m.Groups.["startNumber"].Value else ""
                     <| (int >> toOrdinalWords) m.Groups.["endNumber"].Value
                     <| m.Groups.["end"].Value
-            Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d*?)(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
+            Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d+?)?(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(?<endNumber>\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
 
         let processAmericanPhoneNumbers text =
             let evaluator (m:Match) =
