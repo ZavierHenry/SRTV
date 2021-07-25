@@ -181,19 +181,28 @@ type ``verified tweets are properly parsed``() =
         speakText |> should not' (haveSubstring "verified account")
 
 type ``tweets from protected accounts are properly parsed``() =
-    let testTweet = fetchTweet("basicPrivateTweet.json")
+
+    static member protectedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> testTweet.Tweet.Author.Protected)
+        |> toMemberData
+
+    static member unprotectedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> not testTweet.Tweet.Author.Protected)
+        |> toMemberData
     
     [<Theory>]
-    [<InlineData("basicPrivateTweet.json")>]
-    member __.``speak text should indicate that the author is private for private accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should haveSubstring " protected account "
+    [<MemberData(nameof(``tweets from protected accounts are properly parsed``.protectedTweets))>]
+    member __.``speak text should indicate that the author is private for private accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring "protected account"
 
     [<Theory>]
-    [<InlineData("basicVerifiedTweet.json")>]
-    member __.``speak text should NOT indicate that that author is private for public accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should not' (haveSubstring " protected account ")
+    [<MemberData(nameof(``tweets from protected accounts are properly parsed``.unprotectedTweets))>]
+    member __.``speak text should NOT indicate that that author is private for public accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should not' (haveSubstring "protected account")
 
 type ``poll tweets are properly parsed``() =
 
@@ -264,7 +273,7 @@ type ``image tweets are properly parsed``() =
     [<InlineData("imageTweetNoAltText.json")>]
     member __.``images without alt text output the word "image"``(filepath:string) =
         let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstring " image "
+        speakText |> should haveSubstring "image"
 
     [<Theory>]
     [<InlineData("imagesAltText.json")>]
