@@ -20,8 +20,10 @@ open System.IO
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
-let [<Literal>] samplesFile = "./samples.json"
-let [<Literal>] schemaFile = "./schema.json"
+let [<Literal>] testRepository = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/"
+
+let [<Literal>] samplesFile = testRepository + "samples.json"
+let [<Literal>] schemaFile = testRepository + "schema.json"
 let [<Literal>] templateFile = "http://json-schema.org/draft-04/schema"
 
 type TestTweet = JsonProvider<samplesFile, SampleIsList=true, InferTypesFromValues=false>
