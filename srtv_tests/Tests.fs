@@ -158,17 +158,27 @@ type ``tweet times are properly shown``() =
 
 type ``verified tweets are properly parsed``() =
 
-    [<Theory>]
-    [<InlineData("basicVerifiedTweet.json")>]
-    member __.``speak text should indicate that the author is verified for verified accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should haveSubstring " verified account "
+    static member verifiedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> testTweet.Tweet.Author.Verified)
+        |> toMemberData
+
+    static member unverifiedTweets () =
+        fetchExamples ()
+        |> Seq.filter (fun testTweet -> not testTweet.Tweet.Author.Verified)
+        |> toMemberData
 
     [<Theory>]
-    [<InlineData("unverifiedTweet.json")>]
-    member __.``speak test should NOT indicate that the author is verified for unverified accounts``(relativePath:string) =
-        let speakText = fetchSpeakText relativePath
-        speakText |> should not' (haveSubstring " verified account ")
+    [<MemberData(nameof(``verified tweets are properly parsed``.verifiedTweets))>]
+    member __.``speak text should indicate that the author is verified for verified accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring "verified account"
+
+    [<Theory>]
+    [<MemberData(nameof(``verified tweets are properly parsed``.unverifiedTweets))>]
+    member __.``speak test should NOT indicate that the author is verified for unverified accounts``(testTweet:TestTweet.Root) =
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should not' (haveSubstring "verified account")
 
 type ``tweets from protected accounts are properly parsed``() =
     let testTweet = fetchTweet("basicPrivateTweet.json")
