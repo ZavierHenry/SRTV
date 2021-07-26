@@ -121,22 +121,30 @@ let toMockTweet(root:TestTweet.Root) =
 
 open Matchers
 
-let fetchTweet filename = 
-    let directory = tweetsDirectory
-    TestTweet.Load(directory + filename)
+type TestExamples() =
 
-let speakText (mockTweet:MockTweet) = mockTweet.ToSpeakText()
+    let client = new WebClient()
+    let tweets = 
+        client.DownloadString(examplesListFile)
+        |> fun x -> Regex.Split(x, @"\r?\n")
+        |> Array.filter (not << String.IsNullOrWhiteSpace)
+        |> Array.map ( fun relativeFilepath -> ( relativeFilepath, TestTweet.Load (tweetsDirectory + relativeFilepath) ))
 
-let fetchSpeakText = fetchTweet >> toMockTweet >> speakText
+    do client.Dispose()
+    
+    member __.fetch filename = snd <| Array.find (fun (name, _) -> filename = name) tweets
+    member __.examples () = Array.map snd tweets |> Seq.ofArray
+
+let examples = TestExamples()
+
+let fetchTweet filename = examples.fetch filename
+let fetchExamples () = examples.examples ()
+
+let toSpeakText (mockTweet:MockTweet) = mockTweet.ToSpeakText()
+
+let fetchSpeakText = fetchTweet >> toMockTweet >> toSpeakText
 
 let inline noTest () = failwith<unit> "Test has not been implemented as of yet"
-
-let fetchExamples () = 
-    use client = new WebClient()
-    client.DownloadString(examplesListFile)
-    |> fun x -> Regex.Split(x, @"\r?\n")
-    |> Array.map ( fun relativeFilepath -> TestTweet.Load(tweetsDirectory + relativeFilepath) )
-    |> Seq.ofArray
 
 let toMemberData data = Seq.map (fun x -> [| x :> obj |]) data
 
@@ -149,10 +157,10 @@ type ``test json schema is valid``() =
         schema |> should matchTemplate template
 
 type ``test tweets are valid examples``() =
-    static member fetchExamples () = toMemberData <| fetchExamples ()
+    static member examples () = toMemberData <| fetchExamples ()
 
     [<Theory>]
-    [<MemberData(nameof(``test tweets are valid examples``.fetchExamples))>]
+    [<MemberData(nameof(``test tweets are valid examples``.examples))>]
     member __.``examples are valid``(testTweet:TestTweet.Root) =
         let schema = TestTweetSchema.GetSample()
         testTweet.JsonValue |> should matchSchema schema
