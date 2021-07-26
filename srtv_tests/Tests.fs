@@ -16,8 +16,6 @@ open NHamcrest.Core
 open Newtonsoft.Json.Schema
 open Newtonsoft.Json.Linq
 
-open System.IO
-open System.Net
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
@@ -123,14 +121,11 @@ open Matchers
 
 type TestExamples() =
 
-    let client = new WebClient()
     let tweets = 
-        client.DownloadString(examplesListFile)
+        Http.RequestString(examplesListFile)
         |> fun x -> Regex.Split(x, @"\r?\n")
         |> Array.filter (not << String.IsNullOrWhiteSpace)
         |> Array.map ( fun relativeFilepath -> ( relativeFilepath, TestTweet.Load (tweetsDirectory + relativeFilepath) ))
-
-    do client.Dispose()
     
     member __.fetch filename = snd <| Array.find (fun (name, _) -> filename = name) tweets
     member __.examples () = Array.map snd tweets |> Seq.ofArray
