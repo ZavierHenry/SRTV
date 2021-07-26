@@ -135,8 +135,10 @@ let fetchExamples () =
     use client = new WebClient()
     client.DownloadString(examplesListFile)
     |> fun x -> Regex.Split(x, @"\r?\n")
-    |> Array.map ( fun relativeFilepath -> TestTweet.Load(tweetsDirectory + relativeFilepath) )
     |> Seq.ofArray
+    |> Seq.filter (not << String.IsNullOrWhiteSpace)
+    |> Seq.map ( fun relativeFilepath -> TestTweet.Load(tweetsDirectory + relativeFilepath) )
+    
 
 let toMemberData data = Seq.map (fun x -> [| x :> obj |]) data
 
@@ -149,10 +151,10 @@ type ``test json schema is valid``() =
         schema |> should matchTemplate template
 
 type ``test tweets are valid examples``() =
-    static member fetchExamples () = toMemberData <| fetchExamples ()
+    static member examples () = toMemberData <| fetchExamples ()
 
     [<Theory>]
-    [<MemberData(nameof(``test tweets are valid examples``.fetchExamples))>]
+    [<MemberData(nameof(``test tweets are valid examples``.examples))>]
     member __.``examples are valid``(testTweet:TestTweet.Root) =
         let schema = TestTweetSchema.GetSample()
         testTweet.JsonValue |> should matchSchema schema
