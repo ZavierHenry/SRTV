@@ -79,7 +79,6 @@ module Matchers =
     //tests whether the left has been substituted with the right
     let inline haveSubstitution (original, replacement) = SubstitutionMatcher.haveSubstitution(original, replacement)
             
-
 let pollToMedia (poll:TestTweet.Poll) =
     let options = 
         poll.Options
@@ -312,13 +311,22 @@ type ``gif tweets are properly parsed``() =
     
     [<Theory>]
     [<InlineData("gifNoAltText.json")>]
-    member __.``GIFs without alt text output the words "animated image"``(filepath:string) =
+    member __.``GIFs without alt text output the words "embedded video gif"``(filepath:string) =
         let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstring "animated image"
+        speakText |> should haveSubstring "embedded video gif"
 
-    [<Fact>]
-    member __.``GIFs with alt text show the alt text``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("gifAltText.json")>]
+    member __.``GIFs with alt text show the alt text``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        let altText =
+            testTweet.Tweet.GifAltText
+            |> Option.get
+            |> fun x -> x.AltText
+            |> Option.get
+        speakText |> should haveSubstring altText
+
 
 type ``replies are properly parsed``() =
     
@@ -420,8 +428,8 @@ type ``numbers are properly converted to words``() =
         noTest ()
 
     [<Theory>]
-    [<InlineData("numbers/centimeters.json", "5 cm", "five centimeters")>]
-    [<InlineData("numbers/feet.json", "6 ft", "six feet")>]
+    [<InlineData("numbers/abbreviations/centimeters.json", "5 cm", "five centimeters")>]
+    [<InlineData("numbers/abbreviations/feet.json", "6 ft", "six feet")>]
     member __.``units of measurement (e.g. cm, ft, yds) are converted to words``(filepath:string, measurement:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (measurement, expected)
