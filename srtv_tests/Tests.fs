@@ -387,6 +387,8 @@ type ``numbers are properly converted to words``() =
     [<InlineData("numbers/ordinals/first.json", "1st", "first")>]
     [<InlineData("numbers/ordinals/zeroth.json", "0th", "zeroth")>]
     [<InlineData("numbers/ordinals/twentyfourth.json", "24th", "twenty fourth")>]
+    [<InlineData("numbers/ordinals/1769th.json", "1,769th", "one thousand seven hundred and sixty nineth")>]
+    [<InlineData("numbers/ordinals/threehundredthirtieth.json", "330th", "three hundred thirtieth")>]
     member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (ordinal, expected)
