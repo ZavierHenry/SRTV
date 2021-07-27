@@ -6,7 +6,6 @@ open Xunit
 open FsUnit.Xunit
 
 open SRTV.TweetMedia
-open SRTV.Utilities
 open SRTV.Substitution
 
 open FSharp.Data
@@ -25,7 +24,7 @@ let [<Literal>] examplesListFile = testRepository + "exampleFilepaths.txt"
 
 let [<Literal>] samplesFile = testRepository + "samples.json"
 let [<Literal>] schemaFile = testRepository + "schema.json"
-let [<Literal>] templateFile = "http://json-schema.org/draft-04/schema"
+let [<Literal>] templateFile = "http://json-schema.org/draft-07/schema"
 
 type TestTweet = JsonProvider<samplesFile, SampleIsList=true, InferTypesFromValues=false>
 type SchemaTemplate = JsonProvider<templateFile>
@@ -91,8 +90,12 @@ let pollToMedia (poll:TestTweet.Poll) =
 let urlCardToMedia (card:TestTweet.UrlCard) =
     Card (card.Title, card.Description, card.Url)
 
-let gifAltTextToMedia = Gif << tryNonBlankString
-let videoAttributionToMedia = Video << tryNonBlankString
+
+let altTextToMedia f (altText:TestTweet.ImageAltText) : Media =
+    f <| Option.filter (fun _ -> altText.HasAltText) altText.AltText
+
+let attributionToMedia (attribution:TestTweet.VideoAttribution) : Media =
+    Video <| Option.filter (fun _ -> attribution.HasAttribution) attribution.Attribution
 
 let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
@@ -100,11 +103,11 @@ let toMockTweet(root:TestTweet.Root) =
     
     let poll = toMedia pollToMedia tweet.Poll
     let card = toMedia urlCardToMedia tweet.UrlCard
-    let gif = toMedia gifAltTextToMedia tweet.GifAltText
-    let video = toMedia videoAttributionToMedia tweet.VideoAttribution
+    let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
+    let video = toMedia attributionToMedia tweet.VideoAttribution
+
+    let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
     
-    let images = tweet.ImageAltTexts |> Array.map (Image << tryNonBlankString) |> Array.toList
-        
     MockTweet(
         tweet.Text,
         tweet.Author.ScreenName,
@@ -290,7 +293,10 @@ type ``image tweets are properly parsed``() =
     member __.``images with alt text show the alt text``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        Seq.iter (fun altText -> speakText |> should haveSubstring (processSpeakText altText)) testTweet.Tweet.ImageAltTexts
+        testTweet.Tweet.ImageAltTexts
+        |> Array.filter ( fun x -> x.HasAltText )
+        |> Array.map (fun x -> Option.get x.AltText)
+        |> Array.iter (fun altText -> speakText |> should haveSubstring (processSpeakText altText))
 
 type ``video tweets are properly parsed`` () =
 
@@ -299,7 +305,8 @@ type ``video tweets are properly parsed`` () =
     member __.``videos with attribution display that attribution``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        speakText |> should haveSubstring (Option.get testTweet.Tweet.VideoAttribution)
+        let attribution = testTweet.Tweet.VideoAttribution |> Option.get |> fun x -> Option.get x.Attribution
+        speakText |> should haveSubstring attribution
 
 type ``gif tweets are properly parsed``() =
     
