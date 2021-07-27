@@ -409,6 +409,8 @@ type ``numbers are properly converted to words``() =
 
     [<Theory>]
     [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
+    [<InlineData("numbers/dates/mddyy.json", "5/17/21", "may seventeenth twenty twenty one")>]
+    [<InlineData("numbers/dates/mmddyyyy.json", "06/30/2021", "june thirtieth twenty twenty one")>]
     member __.``obvious dates are converted into words``(filepath:string, date:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (date, expected)
