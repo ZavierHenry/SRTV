@@ -386,6 +386,9 @@ type ``numbers are properly converted to words``() =
 
     [<Theory>]
     [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
+    [<InlineData("numbers/numberWithComma.json", "300", "three hundred")>]
+    [<InlineData("numbers/numberWithComma.json", "200", "two hundred")>]
+    [<InlineData("numbers/13000.json", "13000", "thirteen thousand")>]
     member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (number, expected)
