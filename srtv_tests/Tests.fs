@@ -341,9 +341,12 @@ type ``replies are properly parsed``() =
 
 type ``retweets are properly parsed``() =
 
-    [<Fact>]
-    member __.``retweets properly show the name of the account retweeting the tweet``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("retweet.json")>]
+    member __.``retweets properly show the name of the account retweeting the tweet``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter} retweeted"
 
 type ``quoted tweets are properly parsed``() =
     
