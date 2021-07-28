@@ -347,8 +347,9 @@ type ``retweets are properly parsed``() =
 
 type ``quoted tweets are properly parsed``() =
     
-    [<Fact>]
-    member __.``quoted tweets should be shown``() =
+    [<Theory>]
+    [<InlineData("quotedTweet.json")>]
+    member __.``quoted tweets should be shown``(filepath:string) =
         noTest ()
 
     [<Theory>]
@@ -411,9 +412,12 @@ type ``numbers are properly converted to words``() =
     member __.``number ranges are converted to words``() =
         noTest ()
 
-    [<Fact>]
-    member __.``times are converted to words``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/times/1300hours.json", "13:00 hours", "thirteen hundred hours hours")>]
+    [<InlineData("numbers/times/1800hours.json", "18:00", "eighteen hundred hours")>]
+    member __.``times are converted to words``(filepath:string, time:string, expected:string) =
+        let speakText = fetchSpeakText filepath
+        speakText |> should haveSubstitution (time, expected)
 
     [<Theory>]
     [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
