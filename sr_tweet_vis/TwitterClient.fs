@@ -46,7 +46,10 @@ module Twitter =
             |> Option.bind (fun tweet -> tryFindUserById tweet.InReplyToUserID response.Includes)
             |> Option.filter (fun user -> user.Protected)
 
-
+        let (|QuotedTweet|_|) (response:TweetQuery) =
+            Seq.tryHead response.Tweets
+            |> Option.bind (fun tweet -> tryFindTweetReferenceByType "quoted_tweet" tweet.ReferencedTweets |> Option.map (fun reference -> (tweet, reference)))
+            |> Option.bind (fun (tweet, reference) -> tryFindTweetById reference.ID response.Includes |> Option.map (fun quotedTweet -> (tweet, quotedTweet)))
 
     module TwitterClient =
         open System
