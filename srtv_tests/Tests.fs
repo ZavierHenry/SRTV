@@ -421,6 +421,9 @@ type ``numbers are properly converted to words``() =
     [<Theory>]
     [<InlineData("numbers/times/1300hours.json", "13:00 hours", "thirteen hundred hours hours")>]
     [<InlineData("numbers/times/1800hours.json", "18:00", "eighteen hundred hours")>]
+    [<InlineData("numbers/times/130to215pm.json", "1:30pm", "one thirty p m")>]
+    [<InlineData("numbers/times/130to215pm.json", "2:15pm", "two fifteen p m")>]
+    [<InlineData("numbers/times/850am.json", "8:50 AM", "eight fifty a m")>]
     member __.``times are converted to words``(filepath:string, time:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (time, expected)
