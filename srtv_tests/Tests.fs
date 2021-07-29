@@ -521,3 +521,25 @@ type ``punctuation is properly converted to words``() =
     [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
         noTest ()
+
+
+open FSharp.Configuration
+type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true, InferTypesFromStrings=false>
+
+open SRTV.TwitterClient.Text
+
+type ``extraction of urls are done properly``() =
+
+    [<Fact>]
+    member __.``urls are extracted``() = 
+        noTest ()
+
+    [<Fact>]
+    member __.``url extraction has the right indices``() =
+        noTest ()
+
+    [<Fact>]
+    member __.``tco links are properly handled``() =
+        noTest ()
+
+
