@@ -37,10 +37,15 @@ module Twitter =
             Some ()
             |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Authorization Error" ) )
 
+        let (|NotFoundError|_|) (response:TweetQuery) =
+            Some ()
+            |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Not Found Error") )
+
         let (|PrivateTweet|_|) (response:TweetQuery) =
             Seq.tryHead response.Tweets
             |> Option.bind (fun tweet -> tryFindUserById tweet.InReplyToUserID response.Includes)
             |> Option.filter (fun user -> user.Protected)
+
 
 
     module TwitterClient =
