@@ -6,6 +6,10 @@ module Substitution =
 
     open Humanizer
 
+    let whitespaceBoundaryStart = @"(?<startBoundary>\s|^)"
+    let punctuation = @"[.;,!?]"
+    let whitespaceBoundaryEnd = $@"(?<endBoundary>\s|$|{punctuation})"
+
     module Punctuation =
         let simpleReplacement =
             [
@@ -63,7 +67,14 @@ module Substitution =
 
     module Numbers =
         let toWords : int64 -> string = Humanizer.NumberToWordsExtension.ToWords
-        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords 
+        let toOrdinalWords =  Humanizer.NumberToWordsExtension.ToOrdinalWords
+
+        let private bindRegex pattern = whitespaceBoundaryStart + pattern + whitespaceBoundaryEnd
+
+        let wholeNumberPattern = @"(?<wholeNumber>\d{1,3}(,\d{3})+|\d+)"
+        let decimalPattern = $@"(?<integral>{wholeNumberPattern})?\.(?<fractional>\d+)"
+
+        let timePattern = @"(?<hour>[0-1]?\d|2[0-3]):(?<minute>[0-5]\d)(?<between>\s*)(?<meridiem>(?:(?:[aA]|[Pp])[Mm])?)"
         
         //TODO: change function to change decimals without a leading number (e.g .75)
         let processDecimals text =
@@ -74,8 +85,14 @@ module Substitution =
             Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
 
         let processWholeNumbers text =
-            let evaluator (m:Match) = toWords <| int64 m.Value
-            Regex.Replace (text, @"\d+", MatchEvaluator(evaluator))
+            let evaluator (m:Match) =
+                let number = m.Groups.["wholeNumber"].Value.Replace(",", "") |> int64 |> toWords
+                m.Groups.["startBoundary"].Value + number + m.Groups.["endBoundary"].Value
+            Regex.Replace (text, bindRegex wholeNumberPattern, MatchEvaluator(evaluator))
+
+        //let processWholeNumbers text =
+        //    let evaluator (m:Match) = toWords <| int64 m.Value
+        //    Regex.Replace (text, @"\d+", MatchEvaluator(evaluator))
 
         let processRanges text =
             let evaluator (m:Match) =
@@ -87,7 +104,6 @@ module Substitution =
                 $"{numbersToWords left} to {numbersToWords right}"
             Regex.Replace (text, @"(?<left>\d+|\d*(?:\.\d+))-(?<right>\d+|\d*(?:\.\d+))", MatchEvaluator(evaluator))
         
-
         let processOrdinals text =
             let evaluator (m:Match) =
                 sprintf "%s%s%s%s"
@@ -110,6 +126,28 @@ module Substitution =
             Regex.Replace(text, @"(?<start>^|\s)(?<number>\d{3}(?:[ \-])\d{3}(?:[ \-])\d{4})(?<end>\s|$)", MatchEvaluator(evaluator))
 
         let processPhoneNumbers = processAmericanPhoneNumbers
+        
+        let processTimes text =
+            let evaluator (m:Match) =
+                let hour = int64 m.Groups.["hour"].Value
+                let minute = int64 m.Groups.["minute"].Value
+                let minuteWords =
+                    match (hour, minute) with
+                    | (h, 0L) when h > 12L -> "hundred hours"
+                    | (_, 0L) -> ""
+                    | (_, m) when m < 10L -> $"oh {toWords m}"
+                    | (_, m) -> toWords m  
+                let meridiem = m.Groups.["meridiem"].Value
+                let time =
+                    let meridiem = 
+                        meridiem.ToLower() 
+                        |> Seq.map string 
+                        |> String.concat " " 
+                        |> fun x -> if x = "" then "" else $" {x}"
+                    $"{toWords hour} {minuteWords}{meridiem}"
+                m.Groups.["startBoundary"].Value + time + m.Groups.["endBoundary"].Value
+
+            Regex.Replace(text, bindRegex timePattern, MatchEvaluator(evaluator))
                 
     let rec private processEmojis' acc =
         function
@@ -121,9 +159,11 @@ module Substitution =
     let private processEmojis = processEmojis' []
     let private processNumbers = 
         Numbers.processPhoneNumbers >>
-        Numbers.processRanges >> 
+        Numbers.processRanges >>
+        Numbers.processTimes >>
         Numbers.processDecimals >> 
-        Numbers.processOrdinals
+        Numbers.processOrdinals >>
+        Numbers.processWholeNumbers
         
     let private simpleSubstitution = 
         Punctuation.simpleReplacement

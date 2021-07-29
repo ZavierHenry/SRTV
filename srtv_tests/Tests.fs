@@ -79,7 +79,6 @@ module Matchers =
     //tests whether the left has been substituted with the right
     let inline haveSubstitution (original, replacement) = SubstitutionMatcher.haveSubstitution(original, replacement)
             
-
 let pollToMedia (poll:TestTweet.Poll) =
     let options = 
         poll.Options
@@ -312,13 +311,22 @@ type ``gif tweets are properly parsed``() =
     
     [<Theory>]
     [<InlineData("gifNoAltText.json")>]
-    member __.``GIFs without alt text output the words "animated image"``(filepath:string) =
+    member __.``GIFs without alt text output the words "embedded video gif"``(filepath:string) =
         let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstring "animated image"
+        speakText |> should haveSubstring "embedded video gif"
 
-    [<Fact>]
-    member __.``GIFs with alt text show the alt text``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("gifAltText.json")>]
+    member __.``GIFs with alt text show the alt text``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        let altText =
+            testTweet.Tweet.GifAltText
+            |> Option.get
+            |> fun x -> x.AltText
+            |> Option.get
+        speakText |> should haveSubstring altText
+
 
 type ``replies are properly parsed``() =
     
@@ -333,14 +341,18 @@ type ``replies are properly parsed``() =
 
 type ``retweets are properly parsed``() =
 
-    [<Fact>]
-    member __.``retweets properly show the name of the account retweeting the tweet``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("retweet.json")>]
+    member __.``retweets properly show the name of the account retweeting the tweet``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = (toMockTweet testTweet).ToSpeakText()
+        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter} retweeted"
 
 type ``quoted tweets are properly parsed``() =
     
-    [<Fact>]
-    member __.``quoted tweets should be shown``() =
+    [<Theory>]
+    [<InlineData("quotedTweet.json")>]
+    member __.``quoted tweets should be shown``(filepath:string) =
         noTest ()
 
     [<Theory>]
@@ -377,6 +389,9 @@ type ``numbers are properly converted to words``() =
 
     [<Theory>]
     [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
+    [<InlineData("numbers/numberWithComma.json", "300", "three hundred")>]
+    [<InlineData("numbers/numberWithComma.json", "200", "two hundred")>]
+    [<InlineData("numbers/13000.json", "13000", "thirteen thousand")>]
     member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (number, expected)
@@ -387,6 +402,8 @@ type ``numbers are properly converted to words``() =
     [<InlineData("numbers/ordinals/first.json", "1st", "first")>]
     [<InlineData("numbers/ordinals/zeroth.json", "0th", "zeroth")>]
     [<InlineData("numbers/ordinals/twentyfourth.json", "24th", "twenty fourth")>]
+    [<InlineData("numbers/ordinals/1769th.json", "1,769th", "one thousand seven hundred and sixty nineth")>]
+    [<InlineData("numbers/ordinals/threehundredthirtieth.json", "330th", "three hundred thirtieth")>]
     member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (ordinal, expected)
@@ -401,12 +418,20 @@ type ``numbers are properly converted to words``() =
     member __.``number ranges are converted to words``() =
         noTest ()
 
-    [<Fact>]
-    member __.``times are converted to words``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("numbers/times/1300hours.json", "13:00 hours", "thirteen hundred hours hours")>]
+    [<InlineData("numbers/times/1800hours.json", "18:00", "eighteen hundred hours")>]
+    [<InlineData("numbers/times/130to215pm.json", "1:30pm", "one thirty p m")>]
+    [<InlineData("numbers/times/130to215pm.json", "2:15pm", "two fifteen p m")>]
+    [<InlineData("numbers/times/850am.json", "8:50 AM", "eight fifty a m")>]
+    member __.``times are converted to words``(filepath:string, time:string, expected:string) =
+        let speakText = fetchSpeakText filepath
+        speakText |> should haveSubstitution (time, expected)
 
     [<Theory>]
     [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
+    [<InlineData("numbers/dates/mddyy.json", "5/17/21", "may seventeenth twenty twenty one")>]
+    [<InlineData("numbers/dates/mmddyyyy.json", "06/30/2021", "june thirtieth twenty twenty one")>]
     member __.``obvious dates are converted into words``(filepath:string, date:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (date, expected)
@@ -416,8 +441,8 @@ type ``numbers are properly converted to words``() =
         noTest ()
 
     [<Theory>]
-    [<InlineData("numbers/centimeters.json", "5 cm", "five centimeters")>]
-    [<InlineData("numbers/feet.json", "6 ft", "six feet")>]
+    [<InlineData("numbers/abbreviations/centimeters.json", "5 cm", "five centimeters")>]
+    [<InlineData("numbers/abbreviations/feet.json", "6 ft", "six feet")>]
     member __.``units of measurement (e.g. cm, ft, yds) are converted to words``(filepath:string, measurement:string, expected:string) =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (measurement, expected)
