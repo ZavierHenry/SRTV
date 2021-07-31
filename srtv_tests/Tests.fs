@@ -448,7 +448,7 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (measurement, expected)
 
 type ``emojis are properly converted to words``() =
-
+    
     //TODO: change to substitution test with the original emoji
     [<Theory>]
     [<InlineData("emojis/fire.json", "fire")>]
@@ -530,15 +530,23 @@ open SRTV.TwitterClient.Text
 
 type ``extraction of urls are done properly``() =
 
-    [<Fact>]
-    member __.``urls are extracted``() = 
+    static member urlIndicesTests = TwitterUrlConformance().tests.urls_with_indices |> toMemberData
+    static member tcoTests = TwitterUrlConformance().tests.tco_urls_with_params |> toMemberData
+    static member urlTests = TwitterUrlConformance().tests.urls |> toMemberData
+    static member urlDirectionalMarkersTests = TwitterUrlConformance().tests.urls_with_directional_markers |> toMemberData
+
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.urlTests))>]
+    member __.``urls are extracted``(test:TwitterUrlConformance.tests_Type.urls_Item_Type) = 
         noTest ()
 
-    [<Fact>]
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
     member __.``url extraction has the right indices``() =
         noTest ()
 
-    [<Fact>]
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
     member __.``tco links are properly handled``() =
         noTest ()
 
