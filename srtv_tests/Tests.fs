@@ -449,23 +449,19 @@ type ``numbers are properly converted to words``() =
 
 type ``emojis are properly converted to words``() =
 
-    //TODO: change to substitution test with the original emoji
+    static member emojis () = 
+        fetchExamples ()
+        |> Seq.filter (fun tweet -> Regex.IsMatch(tweet.Label, @"with (the |a )?.+? emoji:\s*.+?(\s|,|$)"))
+        |> Seq.map (fun tweet -> (tweet, Regex.Matches(tweet.Label, @"with (?:the |a )?(?<desc>.+?) emoji:\s*(?<emoji>.+?)(\s|,|$)")))
+        |> Seq.collect (fun (tweet, matches) -> matches |> Seq.map (fun m -> (tweet, m.Groups.["emoji"].Value, m.Groups.["desc"].Value.ToLower())))
+        |> Seq.map (fun (tweet, emoji, desc) -> [| tweet :> obj; emoji :> obj; desc :> obj|])
+
     [<Theory>]
-    [<InlineData("emojis/fire.json", "fire")>]
-    [<InlineData("emojis/smilies.json", "smiling face with smiling eyes")>]
-    [<InlineData("emojis/loudlyCryingWithSkull.json", "skull")>]
-    [<InlineData("emojis/loudlyCryingWithSkull.json", "loudly crying face")>]
-    [<InlineData("emojis/faceScreamingInFear.json", "face screaming in fear")>]
-    [<InlineData("emojis/seeNoEvilMonkey.json", "see no evil monkey")>]
-    [<InlineData("emojis/starstruckRocket.json", "star struck")>]
-    [<InlineData("emojis/starstruckRocket.json", "rocket")>]
-    [<InlineData("emojis/rollingOnTheFloorLaughing.json", "rolling on the floor laughing")>]
-    [<InlineData("emojis/grimacingFace.json", "grimacing face")>]
-    [<InlineData("emojis/huggingFace.json", "hugging face")>]
-    member __.``Emojis should have correct speak text``(filepath:string, name:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstring name
-        
+    [<MemberData(nameof(``emojis are properly converted to words``.emojis))>]
+    member __.``Emojis should have correct speak text``(tweet:TestTweet.Root, emoji:string, desc:string) =
+        let speakText = toMockTweet tweet |> toSpeakText
+        speakText |> should haveSubstitution (emoji, desc)
+
 
 type ``currency is properly converted to words``() =    
     [<Fact>]
