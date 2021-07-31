@@ -418,6 +418,10 @@ type ``numbers are properly converted to words``() =
     member __.``number ranges are converted to words``() =
         noTest ()
 
+    [<Fact>]
+    member __.``addresses are properly converted to words``() =
+        noTest ()
+
     [<Theory>]
     [<InlineData("numbers/times/1300hours.json", "13:00 hours", "thirteen hundred hours hours")>]
     [<InlineData("numbers/times/1800hours.json", "18:00", "eighteen hundred hours")>]
@@ -516,4 +520,8 @@ type ``punctuation is properly converted to words``() =
     [<InlineData("fourReplyingTo.json")>]
     [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let text = processSpeakText (toMockTweet testTweet).Text
+        testTweet.Tweet.RepliedTo
+        |> Array.map (sprintf "@%s")
+        |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
