@@ -3,7 +3,8 @@
 module TweetMedia =
     open System
     open LinqToTwitter
-    open TwitterClient
+
+    open Twitter
     open System.Text.RegularExpressions
     open Substitution
 
