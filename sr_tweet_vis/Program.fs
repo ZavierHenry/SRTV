@@ -6,11 +6,9 @@ open SRTV.TweetMedia
 open SRTV.TweetAudio
 open SRTV.TweetImage
 
-open SRTV.TwitterClient
+open SRTV.Twitter.TwitterClient
 
 open System.IO
-
-
 
 let exampleMockTweet =
     MockTweet(
