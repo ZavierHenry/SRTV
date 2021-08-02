@@ -43,7 +43,7 @@ module Twitter =
 
             let (|VideoRenderMention|_|) response = renderMention "video" response
             let (|TextRenderMention|_|) response = renderMention "text" response
-            let (|ImageRenderMention|_|) response = renderMention @"((light|dim|dark)\s+)?image"
+            let (|ImageRenderMention|_|) response = renderMention @"((light|dim|dark)\s+)?image" response
 
 
         let (|AuthorizationError|_|) (response:TweetQuery) =
