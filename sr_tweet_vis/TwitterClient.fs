@@ -45,6 +45,12 @@ module Twitter =
             let (|TextRenderMention|_|) response = renderMention "text" response
             let (|ImageRenderMention|_|) response = renderMention @"((light|dim|dark)\s+)?image" response
 
+            let (|GeneralRenderMention|_|) = function
+                | VideoRenderMention _ -> None
+                | TextRenderMention _ -> None
+                | ImageRenderMention _ -> None
+                | response -> Some response |> isReply |> hasText @"(\s|^)render(\s|$)"
+
 
         let (|AuthorizationError|_|) (response:TweetQuery) =
             Some ()
