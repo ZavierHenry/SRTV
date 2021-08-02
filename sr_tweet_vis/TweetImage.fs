@@ -45,9 +45,17 @@ module TweetImage =
 
     type ImageTemplate = HtmlProvider<"assets/template.html">
 
-    let toImage (mockTweet:MockTweet) profileUrl source =
+    type Theme = 
+        Light | Dim | Dark
+        static member toAttributeValue = function
+            | Light -> "light"
+            | Dim -> "dim"
+            | Dark -> "dark"
+
+    let toImage (mockTweet:MockTweet) profileUrl source theme =
         let document =
             ImageTemplate.GetSample().Html
+            |> transformDOM (Node.hasId "tweetContainer") (Theme.toAttributeValue theme |> setAttribute "theme")
             |> transformDOM (Node.hasId "pfp") (setAttribute "src" profileUrl)
             |> transformDOM (Node.hasId "username") (setText  $"@{mockTweet.ScreenName}")
             |> transformDOM (Node.hasId "name") (setText mockTweet.Name)
