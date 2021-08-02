@@ -43,7 +43,10 @@ module Twitter =
 
             let (|VideoRenderMention|_|) response = renderMention "video" response
             let (|TextRenderMention|_|) response = renderMention "text" response
-            let (|ImageRenderMention|_|) response = renderMention @"((light|dim|dark)\s+)?image" response
+            let (|ImageRenderMention|_|) response = 
+                let pattern = @"((?<theme>light|dim|dark)\s+)?image"
+                renderMention pattern response
+                |> Option.map ( fun tweet -> (tweet, Regex.Match(tweet.Text, pattern).Groups.["theme"].Value) )
 
             let (|GeneralRenderMention|_|) = function
                 | VideoRenderMention _ -> None
