@@ -33,6 +33,25 @@ module Twitter =
 
     module Patterns =
 
+        module Mentions =
+            open System.Text.RegularExpressions
+
+            let isReply = Option.filter (fun (tweet:Tweet) -> tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets |> Option.isSome)
+            let hasText pattern = Option.filter ( fun (tweet:Tweet) -> Regex.IsMatch(tweet.Text, pattern) )
+
+            let renderMention pattern response = Some response |> isReply |> hasText $@"(\s|^)render\s+{pattern}(\s|$)"
+
+            let (|VideoRenderMention|_|) response = renderMention "video" response
+            let (|TextRenderMention|_|) response = renderMention "text" response
+            let (|ImageRenderMention|_|) response = renderMention @"((light|dim|dark)\s+)?image" response
+
+            let (|GeneralRenderMention|_|) = function
+                | VideoRenderMention _ -> None
+                | TextRenderMention _ -> None
+                | ImageRenderMention _ -> None
+                | response -> Some response |> isReply |> hasText @"(\s|^)render(\s|$)"
+
+
         let (|AuthorizationError|_|) (response:TweetQuery) =
             Some ()
             |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Authorization Error" ) )
