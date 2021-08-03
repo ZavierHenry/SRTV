@@ -453,18 +453,14 @@ type ``numbers are properly converted to words``() =
 
 type ``emojis are properly converted to words``() =
 
-    static member emojis () = 
-        examples.filterByFilepath (fun x -> x.StartsWith("emojis/"))
-        |> Seq.filter (fun tweet -> Regex.IsMatch(tweet.Label, @"with (the |a )?.+? emoji:\s*.+?(\s|,|$)"))
-        |> Seq.map (fun tweet -> (tweet, Regex.Matches(tweet.Label, @"with (?:the |a )?(?<desc>.+?) emoji:\s*(?<emoji>.+?)(\s|,|$)")))
-        |> Seq.collect (fun (tweet, matches) -> matches |> Seq.map (fun m -> (tweet, m.Groups.["emoji"].Value, m.Groups.["desc"].Value.ToLower())))
-        |> Seq.map (fun (tweet, emoji, desc) -> [| tweet :> obj; emoji :> obj; desc :> obj|])
+    static member emojis () = examples.filterByFilepath (fun x -> x.StartsWith("emojis/")) |> toMemberData
 
     [<Theory>]
     [<MemberData(nameof(``emojis are properly converted to words``.emojis))>]
-    member __.``Emojis should have correct speak text``(tweet:TestTweet.Root, emoji:string, desc:string) =
+    member __.``Emojis should have correct speak text``(tweet:TestTweet.Root) =
         let speakText = toMockTweet tweet |> toSpeakText
-        speakText |> should haveSubstitution (emoji, desc)
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
 
 type ``currency is properly converted to words``() =    
