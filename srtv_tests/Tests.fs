@@ -131,9 +131,9 @@ type TestExamples() =
     
     member __.fetch filename = snd <| Array.find (fun (name, _) -> filename = name) tweets
     member __.examples () = Array.map snd tweets |> Seq.ofArray
+    member __.filterByFilepath f = Array.filter (fun (name, _) -> f name) tweets |> Array.map snd |> Seq.ofArray
 
 let examples = TestExamples()
-
 let fetchTweet filename = examples.fetch filename
 let fetchExamples () = examples.examples ()
 
@@ -454,7 +454,7 @@ type ``numbers are properly converted to words``() =
 type ``emojis are properly converted to words``() =
 
     static member emojis () = 
-        fetchExamples ()
+        examples.filterByFilepath (fun x -> x.StartsWith("emojis/"))
         |> Seq.filter (fun tweet -> Regex.IsMatch(tweet.Label, @"with (the |a )?.+? emoji:\s*.+?(\s|,|$)"))
         |> Seq.map (fun tweet -> (tweet, Regex.Matches(tweet.Label, @"with (?:the |a )?(?<desc>.+?) emoji:\s*(?<emoji>.+?)(\s|,|$)")))
         |> Seq.collect (fun (tweet, matches) -> matches |> Seq.map (fun m -> (tweet, m.Groups.["emoji"].Value, m.Groups.["desc"].Value.ToLower())))
