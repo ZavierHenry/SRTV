@@ -81,7 +81,7 @@ module Twitter =
         let (|Retweet|_|) includes (tweet:Tweet) =
             tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets
             |> Option.bind (fun ref -> tryFindTweetById ref.ID includes)
-            |> Option.map (fun original -> (original, tweet))
+            |> Option.map (fun original -> (original, (findUserById tweet.ID includes).Name))
 
         let (|Reply|_|) (tweet:Tweet) = 
             let mentions = tweet.Entities.Mentions |> Seq.sortBy (fun mention -> mention.Start)
