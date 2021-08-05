@@ -74,7 +74,10 @@ module Substitution =
         let wholeNumberPattern = @"(?<wholeNumber>\d{1,3}(,\d{3})+|\d+)"
         let decimalPattern = $@"(?<integral>{wholeNumberPattern})?\.(?<fractional>\d+)"
 
-        let timePattern = @"(?<hour>[0-1]?\d|2[0-3]):(?<minute>[0-5]\d)(?<between>\s*)(?<meridiem>(?:(?:[aA]|[Pp])[Mm])?)"
+        let private meridiem = @"(?<meridiem>(?:(?:[aA]|[Pp])[Mm]))"
+        let private timeShortPattern = $@"(?<hour>[1-9]|1[0-2])(?<between>\s*){meridiem}"
+        let timePattern = $@"(?<hour>[0-1]?\d|2[0-3]):(?<minute>[0-5]\d)(?<between>\s*){meridiem}?"
+        let timeRegex = $@"{timeShortPattern}|{timePattern}"
         
         //TODO: change function to change decimals without a leading number (e.g .75)
         let processDecimals text =
@@ -130,13 +133,14 @@ module Substitution =
         let processTimes text =
             let evaluator (m:Match) =
                 let hour = int64 m.Groups.["hour"].Value
-                let minute = int64 m.Groups.["minute"].Value
+                let minute = if m.Groups.["minute"].Success then int64 m.Groups.["minute"].Value else 0L
                 let minuteWords =
                     match (hour, minute) with
                     | (h, 0L) when h > 12L -> "hundred hours"
                     | (_, 0L) -> ""
-                    | (_, m) when m < 10L -> $"oh {toWords m}"
-                    | (_, m) -> toWords m  
+                    | (_, m) when m < 10L -> $"o {toWords m}"
+                    | (_, m) -> $" {toWords m}"
+                let between = m.Groups.["between"].Value
                 let meridiem = m.Groups.["meridiem"].Value
                 let time =
                     let meridiem = 
@@ -144,10 +148,11 @@ module Substitution =
                         |> Seq.map string 
                         |> String.concat " " 
                         |> fun x -> if x = "" then "" else $" {x}"
-                    $"{toWords hour} {minuteWords}{meridiem}"
-                m.Groups.["startBoundary"].Value + time + m.Groups.["endBoundary"].Value
+                    $"{toWords hour} {minuteWords}{between}{meridiem}"
+                let newTime = m.Groups.["startBoundary"].Value + time + m.Groups.["endBoundary"].Value
+                Regex.Replace(newTime, @"\s{2,}", " ")
 
-            Regex.Replace(text, bindRegex timePattern, MatchEvaluator(evaluator))
+            Regex.Replace(text, bindRegex timeRegex, MatchEvaluator(evaluator))
                 
     let rec private processEmojis' acc =
         function
