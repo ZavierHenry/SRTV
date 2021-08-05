@@ -6,8 +6,8 @@ module Substitution =
 
     open Humanizer
 
-    let whitespaceBoundaryStart = @"(?<startBoundary>\s|^)"
-    let punctuation = @"[.;,!?]"
+    let punctuation = @"[.;,!?\(\)]"
+    let whitespaceBoundaryStart = $@"(?<startBoundary>\s|^|{punctuation})"
     let whitespaceBoundaryEnd = $@"(?<endBoundary>\s|$|{punctuation})"
 
     module Punctuation =
