@@ -127,11 +127,12 @@ type TestExamples() =
         Http.RequestString(examplesListFile)
         |> fun x -> Regex.Split(x, @"\r?\n")
         |> Array.filter (not << String.IsNullOrWhiteSpace)
-        |> Array.map ( fun relativeFilepath -> ( relativeFilepath, TestTweet.Load (tweetsDirectory + relativeFilepath) ))
+
+    let loadTweet filename = TestTweet.Load(tweetsDirectory + filename)
     
-    member __.fetch filename = snd <| Array.find (fun (name, _) -> filename = name) tweets
-    member __.examples () = Array.map snd tweets |> Seq.ofArray
-    member __.filterByFilepath f = Array.filter (fun (name, _) -> f name) tweets |> Array.map snd |> Seq.ofArray
+    member __.fetch filename = loadTweet <| Array.find (fun name -> filename = name) tweets
+    member __.examples () = Array.map loadTweet tweets |> Seq.ofArray
+    member __.filterByFilepath f = Array.filter f tweets |> Array.map loadTweet |> Seq.ofArray
 
 let examples = TestExamples()
 let fetchTweet filename = examples.fetch filename
