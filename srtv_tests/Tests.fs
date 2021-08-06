@@ -337,7 +337,25 @@ type ``replies are properly parsed``() =
     [<InlineData("fourReplyingTo.json")>]
     [<InlineData("sevenReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+
+        let headRepliedTo = testTweet.Tweet.RepliedTo.[ .. 1 ]
+        let restRepliedTo = testTweet.Tweet.RepliedTo.[ 2 .. ]
+
+        speakText |> should haveSubstring "Replying to"
+        
+        for repliedTo in headRepliedTo do
+            speakText |> should haveSubstring (processSpeakText $"@{repliedTo}")
+
+        match restRepliedTo with
+        | [| |]     -> ()
+        | [| a |]   -> speakText |> should haveSubstring (processSpeakText $"@{a}")
+        | rest      ->
+            speakText |> should haveSubstring (processSpeakText $"and {rest.Length} others")
+            for repliedTo in rest do
+                speakText |> should not' (haveSubstring <| processSpeakText $"@{repliedTo}")
+
 
 type ``retweets are properly parsed``() =
 
@@ -346,7 +364,7 @@ type ``retweets are properly parsed``() =
     member __.``retweets properly show the name of the account retweeting the tweet``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter} retweeted"
+        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter |> processSpeakText} retweeted"
 
 type ``quoted tweets are properly parsed``() =
     
