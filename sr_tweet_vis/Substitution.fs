@@ -105,12 +105,14 @@ module Substitution =
         
         let processOrdinals text =
             let evaluator (m:Match) =
-                sprintf "%s%s %s%s"
-                    <| m.Groups.["start"].Value
-                    <| if m.Groups.["startNumber"].Success then  int64 m.Groups.["startNumber"].Value |> fun x -> (x * 10L).ToWords() else ""
-                    <| (int >> toOrdinalWords) m.Groups.["endNumber"].Value
-                    <| m.Groups.["end"].Value
-            Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d+?)?(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(?<endNumber>\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
+                let endBoundary = m.Groups.["endBoundary"].Value
+                let number = m.Groups.["wholeNumber"].Value.Replace(",", "") |> int
+                sprintf "%s%s%s%s"
+                    <| m.Groups.["startBoundary"].Value
+                    <| if number >= 1000 && number <= 2000 then "one " else ""
+                    <| toOrdinalWords number
+                    <| endBoundary  
+            Regex.Replace(text, bindRegex $@"{wholeNumberPattern}(?:(?<=1)st|(?<=2)nd|(?<=3)rd|(?<=[04-9])th)", MatchEvaluator(evaluator))
 
         let processAmericanPhoneNumbers text =
             let evaluator (m:Match) =
