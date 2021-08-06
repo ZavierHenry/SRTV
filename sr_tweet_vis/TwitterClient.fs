@@ -97,6 +97,10 @@ module Twitter =
 
             Some (tweet, repliedTo) |> Option.filter (fun (_, repliedTo) -> not <| Seq.isEmpty repliedTo)
 
+        let (|MediaTweet|_|) (tweet:Tweet) =
+            Some tweet |> Option.filter (fun tweet -> not <| Seq.isEmpty tweet.Attachments.MediaKeys)
+
+
 
 
     module TwitterClient =
