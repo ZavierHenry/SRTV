@@ -93,10 +93,6 @@ module Substitution =
                 m.Groups.["startBoundary"].Value + number + m.Groups.["endBoundary"].Value
             Regex.Replace (text, bindRegex wholeNumberPattern, MatchEvaluator(evaluator))
 
-        //let processWholeNumbers text =
-        //    let evaluator (m:Match) = toWords <| int64 m.Value
-        //    Regex.Replace (text, @"\d+", MatchEvaluator(evaluator))
-
         let processRanges text =
             let evaluator (m:Match) =
                 let left = m.Groups.["left"].Value
@@ -109,9 +105,9 @@ module Substitution =
         
         let processOrdinals text =
             let evaluator (m:Match) =
-                sprintf "%s%s%s%s"
+                sprintf "%s%s %s%s"
                     <| m.Groups.["start"].Value
-                    <| if m.Groups.["startNumber"].Success then (int64 >> toWords) m.Groups.["startNumber"].Value else ""
+                    <| if m.Groups.["startNumber"].Success then  int64 m.Groups.["startNumber"].Value |> fun x -> (x * 10L).ToWords() else ""
                     <| (int >> toOrdinalWords) m.Groups.["endNumber"].Value
                     <| m.Groups.["end"].Value
             Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d+?)?(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(?<endNumber>\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
