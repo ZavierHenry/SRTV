@@ -337,7 +337,25 @@ type ``replies are properly parsed``() =
     [<InlineData("fourReplyingTo.json")>]
     [<InlineData("sevenReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+
+        let headRepliedTo = testTweet.Tweet.RepliedTo.[ .. 1 ]
+        let restRepliedTo = testTweet.Tweet.RepliedTo.[ 2 .. ]
+
+        speakText |> should haveSubstring "Replying to"
+        
+        for repliedTo in headRepliedTo do
+            speakText |> should haveSubstring (processSpeakText $"@{repliedTo}")
+
+        match restRepliedTo with
+        | [| |]     -> ()
+        | [| a |]   -> speakText |> should haveSubstring (processSpeakText $"@{a}")
+        | rest      ->
+            speakText |> should haveSubstring (processSpeakText $"and {rest.Length} others")
+            for repliedTo in rest do
+                speakText |> should not' (haveSubstring <| processSpeakText $"@{repliedTo}")
+
 
 type ``retweets are properly parsed``() =
 
@@ -346,7 +364,7 @@ type ``retweets are properly parsed``() =
     member __.``retweets properly show the name of the account retweeting the tweet``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter} retweeted"
+        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter |> processSpeakText} retweeted"
 
 type ``quoted tweets are properly parsed``() =
     
@@ -397,13 +415,13 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (decimal, expected)
 
     [<Theory>]
-    [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
-    [<InlineData("numbers/numberWithComma.json", "300", "three hundred")>]
-    [<InlineData("numbers/numberWithComma.json", "200", "two hundred")>]
-    [<InlineData("numbers/13000.json", "13000", "thirteen thousand")>]
-    member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (number, expected)
+    [<InlineData("numbers/numberWithComma.json")>]
+    [<InlineData("numbers/13000.json")>]
+    member __.``whole numbers are converted to word form``(filepath: string) =
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        for replacement in testTweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
     [<MemberData(nameof(``numbers are properly converted to words``.ordinals))>]
