@@ -276,7 +276,7 @@ module Twitter =
                         select tweet
                 }
 
-                this.makeTwitterListQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
+                this.makeTwitterSingleQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
 
             member this.GetUser(userID:string) =
                 let query () = query {
@@ -419,8 +419,8 @@ module Twitter =
                     return! makeTwitterCall call
             }
 
-            member this.getTweetMediaEntities(tweetIDs: uint64 seq) =
-                let ids = Seq.map string tweetIDs |> String.concat ","
+            member this.getTweetMediaEntities(tweetIDs: string seq) =
+                let ids = String.concat "," tweetIDs
 
                 let query () = query {
                     for tweet in context.Status do
