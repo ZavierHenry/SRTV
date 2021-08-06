@@ -37,9 +37,15 @@ module Twitter =
             open System.Text.RegularExpressions
 
             let isReply = Option.filter (fun (tweet:Tweet) -> tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets |> Option.isSome)
+            let isQuoteTweet = Option.filter (fun (tweet:Tweet) -> tryFindTweetReferenceByType "quoted" tweet.ReferencedTweets |> Option.isSome)
+            
             let hasText pattern = Option.filter ( fun (tweet:Tweet) -> Regex.IsMatch(tweet.Text, pattern) )
 
-            let renderMention pattern response = Some response |> isReply |> hasText $@"(\s|^)render\s+{pattern}(\s|$)"
+            let renderMention pattern response = 
+                Some response 
+                |> isReply
+                |> Option.orElse (isQuoteTweet <| Some response)
+                |> hasText $@"(\s|^)render\s+{pattern}(\s|$)"
 
             let (|VideoRenderMention|_|) response = renderMention "video" response
             let (|TextRenderMention|_|) response = renderMention "text" response
@@ -63,15 +69,39 @@ module Twitter =
             Some ()
             |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Not Found Error") )
 
-        let (|PrivateTweet|_|) (response:TweetQuery) =
-            Seq.tryHead response.Tweets
-            |> Option.bind (fun tweet -> tryFindUserById tweet.InReplyToUserID response.Includes)
+        let (|PrivateTweet|_|) includes (tweet:Tweet) =
+            tryFindUserById tweet.InReplyToUserID includes
             |> Option.filter (fun user -> user.Protected)
 
-        let (|QuotedTweet|_|) (response:TweetQuery) =
-            Seq.tryHead response.Tweets
-            |> Option.bind (fun tweet -> tryFindTweetReferenceByType "quoted_tweet" tweet.ReferencedTweets |> Option.map (fun reference -> (tweet, reference)))
-            |> Option.bind (fun (tweet, reference) -> tryFindTweetById reference.ID response.Includes |> Option.map (fun quotedTweet -> (tweet, quotedTweet)))
+        let (|QuotedTweet|_|) includes (tweet:Tweet) =
+            tryFindTweetReferenceByType "quoted" tweet.ReferencedTweets
+            |> Option.bind (fun ref -> tryFindTweetById ref.ID includes)
+            |> Option.map (fun original -> (original, tweet))
+
+        let (|Retweet|_|) includes (tweet:Tweet) =
+            tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets
+            |> Option.bind (fun ref -> tryFindTweetById ref.ID includes)
+            |> Option.map (fun original -> (original, (findUserById tweet.ID includes).Name))
+
+        let (|Reply|_|) (tweet:Tweet) = 
+            let mentions = tweet.Entities.Mentions |> Seq.sortBy (fun mention -> mention.Start)
+            let repliedTo =
+                Seq.indexed mentions
+                |> Seq.takeWhile ( fun (index, mention) -> 
+                    Seq.tryItem (index-1) mentions 
+                    |> Option.filter (fun m -> m.End + 1 = mention.Start) 
+                    |> Option.orElse (Some mention)
+                    |> Option.filter (fun m -> index = 0 && m.Start = 0)
+                    |> Option.isSome )
+                |> Seq.map (fun (_, mention) -> mention.Username)
+
+            Some (tweet, repliedTo) |> Option.filter (fun (_, repliedTo) -> not <| Seq.isEmpty repliedTo)
+
+        let (|MediaTweet|_|) (tweet:Tweet) =
+            Some tweet |> Option.filter (fun tweet -> not <| Seq.isEmpty tweet.Attachments.MediaKeys)
+
+
+
 
     module TwitterClient =
         open System
