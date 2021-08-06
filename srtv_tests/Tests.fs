@@ -366,12 +366,12 @@ type ``quoted tweets are properly parsed``() =
         noTest ()
 
 type ``numbers are properly converted to words``() =
+    
+    static let startsWith (prefix:string) (str:string) = str.StartsWith(prefix)
 
-    static member dates () =
-        toMemberData <| examples.filterByFilepath (fun x -> x.StartsWith("numbers/dates/"))
-
-    static member times () =
-        toMemberData <| examples.filterByFilepath (fun x -> x.StartsWith("numbers/times/"))
+    static member dates () = toMemberData <| examples.filterByFilepath (startsWith "numbers/dates/")
+    static member times () = toMemberData <| examples.filterByFilepath (startsWith "numbers/times/")
+    static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals")
     
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
@@ -406,16 +406,11 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (number, expected)
 
     [<Theory>]
-    [<InlineData("numbers/ordinals/second.json", "2nd", "second")>]
-    [<InlineData("numbers/ordinals/third.json", "3rd", "third")>]
-    [<InlineData("numbers/ordinals/first.json", "1st", "first")>]
-    [<InlineData("numbers/ordinals/zeroth.json", "0th", "zeroth")>]
-    [<InlineData("numbers/ordinals/twentyfourth.json", "24th", "twenty fourth")>]
-    [<InlineData("numbers/ordinals/1769th.json", "1,769th", "one thousand seven hundred and sixty nineth")>]
-    [<InlineData("numbers/ordinals/threehundredthirtieth.json", "330th", "three hundred thirtieth")>]
-    member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (ordinal, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.ordinals))>]
+    member __.``ordinal numbers (e.g. 2nd) are converted to word form``(testTweet:TestTweet.Root) =
+        let speakText = toMockTweet testTweet |> toSpeakText
+        for replacement in testTweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
     [<InlineData("numbers/year.json", "2008", "two thousand eight")>]

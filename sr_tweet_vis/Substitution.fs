@@ -7,8 +7,8 @@ module Substitution =
     open Humanizer
 
     let punctuation = @"[.;,!?\(\)]"
-    let whitespaceBoundaryStart = $@"(?<startBoundary>\s|^|{punctuation})"
-    let whitespaceBoundaryEnd = $@"(?<endBoundary>\s|$|{punctuation})"
+    let whitespaceBoundaryStart = $@"(?<=\s|^|{punctuation})"
+    let whitespaceBoundaryEnd = $@"(?=\s|$|{punctuation})"
 
     module Punctuation =
         let simpleReplacement =
@@ -89,13 +89,8 @@ module Substitution =
 
         let processWholeNumbers text =
             let evaluator (m:Match) =
-                let number = m.Groups.["wholeNumber"].Value.Replace(",", "") |> int64 |> toWords
-                m.Groups.["startBoundary"].Value + number + m.Groups.["endBoundary"].Value
+                m.Groups.["wholeNumber"].Value.Replace(",", "") |> int64 |> toWords
             Regex.Replace (text, bindRegex wholeNumberPattern, MatchEvaluator(evaluator))
-
-        //let processWholeNumbers text =
-        //    let evaluator (m:Match) = toWords <| int64 m.Value
-        //    Regex.Replace (text, @"\d+", MatchEvaluator(evaluator))
 
         let processRanges text =
             let evaluator (m:Match) =
@@ -109,12 +104,11 @@ module Substitution =
         
         let processOrdinals text =
             let evaluator (m:Match) =
-                sprintf "%s%s%s%s"
-                    <| m.Groups.["start"].Value
-                    <| if m.Groups.["startNumber"].Success then (int64 >> toWords) m.Groups.["startNumber"].Value else ""
-                    <| (int >> toOrdinalWords) m.Groups.["endNumber"].Value
-                    <| m.Groups.["end"].Value
-            Regex.Replace(text, @"(?<start>^|\s)(?<startNumber>\d+?)?(?:(?<endNumber>\d?1)st|(?<endNumber>\d?2)nd|(?<endNumber>\d?3)rd|(?<endNumber>\d?[04-9])th)(?<end>\s|$)", MatchEvaluator(evaluator))
+                let number = m.Groups.["wholeNumber"].Value.Replace(",", "") |> int
+                sprintf "%s%s"
+                    <| if number >= 1000 && number <= 2000 then "one " else ""
+                    <| toOrdinalWords number
+            Regex.Replace(text, bindRegex $@"{wholeNumberPattern}(?:(?<=1)st|(?<=2)nd|(?<=3)rd|(?<=[04-9])th)", MatchEvaluator(evaluator))
 
         let processAmericanPhoneNumbers text =
             let evaluator (m:Match) =
@@ -141,16 +135,13 @@ module Substitution =
                     | (_, m) when m < 10L -> $"o {toWords m}"
                     | (_, m) -> $" {toWords m}"
                 let between = m.Groups.["between"].Value
-                let meridiem = m.Groups.["meridiem"].Value
-                let time =
-                    let meridiem = 
-                        meridiem.ToLower() 
-                        |> Seq.map string 
-                        |> String.concat " " 
-                        |> fun x -> if x = "" then "" else $" {x}"
-                    $"{toWords hour} {minuteWords}{between}{meridiem}"
-                let newTime = m.Groups.["startBoundary"].Value + time + m.Groups.["endBoundary"].Value
-                Regex.Replace(newTime, @"\s{2,}", " ")
+                let meridiem = 
+                    m.Groups.["meridiem"].Value.ToLower() 
+                    |> Seq.map string 
+                    |> String.concat " " 
+                    |> fun x -> if x = "" then "" else $" {x}"
+                let time = $"{toWords hour} {minuteWords}{between}{meridiem}"
+                Regex.Replace(time, @"\s{2,}", " ")
 
             Regex.Replace(text, bindRegex timeRegex, MatchEvaluator(evaluator))
                 
