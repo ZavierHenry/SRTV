@@ -397,13 +397,13 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (decimal, expected)
 
     [<Theory>]
-    [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
-    [<InlineData("numbers/numberWithComma.json", "300", "three hundred")>]
-    [<InlineData("numbers/numberWithComma.json", "200", "two hundred")>]
-    [<InlineData("numbers/13000.json", "13000", "thirteen thousand")>]
-    member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (number, expected)
+    [<InlineData("numbers/numberWithComma.json")>]
+    [<InlineData("numbers/13000.json")>]
+    member __.``whole numbers are converted to word form``(filepath: string) =
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        for replacement in testTweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
     [<MemberData(nameof(``numbers are properly converted to words``.ordinals))>]
