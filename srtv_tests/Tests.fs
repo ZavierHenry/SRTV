@@ -341,7 +341,15 @@ type ``replies are properly parsed``() =
         let speakText = toMockTweet testTweet |> toSpeakText
 
         speakText |> should haveSubstring "Replying to"
-        
+
+        let repliedToPattern = 
+                   testTweet.Tweet.RepliedTo
+                   |> Array.map (sprintf "@%s\s+")
+                   |> String.concat "|"
+
+        let pattern = 
+            $@"Replying to (?<first>{repliedToPattern}) ((?<second>{repliedToPattern}) )?and ((?<third>{repliedToPattern})|(?<others>\d+) others)"
+
         for repliedTo in testTweet.Tweet.RepliedTo.[ .. 1 ] do
             speakText |> should haveSubstring (processSpeakText $"@{repliedTo}")
 
@@ -368,12 +376,18 @@ type ``replies are properly parsed``() =
             testTweet.Tweet.RepliedTo
             |> Array.map (sprintf "@%s\s+")
             |> String.concat "|"
+            |> sprintf "(%s)"
 
-        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^({repliedToPattern})+", "")
-        let pattern = $@"Replying to {repliedToPattern} ({repliedToPattern} )?and ({repliedToPattern}|\d+ others)"
+        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^{repliedToPattern}+", "")
+        let pattern =
+            testTweet.Tweet.RepliedTo
+            |> Array.map (processSpeakText << sprintf "@%s\s+")
+            |> String.concat "|"
+            |> sprintf "(%s)"
+            |> sprintf @"Replying to %s (%s )?and (%s|\d+ others)"
 
         speakText |> should haveSubstring (processSpeakText restText)
-        speakText |> should not' (haveSubstring <| processSpeakText $"{pattern} {testTweet.Tweet.Text}")
+        speakText |> should not' (matchPattern <| $"{pattern} {Regex.Escape <| processSpeakText testTweet.Tweet.Text}")
 
 
 type ``retweets are properly parsed``() =
