@@ -340,21 +340,40 @@ type ``replies are properly parsed``() =
         let testTweet = fetchTweet filepath
         let speakText = toMockTweet testTweet |> toSpeakText
 
-        let headRepliedTo = testTweet.Tweet.RepliedTo.[ .. 1 ]
-        let restRepliedTo = testTweet.Tweet.RepliedTo.[ 2 .. ]
-
         speakText |> should haveSubstring "Replying to"
         
-        for repliedTo in headRepliedTo do
+        for repliedTo in testTweet.Tweet.RepliedTo.[ .. 1 ] do
             speakText |> should haveSubstring (processSpeakText $"@{repliedTo}")
 
-        match restRepliedTo with
+        match testTweet.Tweet.RepliedTo.[ 2 .. ] with
         | [| |]     -> ()
         | [| a |]   -> speakText |> should haveSubstring (processSpeakText $"@{a}")
         | rest      ->
             speakText |> should haveSubstring (processSpeakText $"and {rest.Length} others")
             for repliedTo in rest do
                 speakText |> should not' (haveSubstring <| processSpeakText $"@{repliedTo}")
+
+
+    [<Theory>]
+    [<InlineData("basicReply.json")>]
+    [<InlineData("twoReplyingTo.json")>]
+    [<InlineData("threeReplyingTo.json")>]
+    [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
+    member __.``beginning replies are removed from the tweet text``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        
+        let repliedToPattern = 
+            testTweet.Tweet.RepliedTo
+            |> Array.map (sprintf "@%s\s+")
+            |> String.concat "|"
+
+        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^({repliedToPattern})+", "")
+        let pattern = $@"Replying to {repliedToPattern} ({repliedToPattern} )?and ({repliedToPattern}|\d+ others)"
+
+        speakText |> should haveSubstring (processSpeakText restText)
+        speakText |> should not' (haveSubstring <| processSpeakText $"{pattern} {testTweet.Tweet.Text}")
 
 
 type ``retweets are properly parsed``() =
@@ -527,16 +546,3 @@ type ``punctuation is properly converted to words``() =
     [<Fact>]
     member __.``symbols that should be removed are properly removed``() =
         noTest ()
-
-    [<Theory>]
-    [<InlineData("basicReply.json")>]
-    [<InlineData("twoReplyingTo.json")>]
-    [<InlineData("threeReplyingTo.json")>]
-    [<InlineData("fourReplyingTo.json")>]
-    [<InlineData("sevenReplyingTo.json")>]
-    member __.``beginning replies are removed from the tweet text``(filepath:string) =
-        let testTweet = fetchTweet filepath
-        let text = processSpeakText (toMockTweet testTweet).Text
-        testTweet.Tweet.RepliedTo
-        |> Array.map (sprintf "@%s")
-        |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )

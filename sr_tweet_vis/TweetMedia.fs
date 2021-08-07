@@ -217,7 +217,7 @@ module TweetMedia =
             <| if this.IsProtected then " protected account " else " "
             <| this.ScreenName
             <| repliesToString repliedTo
-            <| this.Text 
+            <| removeBeginningReplies this.Text this.RepliedTo
             <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
     
         member this.ToSpeakText() : string = 
