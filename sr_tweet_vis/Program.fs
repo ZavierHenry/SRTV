@@ -8,6 +8,7 @@ open SRTV.TweetImage
 
 open SRTV.Twitter.TwitterClient
 open SRTV.Twitter.Patterns
+open SRTV.Twitter.Patterns.Mentions
 
 open System.IO
 
@@ -46,12 +47,16 @@ let toImage'(output:string) =
 let rec handleMentions (client:Client) startDate (token: string option) = async {
 
     let! mentions = client.GetMentions(startDate)
-    let! extendedEntities =
+    let tweets = 
         mentions
-        |> ClientResult.map ( fun mentions -> mentions.Tweets |> Seq.filter (function | MediaTweet _ -> true | _ -> false) )
-        |> ClientResult.map ( fun tweets -> tweets |> Seq.map (fun tweet -> tweet.ID) )
-        |> bindAsync client.getTweetMediaEntities
-
+        |> ClientResult.map (fun mentions -> mentions.Tweets)
+        |> ClientResult.map (fun tweets -> tweets |> Seq.filter (function
+            | VideoRenderMention _ 
+            | ImageRenderMention _ 
+            | TextRenderMention _ 
+            | GeneralRenderMention _ -> true
+            | _ -> false ))
+        
     //TODO: convert to SRTV tweet and send
 
     do! match mentions with
