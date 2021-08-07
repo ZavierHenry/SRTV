@@ -366,17 +366,14 @@ type ``replies are properly parsed``() =
         
         let repliedToPattern = 
             testTweet.Tweet.RepliedTo
-            |> Array.map (sprintf "@%s")
+            |> Array.map (sprintf "@%s\s+")
             |> String.concat "|"
 
-        let text = processSpeakText (toMockTweet testTweet).Text
-        let beginningRepliedTo = Regex.Match(text, $@"^({repliedToPattern} )+").Value
-        let restText = Regex.Replace(text, $@"^({repliedToPattern}\s+)+", "")
+        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^({repliedToPattern})+", "")
+        let pattern = $@"Replying to {repliedToPattern} ({repliedToPattern} )?and ({repliedToPattern}|\d+ others)"
 
         speakText |> should haveSubstring (processSpeakText restText)
-        speakText |> should not' (haveSubstring <| processSpeakText beginningRepliedTo)
-
-
+        speakText |> should not' (haveSubstring <| processSpeakText $"{pattern} {testTweet.Tweet.Text}")
 
 
 type ``retweets are properly parsed``() =

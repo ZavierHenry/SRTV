@@ -171,3 +171,12 @@ module Substitution =
     //Not doing so may lead to some unexpected incorrect processing, especially with ranges that require the "-" character
     let processSpeakText = processEmojis >> processNumbers >> simpleSubstitution >> simpleRemoval
 
+    let rec removeBeginningReplies text repliedTo =
+        let pattern =
+            List.map (sprintf "@%s") repliedTo
+            |> String.concat "|"
+            |> sprintf @"^((?:%s)\s+)"
+        let nextText = Regex.Replace(text, pattern, "")
+        if text = nextText then text else removeBeginningReplies nextText repliedTo
+        
+
