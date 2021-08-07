@@ -362,10 +362,21 @@ type ``replies are properly parsed``() =
     [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
         let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        
+        let repliedToPattern = 
+            testTweet.Tweet.RepliedTo
+            |> Array.map (sprintf "@%s")
+            |> String.concat "|"
+
         let text = processSpeakText (toMockTweet testTweet).Text
-        testTweet.Tweet.RepliedTo
-        |> Array.map (sprintf "@%s")
-        |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
+        let beginningRepliedTo = Regex.Match(text, $@"^({repliedToPattern} )+").Value
+        let restText = Regex.Replace(text, $@"^({repliedToPattern}\s+)+", "")
+
+        speakText |> should haveSubstring (processSpeakText restText)
+        speakText |> should not' (haveSubstring <| processSpeakText beginningRepliedTo)
+
+
 
 
 type ``retweets are properly parsed``() =
