@@ -453,8 +453,9 @@ type ``numbers are properly converted to words``() =
 
     static member dates () = toMemberData <| examples.filterByFilepath (startsWith "numbers/dates/")
     static member times () = toMemberData <| examples.filterByFilepath (startsWith "numbers/times/")
-    static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals")
-    
+    static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals/")
+    static member currency () = toMemberData <| examples.filterByFilepath (startsWith "numbers/currency/")
+
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
     [<InlineData("numbers/phoneNumberDots.json")>]
@@ -516,6 +517,13 @@ type ``numbers are properly converted to words``() =
             speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
+    [<MemberData(nameof(``numbers are properly converted to words``.currency))>]
+    member __.``currency is converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
+
+    [<Theory>]
     [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
     [<InlineData("numbers/dates/mddyy.json", "5/17/21", "may seventeenth twenty twenty one")>]
     [<InlineData("numbers/dates/mmddyyyy.json", "06/30/2021", "june thirtieth twenty twenty one")>]
@@ -545,23 +553,6 @@ type ``emojis are properly converted to words``() =
         for replacement in tweet.Replacements do
             speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
-
-type ``currency is properly converted to words``() =    
-    [<Fact>]
-    member __.``Dollar amounts are properly indicated``() =
-       noTest ()
-
-    [<Fact>]
-    member __.``Euro amounts are properly indicated``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``British pound amounts are properly indicated``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``Japanese yen amounts are properly indicated``() =
-        noTest ()
         
 type ``punctuation is properly converted to words``() = 
 
