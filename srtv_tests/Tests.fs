@@ -429,7 +429,13 @@ type ``quoted tweets are properly parsed``() =
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
     member __.``quoted tweets should be shown``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        let quotedTweet = Option.get testTweet.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
+
+        let quotedSpeakText = MockTweet(quotedTweet.Text, quotedTweet.Author.ScreenName, quotedTweet.Author.Name, DateTime.Parse(quotedTweet.DateCreated), quotedTweet.Author.Verified, quotedTweet.Author.Protected, None, Array.toList quotedTweet.RepliedTo, Seq.empty).ToSpeakText()
+        speakText |> should haveSubstring quotedSpeakText
+
 
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
@@ -447,8 +453,10 @@ type ``numbers are properly converted to words``() =
 
     static member dates () = toMemberData <| examples.filterByFilepath (startsWith "numbers/dates/")
     static member times () = toMemberData <| examples.filterByFilepath (startsWith "numbers/times/")
-    static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals")
-    
+    static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals/")
+    static member currency () = toMemberData <| examples.filterByFilepath (startsWith "numbers/currency/")
+    static member abbreviations () = toMemberData <| examples.filterByFilepath (startsWith "numbers/abbreviations/")
+
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
     [<InlineData("numbers/phoneNumberDots.json")>]
@@ -510,23 +518,29 @@ type ``numbers are properly converted to words``() =
             speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
-    [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
-    [<InlineData("numbers/dates/mddyy.json", "5/17/21", "may seventeenth twenty twenty one")>]
-    [<InlineData("numbers/dates/mmddyyyy.json", "06/30/2021", "june thirtieth twenty twenty one")>]
-    member __.``obvious dates are converted into words``(filepath:string, date:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (date, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.currency))>]
+    member __.``currency is converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
+
+    [<Theory>]
+    [<MemberData(nameof(``numbers are properly converted to words``.dates))>]
+    member __.``obvious dates are converted into words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Fact>]
     member __.``date ranges are converted into words``() =
         noTest ()
 
     [<Theory>]
-    [<InlineData("numbers/abbreviations/centimeters.json", "5 cm", "five centimeters")>]
-    [<InlineData("numbers/abbreviations/feet.json", "6 ft", "six feet")>]
-    member __.``units of measurement (e.g. cm, ft, yds) are converted to words``(filepath:string, measurement:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (measurement, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.abbreviations))>]
+    member __.``abbreviations are converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
 type ``emojis are properly converted to words``() =
 
@@ -539,23 +553,6 @@ type ``emojis are properly converted to words``() =
         for replacement in tweet.Replacements do
             speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
-
-type ``currency is properly converted to words``() =    
-    [<Fact>]
-    member __.``Dollar amounts are properly indicated``() =
-       noTest ()
-
-    [<Fact>]
-    member __.``Euro amounts are properly indicated``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``British pound amounts are properly indicated``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``Japanese yen amounts are properly indicated``() =
-        noTest ()
         
 type ``punctuation is properly converted to words``() = 
 
