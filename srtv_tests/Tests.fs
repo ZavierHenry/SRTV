@@ -429,7 +429,13 @@ type ``quoted tweets are properly parsed``() =
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
     member __.``quoted tweets should be shown``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        let quotedTweet = Option.get testTweet.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
+
+        let quotedSpeakText = MockTweet(quotedTweet.Text, quotedTweet.Author.ScreenName, quotedTweet.Author.Name, DateTime.Parse(quotedTweet.DateCreated), quotedTweet.Author.Verified, quotedTweet.Author.Protected, None, Array.toList quotedTweet.RepliedTo, Seq.empty).ToSpeakText()
+        speakText |> should haveSubstring quotedSpeakText
+
 
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
