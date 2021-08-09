@@ -524,12 +524,11 @@ type ``numbers are properly converted to words``() =
             speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
-    [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
-    [<InlineData("numbers/dates/mddyy.json", "5/17/21", "may seventeenth twenty twenty one")>]
-    [<InlineData("numbers/dates/mmddyyyy.json", "06/30/2021", "june thirtieth twenty twenty one")>]
-    member __.``obvious dates are converted into words``(filepath:string, date:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (date, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.dates))>]
+    member __.``obvious dates are converted into words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Fact>]
     member __.``date ranges are converted into words``() =
