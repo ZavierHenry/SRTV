@@ -455,6 +455,7 @@ type ``numbers are properly converted to words``() =
     static member times () = toMemberData <| examples.filterByFilepath (startsWith "numbers/times/")
     static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals/")
     static member currency () = toMemberData <| examples.filterByFilepath (startsWith "numbers/currency/")
+    static member abbreviations () = toMemberData <| examples.filterByFilepath (startsWith "numbers/abbreviations/")
 
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
@@ -535,11 +536,11 @@ type ``numbers are properly converted to words``() =
         noTest ()
 
     [<Theory>]
-    [<InlineData("numbers/abbreviations/centimeters.json", "5 cm", "five centimeters")>]
-    [<InlineData("numbers/abbreviations/feet.json", "6 ft", "six feet")>]
-    member __.``units of measurement (e.g. cm, ft, yds) are converted to words``(filepath:string, measurement:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (measurement, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.abbreviations))>]
+    member __.``abbreviations are converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
 type ``emojis are properly converted to words``() =
 
