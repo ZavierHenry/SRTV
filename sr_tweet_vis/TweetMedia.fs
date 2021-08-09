@@ -108,7 +108,7 @@ module TweetMedia =
             <| text
             <| if hasPoll then "Show this poll" else List.map mediaToText media |> String.concat ""
 
-    let twitterTweetToQuotedTweet (tweet:Tweet) includes extendedEntities =
+    let twitterTweetToQuotedTweet includes (tweet:Tweet) extendedEntities =
         let author = findUserById tweet.AuthorID includes
 
         Tweet (
@@ -141,6 +141,11 @@ module TweetMedia =
                 tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets 
                 |> Option.map (fun ref -> findTweetById ref.ID includes)
                 |> Option.defaultValue tweet
+
+            let quotedTweet =
+                tryFindTweetReferenceByType "quoted" tweet.ReferencedTweets
+                |> Option.map (fun ref -> findTweetById ref.ID includes)
+                |> Option.map (twitterTweetToQuotedTweet includes)
 
             let author = findUserById originalTweet.AuthorID includes
 
@@ -219,6 +224,6 @@ module TweetMedia =
             <| repliesToString repliedTo
             <| removeBeginningReplies this.Text this.RepliedTo
             <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
-            <| Option.defaultValue "" (this.QuotedTweet |> Option.map quotedTweetToString)
+            <| (this.QuotedTweet |> Option.map quotedTweetToString |> Option.defaultValue "")
 
         member this.ToSpeakText() = processSpeakText <| this.ToUnprocessedText()
