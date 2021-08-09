@@ -267,7 +267,7 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo,
-                None,
+                mockTweet.QuotedTweet,
                 mockTweet.Media
             )
         let speakText = newMockTweet.ToSpeakText()
@@ -300,7 +300,7 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo, 
-                None,
+                mockTweet.QuotedTweet,
                 mockTweet.Media
             )
         let speakText = newMockTweet.ToSpeakText()
