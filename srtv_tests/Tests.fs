@@ -18,6 +18,8 @@ open Newtonsoft.Json.Linq
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
+open Humanizer
+
 let [<Literal>] testRepository = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/"
 let [<Literal>] tweetsDirectory = testRepository + "tweets/"
 let [<Literal>] examplesListFile = testRepository + "exampleFilepaths.txt"
@@ -341,17 +343,46 @@ type ``replies are properly parsed``() =
         let speakText = toMockTweet testTweet |> toSpeakText
 
         speakText |> should haveSubstring "Replying to"
-        
-        for repliedTo in testTweet.Tweet.RepliedTo.[ .. 1 ] do
-            speakText |> should haveSubstring (processSpeakText $"@{repliedTo}")
 
-        match testTweet.Tweet.RepliedTo.[ 2 .. ] with
-        | [| |]     -> ()
-        | [| a |]   -> speakText |> should haveSubstring (processSpeakText $"@{a}")
-        | rest      ->
-            speakText |> should haveSubstring (processSpeakText $"and {rest.Length} others")
-            for repliedTo in rest do
-                speakText |> should not' (haveSubstring <| processSpeakText $"@{repliedTo}")
+        let repliedToPattern = 
+            testTweet.Tweet.RepliedTo
+            |> Array.map ( fun x -> ($"@{x}" |> processSpeakText |> sprintf "%s\s+").TrimStart() )
+            |> String.concat "|"
+            |> sprintf "(%s)"
+
+        let pattern = 
+            $@"Replying to (?<first>{repliedToPattern})(((?<second>{repliedToPattern}))?and ((?<third>{repliedToPattern})|(?<others>.*?) others)?)?"
+
+        speakText |> should matchPattern pattern
+        let m = Regex.Match(speakText, pattern)
+
+        let first = m.Groups.["first"]
+        let second = m.Groups.["second"]
+        let third = m.Groups.["third"]
+        let others = m.Groups.["others"]
+
+        first.Success |> should be True
+
+        match testTweet.Tweet.RepliedTo.Length with
+        | 0 | 1 -> ()
+        | 2 ->
+            second.Success |> should be False
+            third.Success |> should be True
+            others.Success |> should be False
+            third.Value |> should not' (equal first.Value)
+        | 3 ->
+            second.Success |> should be True
+            third.Success |> should be True
+            others.Success |> should be False
+            second.Value |> should not' (equal first.Value)
+            third.Value |> should not' (equal first.Value)
+            second.Value |> should not' (equal third.Value)
+        | n -> 
+            second.Success |> should be True
+            third.Success |> should be False
+            others.Success |> should be True
+            second.Value |> should not' (equal first.Value)
+            others.Value |> should equal ( (n-2) .ToWords() )
 
 
     [<Theory>]
@@ -368,12 +399,20 @@ type ``replies are properly parsed``() =
             testTweet.Tweet.RepliedTo
             |> Array.map (sprintf "@%s\s+")
             |> String.concat "|"
+            |> sprintf "(%s)"
 
-        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^({repliedToPattern})+", "")
-        let pattern = $@"Replying to {repliedToPattern} ({repliedToPattern} )?and ({repliedToPattern}|\d+ others)"
+        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^{repliedToPattern}+", "")
+        let pattern =
+            testTweet.Tweet.RepliedTo
+            |> Array.map (sprintf "@%s" >> processSpeakText >> sprintf "%s\s+")
+            |> String.concat "|"
+            |> sprintf "(%s)"
+            |> sprintf @"Replying to %s( (%s )?and (%s|\d+ others))?"
 
         speakText |> should haveSubstring (processSpeakText restText)
-        speakText |> should not' (haveSubstring <| processSpeakText $"{pattern} {testTweet.Tweet.Text}")
+
+        //TODO: make sure test is not just a false positive
+        speakText |> should not' (matchPattern <| $"{pattern} {Regex.Escape <| processSpeakText testTweet.Tweet.Text}")
 
 
 type ``retweets are properly parsed``() =

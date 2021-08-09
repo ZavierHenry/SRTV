@@ -167,9 +167,11 @@ module Substitution =
 
     let private simpleRemoval = String.map (fun c -> if List.contains c Punctuation.removal then ' ' else c)
 
+    let private normalize text = Regex.Replace(text, "\s{2,}", " ")
+
     //Ensure that simple substitution and simple removal are the last two functions called when processing text
     //Not doing so may lead to some unexpected incorrect processing, especially with ranges that require the "-" character
-    let processSpeakText = processEmojis >> processNumbers >> simpleSubstitution >> simpleRemoval
+    let processSpeakText = processEmojis >> processNumbers >> simpleSubstitution >> simpleRemoval >> normalize
 
     let rec removeBeginningReplies text repliedTo =
         let pattern =
