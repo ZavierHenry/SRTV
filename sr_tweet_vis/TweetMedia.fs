@@ -98,7 +98,7 @@ module TweetMedia =
     let quotedTweetToString = function
     | Unavailable -> ""
     | Tweet (screenName, name, verified, locked, date, repliedTo, text, media, hasPoll) ->
-        sprintf "%s%s %s%s%s%s%s%s"
+        sprintf "quote tweet %s%s %s%s%s%s%s%s"
             <| repliesToString repliedTo
             <| name
             <| if verified then " verified account " else ""
@@ -210,7 +210,7 @@ module TweetMedia =
             )
 
         member this.ToUnprocessedText() : string = 
-            sprintf "%s%s%s%s@%s%s %s%s"
+            sprintf "%s %s %s %s @%s %s %s %s %s"
             <| match this.Retweeter with | Some name -> $"{name} retweeted " | None -> ""
             <| this.Name
             <| if this.IsVerified then " verified account " else " "
@@ -219,6 +219,6 @@ module TweetMedia =
             <| repliesToString repliedTo
             <| removeBeginningReplies this.Text this.RepliedTo
             <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
-    
-        member this.ToSpeakText() : string = 
-            processSpeakText <| this.ToUnprocessedText()
+            <| Option.defaultValue "" (this.QuotedTweet |> Option.map quotedTweetToString)
+
+        member this.ToSpeakText() = processSpeakText <| this.ToUnprocessedText()
