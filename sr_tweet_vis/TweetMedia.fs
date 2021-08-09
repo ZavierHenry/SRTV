@@ -108,7 +108,7 @@ module TweetMedia =
             <| text
             <| if hasPoll then "Show this poll" else List.map mediaToText media |> String.concat ""
 
-    let twitterTweetToQuotedTweet includes (tweet:Tweet) extendedEntities =
+    let twitterTweetToQuotedTweet includes extendedEntities (tweet:Tweet) =
         let author = findUserById tweet.AuthorID includes
 
         Tweet (
@@ -123,7 +123,7 @@ module TweetMedia =
             Seq.isEmpty tweet.Attachments.PollIds |> not
         )
 
-    type MockTweet(text, screenname, name, date, isVerified, isProtected, retweeter, repliedTo, media) =
+    type MockTweet(text, screenname, name, date, isVerified, isProtected, retweeter, repliedTo, quotedTweet, media) =
         member this.Text : string = text
         member this.ScreenName : string = screenname
         member this.Name : string = name
@@ -132,7 +132,7 @@ module TweetMedia =
         member this.Date : DateTime = date
         member this.Retweeter : string option = retweeter
         member this.RepliedTo : string list = repliedTo
-        member this.QuotedTweet : QuotedTweet option = None
+        member this.QuotedTweet : QuotedTweet option = quotedTweet
         member this.Media : Media seq = media
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
@@ -145,7 +145,7 @@ module TweetMedia =
             let quotedTweet =
                 tryFindTweetReferenceByType "quoted" tweet.ReferencedTweets
                 |> Option.map (fun ref -> findTweetById ref.ID includes)
-                |> Option.map (twitterTweetToQuotedTweet includes)
+                |> Option.map (twitterTweetToQuotedTweet includes extendedEntities)
 
             let author = findUserById originalTweet.AuthorID includes
 
@@ -205,6 +205,7 @@ module TweetMedia =
                 author.Protected,
                 retweeter,
                 repliedTo,
+                quotedTweet,
                 seq {
                     yield! photos
                     yield! videos
