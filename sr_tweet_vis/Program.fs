@@ -7,6 +7,8 @@ open SRTV.TweetAudio
 open SRTV.TweetImage
 
 open SRTV.Twitter.TwitterClient
+open SRTV.Twitter.Patterns
+open SRTV.Twitter.Patterns.Mentions
 
 open System.IO
 
@@ -42,6 +44,30 @@ let toImage'(output:string) =
         let! bytes = toImage exampleMockTweet profileUrl source Theme.Dim
         return File.WriteAllBytes(output, bytes)
     }
+
+let rec handleMentions (client:Client) startDate (token: string option) = async {
+
+    let! mentions = client.GetMentions(startDate)
+    let tweets = 
+        mentions
+        |> ClientResult.map (fun mentions -> mentions.Tweets)
+        |> ClientResult.map (fun tweets -> tweets |> Seq.filter (function
+            | VideoRenderMention _ 
+            | ImageRenderMention _ 
+            | TextRenderMention _ 
+            | GeneralRenderMention _ -> true
+            | _ -> false ))
+        
+    //TODO: convert to SRTV tweet and send
+
+    do! match mentions with
+        | Success mentions ->
+            match mentions.Meta.NextToken with
+            | "" -> async { return () }
+            | token -> handleMentions client startDate (Some token)
+        | _ -> async { return () }
+
+}
     
 [<EntryPoint>]
 let main argv =
@@ -52,7 +78,8 @@ let main argv =
         | [| |]     -> DateTime.UtcNow.AddMonths(-1)
         | argv      -> DateTime.Parse <| Array.head argv
 
-    let mentions = client.GetMentions(startDate)
+    let mentions = handleMentions client startDate None |> Async.RunSynchronously
+
     0
 
     
