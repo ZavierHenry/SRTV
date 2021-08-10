@@ -619,3 +619,43 @@ type ``punctuation is properly converted to words``() =
     [<Fact>]
     member __.``symbols that should be removed are properly removed``() =
         noTest ()
+
+    [<Theory>]
+    [<InlineData("basicReply.json")>]
+    [<InlineData("twoReplyingTo.json")>]
+    [<InlineData("threeReplyingTo.json")>]
+    [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
+    member __.``beginning replies are removed from the tweet text``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let text = processSpeakText (toMockTweet testTweet).Text
+        testTweet.Tweet.RepliedTo
+        |> Array.map (sprintf "@%s")
+        |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
+
+open FSharp.Configuration
+type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true, InferTypesFromStrings=false>
+
+open SRTV.Twitter.TwitterClient.Text
+
+type ``extraction of urls are done properly``() =
+
+    static member urlIndicesTests = TwitterUrlConformance().tests.urls_with_indices |> toMemberData
+    static member tcoTests = TwitterUrlConformance().tests.tco_urls_with_params |> toMemberData
+    static member urlTests = TwitterUrlConformance().tests.urls |> toMemberData
+    static member urlDirectionalMarkersTests = TwitterUrlConformance().tests.urls_with_directional_markers |> toMemberData
+
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.urlTests))>]
+    member __.``urls are extracted``(test:TwitterUrlConformance.tests_Type.urls_Item_Type) = 
+        noTest ()
+
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
+    member __.``url extraction has the right indices``() =
+        noTest ()
+
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
+    member __.``tco links are properly handled``() =
+        noTest ()
