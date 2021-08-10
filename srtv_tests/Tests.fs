@@ -636,7 +636,7 @@ type ``punctuation is properly converted to words``() =
 open FSharp.Configuration
 type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true, InferTypesFromStrings=false>
 
-open SRTV.TwitterClient.Text
+open SRTV.Twitter.TwitterClient.Text
 
 type ``extraction of urls are done properly``() =
 
