@@ -23,9 +23,9 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Configuration" Version="2.0.0" />
-    <PackageReference Include="FSharp.Data" Version="4.1.1" />
+    <PackageReference Include="FSharp.Data" Version="4.2.0" />
     <PackageReference Include="FSharp.DependencyManager.Nuget" Version="37.0.0" />
-    <PackageReference Include="FsUnit.xUnit" Version="4.0.4" />
+    <PackageReference Include="FsUnit.xUnit" Version="4.0.5" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.10.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.14" />
     <PackageReference Include="System.Runtime.Caching" Version="5.0.0" />
@@ -34,7 +34,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="coverlet.collector" Version="3.0.3">
+    <PackageReference Include="coverlet.collector" Version="3.1.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

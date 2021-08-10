@@ -18,6 +18,8 @@ open Newtonsoft.Json.Linq
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
+open Humanizer
+
 let [<Literal>] testRepository = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/"
 let [<Literal>] tweetsDirectory = testRepository + "tweets/"
 let [<Literal>] examplesListFile = testRepository + "exampleFilepaths.txt"
@@ -96,6 +98,28 @@ let altTextToMedia f (altText:TestTweet.ImageAltText) : Media =
 let attributionToMedia (attribution:TestTweet.VideoAttribution) : Media =
     Video <| Option.filter (fun _ -> attribution.HasAttribution) attribution.Attribution
 
+let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
+    let toMedia (f:'a -> Media) = Option.toList << Option.map f
+
+    quotedTweet.Tweet
+    |> Option.filter (fun _ -> quotedTweet.Available)
+    |> Option.map (fun tweet ->
+        let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
+        let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
+        let video = toMedia attributionToMedia tweet.VideoAttribution
+
+        Tweet (
+            tweet.Author.ScreenName,
+            tweet.Author.Name,
+            tweet.Author.Verified,
+            tweet.Author.Protected,
+            DateTime.Parse(tweet.DateCreated),
+            Array.toList tweet.RepliedTo,
+            tweet.Text,
+            images @ gif @ video,
+            tweet.HasPoll ))
+    |> Option.defaultValue Unavailable
+
 let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
     let toMedia (f:'a -> Media) = Option.toList << Option.map f
@@ -116,6 +140,7 @@ let toMockTweet(root:TestTweet.Root) =
         tweet.Author.Protected,
         tweet.Retweeter,
         Array.toList tweet.RepliedTo,
+        Option.map toQuotedTweet tweet.QuotedTweet,
         images @ video @ gif @ poll @ card
     )
 
@@ -131,9 +156,9 @@ type TestExamples() =
     
     member __.fetch filename = snd <| Array.find (fun (name, _) -> filename = name) tweets
     member __.examples () = Array.map snd tweets |> Seq.ofArray
+    member __.filterByFilepath f = Array.filter (fun (name, _) -> f name) tweets |> Array.map snd |> Seq.ofArray
 
 let examples = TestExamples()
-
 let fetchTweet filename = examples.fetch filename
 let fetchExamples () = examples.examples ()
 
@@ -241,7 +266,8 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.IsVerified, 
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
-                mockTweet.RepliedTo, 
+                mockTweet.RepliedTo,
+                mockTweet.QuotedTweet,
                 mockTweet.Media
             )
         let speakText = newMockTweet.ToSpeakText()
@@ -274,6 +300,7 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo, 
+                mockTweet.QuotedTweet,
                 mockTweet.Media
             )
         let speakText = newMockTweet.ToSpeakText()
@@ -337,7 +364,81 @@ type ``replies are properly parsed``() =
     [<InlineData("fourReplyingTo.json")>]
     [<InlineData("sevenReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+
+        speakText |> should haveSubstring "Replying to"
+
+        let repliedToPattern = 
+            testTweet.Tweet.RepliedTo
+            |> Array.map ( fun x -> ($"@{x}" |> processSpeakText |> sprintf "%s\s+").TrimStart() )
+            |> String.concat "|"
+            |> sprintf "(%s)"
+
+        let pattern = 
+            $@"Replying to (?<first>{repliedToPattern})(((?<second>{repliedToPattern}))?and ((?<third>{repliedToPattern})|(?<others>.*?) others)?)?"
+
+        speakText |> should matchPattern pattern
+        let m = Regex.Match(speakText, pattern)
+
+        let first = m.Groups.["first"]
+        let second = m.Groups.["second"]
+        let third = m.Groups.["third"]
+        let others = m.Groups.["others"]
+
+        first.Success |> should be True
+
+        match testTweet.Tweet.RepliedTo.Length with
+        | 0 | 1 -> ()
+        | 2 ->
+            second.Success |> should be False
+            third.Success |> should be True
+            others.Success |> should be False
+            third.Value |> should not' (equal first.Value)
+        | 3 ->
+            second.Success |> should be True
+            third.Success |> should be True
+            others.Success |> should be False
+            second.Value |> should not' (equal first.Value)
+            third.Value |> should not' (equal first.Value)
+            second.Value |> should not' (equal third.Value)
+        | n -> 
+            second.Success |> should be True
+            third.Success |> should be False
+            others.Success |> should be True
+            second.Value |> should not' (equal first.Value)
+            others.Value |> should equal ( (n-2) .ToWords() )
+
+
+    [<Theory>]
+    [<InlineData("basicReply.json")>]
+    [<InlineData("twoReplyingTo.json")>]
+    [<InlineData("threeReplyingTo.json")>]
+    [<InlineData("fourReplyingTo.json")>]
+    [<InlineData("sevenReplyingTo.json")>]
+    member __.``beginning replies are removed from the tweet text``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        
+        let repliedToPattern = 
+            testTweet.Tweet.RepliedTo
+            |> Array.map (sprintf "@%s\s+")
+            |> String.concat "|"
+            |> sprintf "(%s)"
+
+        let restText = Regex.Replace(testTweet.Tweet.Text, $@"^{repliedToPattern}+", "")
+        let pattern =
+            testTweet.Tweet.RepliedTo
+            |> Array.map (sprintf "@%s" >> processSpeakText >> sprintf "%s\s+")
+            |> String.concat "|"
+            |> sprintf "(%s)"
+            |> sprintf @"Replying to %s( (%s )?and (%s|\d+ others))?"
+
+        speakText |> should haveSubstring (processSpeakText restText)
+
+        //TODO: make sure test is not just a false positive
+        speakText |> should not' (matchPattern <| $"{pattern} {Regex.Escape <| processSpeakText testTweet.Tweet.Text}")
+
 
 type ``retweets are properly parsed``() =
 
@@ -346,14 +447,32 @@ type ``retweets are properly parsed``() =
     member __.``retweets properly show the name of the account retweeting the tweet``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = (toMockTweet testTweet).ToSpeakText()
-        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter} retweeted"
+        speakText |> should haveSubstring $"{Option.get testTweet.Tweet.Retweeter |> processSpeakText} retweeted"
 
 type ``quoted tweets are properly parsed``() =
     
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
     member __.``quoted tweets should be shown``(filepath:string) =
-        noTest ()
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        let quotedTweet = Option.get testTweet.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
+
+        let quotedSpeakText = 
+            MockTweet (
+                quotedTweet.Text, 
+                quotedTweet.Author.ScreenName, 
+                quotedTweet.Author.Name, 
+                DateTime.Parse(quotedTweet.DateCreated), 
+                quotedTweet.Author.Verified, 
+                quotedTweet.Author.Protected, 
+                None, 
+                Array.toList quotedTweet.RepliedTo, 
+                None,
+                Seq.empty)
+            |> toSpeakText
+        speakText |> should haveSubstring quotedSpeakText
+
 
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
@@ -367,12 +486,23 @@ type ``quoted tweets are properly parsed``() =
 
 type ``numbers are properly converted to words``() =
     
+    static let startsWith (prefix:string) (str:string) = str.StartsWith(prefix)
+
+    static member dates () = toMemberData <| examples.filterByFilepath (startsWith "numbers/dates/")
+    static member times () = toMemberData <| examples.filterByFilepath (startsWith "numbers/times/")
+    static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals/")
+    static member currency () = toMemberData <| examples.filterByFilepath (startsWith "numbers/currency/")
+    static member abbreviations () = toMemberData <| examples.filterByFilepath (startsWith "numbers/abbreviations/")
+
     [<Theory>]
-    [<InlineData("numbers/phoneNumberOnePlus.json", "+1 912-612-4665", "nine one two. six one two. four six six five")>]
-    [<InlineData("numbers/phoneNumberDots.json", "888.633.8380", "eight eight eight. six three three. eight three eight zero")>]
-    member __.``phone numbers are converted to words properly``(filepath:string, number:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (number, expected)
+    [<InlineData("numbers/phoneNumberOnePlus.json")>]
+    [<InlineData("numbers/phoneNumberDots.json")>]
+    member __.``phone numbers are converted to words properly``(filepath:string) =
+        let testTweet = fetchTweet filepath
+        let speakText = toSpeakText <| toMockTweet testTweet
+
+        for replacement in testTweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
     [<InlineData("numbers/negativeNumber.json")>]
@@ -388,25 +518,20 @@ type ``numbers are properly converted to words``() =
         speakText |> should haveSubstitution (decimal, expected)
 
     [<Theory>]
-    [<InlineData("numbers/numberWithComma.json", "1,100", "one thousand one hundred")>]
-    [<InlineData("numbers/numberWithComma.json", "300", "three hundred")>]
-    [<InlineData("numbers/numberWithComma.json", "200", "two hundred")>]
-    [<InlineData("numbers/13000.json", "13000", "thirteen thousand")>]
-    member __.``whole numbers are converted to word form``(filepath: string, number:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (number, expected)
+    [<InlineData("numbers/numberWithComma.json")>]
+    [<InlineData("numbers/13000.json")>]
+    member __.``whole numbers are converted to word form``(filepath: string) =
+        let testTweet = fetchTweet filepath
+        let speakText = toMockTweet testTweet |> toSpeakText
+        for replacement in testTweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
-    [<InlineData("numbers/ordinals/second.json", "2nd", "second")>]
-    [<InlineData("numbers/ordinals/third.json", "3rd", "third")>]
-    [<InlineData("numbers/ordinals/first.json", "1st", "first")>]
-    [<InlineData("numbers/ordinals/zeroth.json", "0th", "zeroth")>]
-    [<InlineData("numbers/ordinals/twentyfourth.json", "24th", "twenty fourth")>]
-    [<InlineData("numbers/ordinals/1769th.json", "1,769th", "one thousand seven hundred and sixty nineth")>]
-    [<InlineData("numbers/ordinals/threehundredthirtieth.json", "330th", "three hundred thirtieth")>]
-    member __.``ordinal numbers (e.g. 2nd) are converted to word form``(filepath:string, ordinal:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (ordinal, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.ordinals))>]
+    member __.``ordinal numbers (e.g. 2nd) are converted to word form``(testTweet:TestTweet.Root) =
+        let speakText = toMockTweet testTweet |> toSpeakText
+        for replacement in testTweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
     [<InlineData("numbers/year.json", "2008", "two thousand eight")>]
@@ -423,65 +548,48 @@ type ``numbers are properly converted to words``() =
         noTest ()
 
     [<Theory>]
-    [<InlineData("numbers/times/1300hours.json", "13:00 hours", "thirteen hundred hours hours")>]
-    [<InlineData("numbers/times/1800hours.json", "18:00", "eighteen hundred hours")>]
-    [<InlineData("numbers/times/130to215pm.json", "1:30pm", "one thirty p m")>]
-    [<InlineData("numbers/times/130to215pm.json", "2:15pm", "two fifteen p m")>]
-    [<InlineData("numbers/times/850am.json", "8:50 AM", "eight fifty a m")>]
-    member __.``times are converted to words``(filepath:string, time:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (time, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.times))>]
+    member __.``times are converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Theory>]
-    [<InlineData("numbers/dates/jan6.json", "Jan. 6", "january sixth")>]
-    [<InlineData("numbers/dates/mddyy.json", "5/17/21", "may seventeenth twenty twenty one")>]
-    [<InlineData("numbers/dates/mmddyyyy.json", "06/30/2021", "june thirtieth twenty twenty one")>]
-    member __.``obvious dates are converted into words``(filepath:string, date:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (date, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.currency))>]
+    member __.``currency is converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
+
+    [<Theory>]
+    [<MemberData(nameof(``numbers are properly converted to words``.dates))>]
+    member __.``obvious dates are converted into words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Fact>]
     member __.``date ranges are converted into words``() =
         noTest ()
 
     [<Theory>]
-    [<InlineData("numbers/abbreviations/centimeters.json", "5 cm", "five centimeters")>]
-    [<InlineData("numbers/abbreviations/feet.json", "6 ft", "six feet")>]
-    member __.``units of measurement (e.g. cm, ft, yds) are converted to words``(filepath:string, measurement:string, expected:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (measurement, expected)
+    [<MemberData(nameof(``numbers are properly converted to words``.abbreviations))>]
+    member __.``abbreviations are converted to words``(tweet:TestTweet.Root) =
+        let speakText = toSpeakText <| toMockTweet tweet
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
 type ``emojis are properly converted to words``() =
 
-    static member emojis () = 
-        fetchExamples ()
-        |> Seq.filter (fun tweet -> Regex.IsMatch(tweet.Label, @"with (the |a )?.+? emoji:\s*.+?(\s|,|$)"))
-        |> Seq.map (fun tweet -> (tweet, Regex.Matches(tweet.Label, @"with (?:the |a )?(?<desc>.+?) emoji:\s*(?<emoji>.+?)(\s|,|$)")))
-        |> Seq.collect (fun (tweet, matches) -> matches |> Seq.map (fun m -> (tweet, m.Groups.["emoji"].Value, m.Groups.["desc"].Value.ToLower())))
-        |> Seq.map (fun (tweet, emoji, desc) -> [| tweet :> obj; emoji :> obj; desc :> obj|])
+    static member emojis () = examples.filterByFilepath (fun x -> x.StartsWith("emojis/")) |> toMemberData
 
     [<Theory>]
     [<MemberData(nameof(``emojis are properly converted to words``.emojis))>]
-    member __.``Emojis should have correct speak text``(tweet:TestTweet.Root, emoji:string, desc:string) =
+    member __.``Emojis should have correct speak text``(tweet:TestTweet.Root) =
         let speakText = toMockTweet tweet |> toSpeakText
-        speakText |> should haveSubstitution (emoji, desc)
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
-type ``currency is properly converted to words``() =    
-    [<Fact>]
-    member __.``Dollar amounts are properly indicated``() =
-       noTest ()
-
-    [<Fact>]
-    member __.``Euro amounts are properly indicated``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``British pound amounts are properly indicated``() =
-        noTest ()
-
-    [<Fact>]
-    member __.``Japanese yen amounts are properly indicated``() =
-        noTest ()
         
 type ``punctuation is properly converted to words``() = 
 
@@ -551,4 +659,3 @@ type ``extraction of urls are done properly``() =
     [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
     member __.``tco links are properly handled``() =
         noTest ()
-        

@@ -6,11 +6,9 @@ open SRTV.TweetMedia
 open SRTV.TweetAudio
 open SRTV.TweetImage
 
-open SRTV.TwitterClient
+open SRTV.Twitter.TwitterClient
 
 open System.IO
-
-
 
 let exampleMockTweet =
     MockTweet(
@@ -22,6 +20,7 @@ let exampleMockTweet =
         false,
         None,
         [],
+        None,
         []
 )
 
@@ -40,7 +39,7 @@ let toImage'(output:string) =
     let profileUrl = "https://pbs.twimg.com/profile_images/1011409104441630720/ksmEpPII_normal.jpg"
 
     async {
-        let! bytes = toImage exampleMockTweet profileUrl source
+        let! bytes = toImage exampleMockTweet profileUrl source Theme.Dim
         return File.WriteAllBytes(output, bytes)
     }
     
