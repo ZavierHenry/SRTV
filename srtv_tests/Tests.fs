@@ -98,6 +98,28 @@ let altTextToMedia f (altText:TestTweet.ImageAltText) : Media =
 let attributionToMedia (attribution:TestTweet.VideoAttribution) : Media =
     Video <| Option.filter (fun _ -> attribution.HasAttribution) attribution.Attribution
 
+let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
+    let toMedia (f:'a -> Media) = Option.toList << Option.map f
+
+    quotedTweet.Tweet
+    |> Option.filter (fun _ -> quotedTweet.Available)
+    |> Option.map (fun tweet ->
+        let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
+        let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
+        let video = toMedia attributionToMedia tweet.VideoAttribution
+
+        Tweet (
+            tweet.Author.ScreenName,
+            tweet.Author.Name,
+            tweet.Author.Verified,
+            tweet.Author.Protected,
+            DateTime.Parse(tweet.DateCreated),
+            Array.toList tweet.RepliedTo,
+            tweet.Text,
+            images @ gif @ video,
+            tweet.HasPoll ))
+    |> Option.defaultValue Unavailable
+
 let toMockTweet(root:TestTweet.Root) =
     let tweet = root.Tweet
     let toMedia (f:'a -> Media) = Option.toList << Option.map f
@@ -118,6 +140,7 @@ let toMockTweet(root:TestTweet.Root) =
         tweet.Author.Protected,
         tweet.Retweeter,
         Array.toList tweet.RepliedTo,
+        Option.map toQuotedTweet tweet.QuotedTweet,
         images @ video @ gif @ poll @ card
     )
 
@@ -243,7 +266,8 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.IsVerified, 
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
-                mockTweet.RepliedTo, 
+                mockTweet.RepliedTo,
+                mockTweet.QuotedTweet,
                 mockTweet.Media
             )
         let speakText = newMockTweet.ToSpeakText()
@@ -276,6 +300,7 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo, 
+                mockTweet.QuotedTweet,
                 mockTweet.Media
             )
         let speakText = newMockTweet.ToSpeakText()
@@ -433,7 +458,19 @@ type ``quoted tweets are properly parsed``() =
         let speakText = toMockTweet testTweet |> toSpeakText
         let quotedTweet = Option.get testTweet.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
 
-        let quotedSpeakText = MockTweet(quotedTweet.Text, quotedTweet.Author.ScreenName, quotedTweet.Author.Name, DateTime.Parse(quotedTweet.DateCreated), quotedTweet.Author.Verified, quotedTweet.Author.Protected, None, Array.toList quotedTweet.RepliedTo, Seq.empty).ToSpeakText()
+        let quotedSpeakText = 
+            MockTweet (
+                quotedTweet.Text, 
+                quotedTweet.Author.ScreenName, 
+                quotedTweet.Author.Name, 
+                DateTime.Parse(quotedTweet.DateCreated), 
+                quotedTweet.Author.Verified, 
+                quotedTweet.Author.Protected, 
+                None, 
+                Array.toList quotedTweet.RepliedTo, 
+                None,
+                Seq.empty)
+            |> toSpeakText
         speakText |> should haveSubstring quotedSpeakText
 
 

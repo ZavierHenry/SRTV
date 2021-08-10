@@ -20,6 +20,7 @@ let exampleMockTweet =
         false,
         None,
         [],
+        None,
         []
 )
 
