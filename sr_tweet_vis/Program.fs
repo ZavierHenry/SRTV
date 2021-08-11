@@ -1,6 +1,10 @@
 ﻿// Learn more about F# at http://fsharp.org
 
 open System
+open System.IO
+
+open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.Hosting
 
 open SRTV.TweetMedia
 open SRTV.TweetAudio
@@ -10,7 +14,9 @@ open SRTV.Twitter.TwitterClient
 open SRTV.Twitter.Patterns
 open SRTV.Twitter.Patterns.Mentions
 
-open System.IO
+open System.Reflection
+
+
 
 let exampleMockTweet =
     MockTweet(
@@ -68,18 +74,31 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
         | _ -> async { return () }
 
 }
+
+let isDevelopmentEnvironment () =
+    let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
+    String.IsNullOrEmpty(environmentVariable) || environmentVariable.ToLower() = "development"
+
+let sendTweet (client:Client) =
+    let tweet = SRTV.SRTVResponse.TextTweet "If you are reading this, the test tweet was successful"
+    client.TweetAsync tweet |> Async.RunSynchronously |> ignore
     
 [<EntryPoint>]
 let main argv =
-    let client = Client()
 
-    let startDate = 
-        match argv with
-        | [| |]     -> DateTime.UtcNow.AddMonths(-1)
-        | argv      -> DateTime.Parse <| Array.head argv
+    printfn "Before builder"
 
-    let mentions = handleMentions client startDate None |> Async.RunSynchronously
+    let builder = ConfigurationBuilder()
+    if isDevelopmentEnvironment()
+    then
+        match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
+        | null -> ()
+        | assembly ->
+            let config = builder.AddUserSecrets(assembly, true, true).Build()
+            let client = Client(config)
+            sendTweet client
 
+    printfn "After builder"
     0
 
     

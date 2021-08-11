@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
+    <UserSecretsId>0a2cd367-ae76-4625-99c4-c7841e0679c8</UserSecretsId>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -27,6 +28,8 @@
     <PackageReference Include="FSharp.Data" Version="4.1.1" />
     <PackageReference Include="Humanizer" Version="2.11.10" />
     <PackageReference Include="Humanizer.Core" Version="2.11.10" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
     <PackageReference Include="PuppeteerSharp" Version="5.0.0" />
     <PackageReference Include="System.Speech" Version="5.0.0" />
     <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
