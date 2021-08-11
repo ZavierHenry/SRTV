@@ -102,7 +102,7 @@ module Regex =
 
         let private ValidURLDomain =
             $"(?:{ValidURLSubdomain}*{ValidURLDomainName}(?:{ValidURLGTLD}|{ValidURLCCTLD}|{PunycodeURL}))|\
-            (?:(?<=https?://(?:(?:{ValidURLDomainName}{ValidURLCCTLD})|\
+            (?:(?<=https?://)(?:(?:{ValidURLDomainName}{ValidURLCCTLD})|\
             (?:{ValidURLUnicodeDomainName}(?:{ValidURLGTLD}|{ValidURLCCTLD}))))|(?:{ValidURLDomainName}{ValidURLCCTLD}(?=/))"
 
         let private ValidURLPattern =
