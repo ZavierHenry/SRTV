@@ -81,12 +81,18 @@ let isDevelopmentEnvironment () =
 
 let sendTweet (client:Client) =
     let tweet = SRTV.SRTVResponse.TextTweet "If you are reading this, the test tweet was successful"
-    client.TweetAsync tweet |> Async.RunSynchronously |> ignore
+    match client.TweetAsync tweet |> Async.RunSynchronously with
+    | Success _ -> printfn "Sending tweet was successful..."
+    | TwitterError (message, exn) ->
+        printfn "Twitter error message: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+    | OtherError (message, exn) ->
+        printfn "Non-Twitter error message: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+
     
 [<EntryPoint>]
 let main argv =
-
-    printfn "Before builder"
 
     let builder = ConfigurationBuilder()
     if isDevelopmentEnvironment()
@@ -98,7 +104,7 @@ let main argv =
             let client = Client(config)
             sendTweet client
 
-    printfn "After builder"
+    printfn "End of program..."
     0
 
     

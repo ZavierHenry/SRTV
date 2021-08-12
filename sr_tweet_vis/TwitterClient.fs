@@ -125,7 +125,7 @@ module Twitter =
 
             let rec private splitTwitterText' (text:string) index count urls (acc:string list) =
                 if index >= text.Length
-                then List.rev acc
+                then List.rev (text :: acc)
                 else if count > MaxTweetLength
                 then
                     let lastBoundaryIndex = 
@@ -135,9 +135,7 @@ module Twitter =
                         |> Option.defaultValue index
                     let newText = text.[lastBoundaryIndex..].TrimStart()
                     splitTwitterText' newText 0 0 urls (text.[0 .. (lastBoundaryIndex-1)] :: acc)
-                else if 
-                    List.tryHead urls
-                    |> Option.exists (fun {start = start} -> start = index)
+                else if List.tryHead urls |> Option.exists (fun {start = start} -> start = index)
                 then 
                     let {url = url} = List.head urls
                     splitTwitterText' text (index+url.Length) (count + URLLength) (List.tail urls) acc
