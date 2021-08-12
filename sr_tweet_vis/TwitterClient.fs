@@ -101,14 +101,15 @@ module Twitter =
             Some tweet |> Option.filter (fun tweet -> not <| Seq.isEmpty tweet.Attachments.MediaKeys)
 
 
-
-
     module TwitterClient =
         open System
 
         open System.IO
         open SRTVResponse
         open System.Text.RegularExpressions
+
+        open Microsoft.Extensions.Configuration
+        open Microsoft.Extensions.Hosting
 
         module Text =
             open SRTV.Regex.Urls
@@ -124,7 +125,7 @@ module Twitter =
 
             let rec private splitTwitterText' (text:string) index count urls (acc:string list) =
                 if index >= text.Length
-                then List.rev acc
+                then List.rev (text :: acc)
                 else if count > MaxTweetLength
                 then
                     let lastBoundaryIndex = 
@@ -134,9 +135,7 @@ module Twitter =
                         |> Option.defaultValue index
                     let newText = text.[lastBoundaryIndex..].TrimStart()
                     splitTwitterText' newText 0 0 urls (text.[0 .. (lastBoundaryIndex-1)] :: acc)
-                else if 
-                    List.tryHead urls
-                    |> Option.exists (fun {start = start} -> start = index)
+                else if List.tryHead urls |> Option.exists (fun {start = start} -> start = index)
                 then 
                     let {url = url} = List.head urls
                     splitTwitterText' text (index+url.Length) (count + URLLength) (List.tail urls) acc
@@ -181,10 +180,12 @@ module Twitter =
         open FSharp.Data
         type JVal = JsonValue
     
-        type Client() = 
+        type Client(config:IConfiguration) = 
             let credentialStore = new SingleUserInMemoryCredentialStore()
             let auth = new SingleUserAuthorizer()
-            let userID = Environment.GetEnvironmentVariable("user_id")
+            //let userID = Environment.GetEnvironmentVariable("user_id")
+
+            let userID = config.GetValue("TwitterAccount:UserID")
 
             let toParams = String.concat ","
 
@@ -221,10 +222,10 @@ module Twitter =
             }
 
             do
-                credentialStore.AccessToken <- Environment.GetEnvironmentVariable("access_token")
-                credentialStore.AccessTokenSecret <- Environment.GetEnvironmentVariable("access_token_secret")
-                credentialStore.ConsumerKey <- Environment.GetEnvironmentVariable("consumer_key")
-                credentialStore.ConsumerSecret <- Environment.GetEnvironmentVariable("consumer_secret")
+                credentialStore.AccessToken <- config.GetValue("TwitterAccount:AccessToken")
+                credentialStore.AccessTokenSecret <- config.GetValue("TwitterAccount:AccessTokenSecret")
+                credentialStore.ConsumerKey <- config.GetValue("TwitterAccount:ConsumerKey")
+                credentialStore.ConsumerSecret <- config.GetValue("TwitterAccount:ConsumerSecretKey")
                 auth.CredentialStore <- credentialStore
 
             let context = new TwitterContext(auth)

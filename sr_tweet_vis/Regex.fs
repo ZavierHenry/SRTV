@@ -15,7 +15,7 @@ module Regex =
             let lastCodePoint = range.FirstCodePoint + range.Length - 1
             sprintf @"\u%04x-\u%04x" range.FirstCodePoint lastCodePoint
 
-        let [<Literal>] ValidURLPortNumber = @"\d++"
+        let [<Literal>] ValidURLPortNumber = @"(?>\d+)"
 
         let [<Literal>] ValidURLQueryCharacters = @"[a-z0-9!?\*'\(\);:&=\+\$/%#\[\]\-_\.,~\|@]"
         let [<Literal>] ValidURLQueryEndingCharacters = @"[a-z0-9\-_&=#/]"
@@ -92,17 +92,17 @@ module Regex =
             |ao|an|am|al|ai|ag|af|ae|ad|ac)(?=[^a-z0-9@+-]|$))"
 
         let [<Literal>] private PunctuationCharacters =
-            @"-_!\""#$%&'\\(\\)*+,./:;<=>?@\\[\\]^`\\{|}~"
+            @"-_!\""#$%&'\(\)*+,./:;<=>?@\[\]^`\\{|}~"
 
         let private ValidURLUnicodeCharacters =
-            $@"[^{PunctuationCharacters}\s\p{{Z}}\p{{InGeneralPunctuation}}"
+            $@"[^{PunctuationCharacters}\s\p{{Z}}\p{{IsGeneralPunctuation}}]"
 
         let private ValidURLUnicodeDomainName = 
             $@"(?:(?:{ValidURLUnicodeCharacters}[{ValidURLUnicodeCharacters}\-]*)?{ValidURLUnicodeCharacters}\.)"
 
         let private ValidURLDomain =
             $"(?:{ValidURLSubdomain}*{ValidURLDomainName}(?:{ValidURLGTLD}|{ValidURLCCTLD}|{PunycodeURL}))|\
-            (?:(?<=https?://(?:(?:{ValidURLDomainName}{ValidURLCCTLD})|\
+            (?:(?<=https?://)(?:(?:{ValidURLDomainName}{ValidURLCCTLD})|\
             (?:{ValidURLUnicodeDomainName}(?:{ValidURLGTLD}|{ValidURLCCTLD}))))|(?:{ValidURLDomainName}{ValidURLCCTLD}(?=/))"
 
         let private ValidURLPattern =
@@ -112,7 +112,7 @@ module Regex =
             (?<protocol>https?://)?\
             (?<domain>{ValidURLDomain})(?::\
             (?<port>{ValidURLPortNumber}))?\
-            (?<pathAnchor>/{ValidURLPath}*+)?\
+            (?<pathAnchor>/(?>{ValidURLPath}*))?\
             (?<query>\?{ValidURLQueryCharacters}*{ValidURLQueryEndingCharacters})?))"
 
         let private ValidTCOUrl =
