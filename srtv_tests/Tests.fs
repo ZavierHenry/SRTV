@@ -593,16 +593,14 @@ type ``emojis are properly converted to words``() =
         
 type ``punctuation is properly converted to words``() = 
 
+    static member punctuation () = examples.filterByFilepath(fun x -> x.StartsWith("punctuation/")) |> toMemberData
+
     [<Theory>]
-    [<InlineData("punctuation/hashtag.json", "#", "hashtag")>]
-    [<InlineData("punctuation/underscore.json", "_", "underscore")>]
-    [<InlineData("punctuation/percent.json", "%", "percent")>]
-    [<InlineData("punctuation/mathEquation.json", "=", "equals")>]
-    [<InlineData("punctuation/mathEquation.json", "^", "caret")>]
-    [<InlineData("punctuation/atSymbol.json", "@", "at")>]
-    member __.``symbols that should be replaced are properly replaced``(filepath:string, symbol:string, replacement:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution (symbol, replacement)
+    [<MemberData(nameof(``punctuation is properly converted to words``.punctuation))>]
+    member __.``symbols that should be replaced are properly replaced``(tweet:TestTweet.Root) =
+        let speakText = toMockTweet tweet |> toSpeakText
+        for replacement in tweet.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Fact>]
     member __.``periods properly indicate a long pause``() =
