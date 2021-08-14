@@ -5,10 +5,22 @@ SRTV (Screen Reader Tweet Visualizer) is a [Twitter bot](https://twitter.com/srt
 
 ## Motivation
 
-Accessibility is an important consideration for any website.
+Accessibility is an important consideration for any website. This is especially true for a site like Twitter, where tweets can contain images and video and entire ideas might be conveyed through emojis or GIFs.
+However, depending on the tweet, these ideas may not be properly conveyed for those that use a screen reader to read tweets. 
+
+For example, below is a tweet about enforcing the Voting Rights Act through the appointment of judges:
+
+![tweet about the Voting Rights Act](assets/clapping_hand_sign.png)
+
+Notice how there is a clapping hands empji between every word. A screen reader will read out each use of the emoji, which would look something like this:
+
+![Tweet about Voting Rights Act with screen reader text](assets/clapping_hand_sign_screen_reader.png)
+
+It's hard to parse out the message between the words of the emoji, right? Now hear that same tweet as audio, just as one with a screen reader would:
 
 
-Take for example this tweet from the Vanderbilt University Medical Center:
+
+But it's not just about a tweet being annoying or hard to understand. Take for example this tweet from the Vanderbilt University Medical Center:
 
 ![Vanderbilt children's statement](assets/statement_tweet_black.png)
 
@@ -17,7 +29,8 @@ However, when using a screen reader, the information received is different.
 
 ![Vanderbilt children's statement screen reader text](assets/statement_screen_reader_tweet.png)
 
-The statement in the tweet is replaced with "image", indicating that the image did not have any alt text. People who are using screen readers lose the valuable information within the statement because of a lack of alt text.
+The statement in the tweet is replaced with "image", indicating that the image did not have any alt text. People who are using screen readers lose the valuable information within the statement because of this.
+
 
 ## How It Works
 
