@@ -10,14 +10,15 @@ However, depending on the tweet, these ideas may not be properly conveyed for th
 
 For example, below is a tweet about enforcing the Voting Rights Act through the appointment of judges:
 
-![tweet about the Voting Rights Act](assets/clapping_hand_sign.png)
+![tweet about the Voting Rights Act](assets/clapping_hands.png)
 
 Notice how there is a clapping hands empji between every word. A screen reader will read out each use of the emoji, which would look something like this:
 
-![Tweet about Voting Rights Act with screen reader text](assets/clapping_hand_sign_screen_reader.png)
+![Tweet about Voting Rights Act with screen reader text](assets/clapping_hands_screen_reader.png)
 
 It's hard to parse out the message between the words of the emoji, right? Now hear that same tweet as audio, just as one with a screen reader would:
 
+![Audio version of Voting Rights tweet](assets/readme_audio.mp4)
 
 
 But it's not just about a tweet being annoying or hard to understand. Take for example this tweet from the Vanderbilt University Medical Center:
