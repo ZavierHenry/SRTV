@@ -81,11 +81,13 @@ The bot should then respond with your rendered tweet
 ## Screen Reader Output Caveat
 
 Not all screen readers may have the same output from a tweet as the SRTV bot. There are many different screen readers and many different customization options for each screen reader. 
+For SRTV, the following screen readers were used in testing what tweet output should be:
 
 - NVDA
 - Windows Narrator
 - TalkBack
 
+If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially if the screen reader is associated with Apple devices.
 
 ## Rendering Tweet Issues
 
