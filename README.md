@@ -18,8 +18,6 @@ Notice how there is a clapping hands empji between every word. A screen reader w
 
 It's hard to parse out the message between the words of the emoji, right? Now hear that same tweet as audio, just as one with a screen reader would:
 
-![Audio version of Voting Rights tweet](assets/readme_audio.mp4)
-
 
 But it's not just about a tweet being annoying or hard to understand. Take for example this tweet from the Vanderbilt University Medical Center:
 
