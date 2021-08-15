@@ -39,7 +39,7 @@ This is where SRTV comes in. It bridges the gap between the visual version of a 
 
 ## How It Works
 
-To use SRTV with a tweet, reply or quote tweet to it mentioning @srtvtweeter with the word "render".
+To use SRTV with a tweet, reply or quote tweet to it mentioning @srtvtweeter with the word "render" and then a render option. SRTV will then reply with the screen reader version of the tweet.
 
 ### Render Commands
 
