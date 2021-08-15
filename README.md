@@ -1,3 +1,5 @@
+
+
 # SRTV
 
 SRTV (Screen Reader Tweet Visualizer) is a [Twitter bot](https://twitter.com/srtvtweeter) that tweets the screen reader output of a tweet either as audio, an image, or text.
@@ -16,8 +18,11 @@ Notice how there is a clapping hands empji between every word. A screen reader w
 
 ![Tweet about Voting Rights Act with screen reader text](assets/clapping_hands_screen_reader.png)
 
-It's hard to parse out the message between the words of the emoji, right? Now hear that same tweet as audio, just as one with a screen reader would:
+It's hard to parse out the message between the words of the emoji, right? Now listen to that same tweet as audio, just as one with a screen reader would:
 
+https://user-images.githubusercontent.com/10481844/129468639-e330efe2-5323-405f-b6a1-f2fcf47a6f08.mp4
+
+This can be really grating on those using screen readers, not to mention very confusing as the message is completely lost between all of the "clapping hands" words.
 
 But it's not just about a tweet being annoying or hard to understand. Take for example this tweet from the Vanderbilt University Medical Center:
 
@@ -28,7 +33,7 @@ However, when using a screen reader, the information received is different.
 
 ![Vanderbilt children's statement screen reader text](assets/statement_screen_reader_tweet.png)
 
-The statement in the tweet is replaced with "image", indicating that the image did not have any alt text. People who are using screen readers lose the valuable information within the statement because of this.
+The statement in the tweet is replaced with "image", indicating that the image did not have any alt text. People who are using screen readers lose the valuable information within the statement because of this. However, the sender of the tweet may not realize how the tweet is presented to someone using a screen reader. Furthermore, the person is unlikely to constantly check tweets against a screen reader.
 
 This is where SRTV comes in. It bridges the gap between the visual version of a tweet and the screen reader version of a tweet. It shows a tweet as it is when read through a screen reader.
 
