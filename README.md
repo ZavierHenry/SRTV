@@ -5,7 +5,7 @@ SRTV (Screen Reader Tweet Visualizer) is a [Twitter bot](https://twitter.com/srt
 
 ## Motivation
 
-Accessibility is an important consideration for any website. This is especially true for a site like Twitter, where tweets can contain images and video and entire ideas might be conveyed through emojis or GIFs.
+Accessibility is an important consideration for any website. This is especially true for a site like Twitter, where tweets can contain images and videos and entire ideas might be conveyed through emojis or GIFs.
 However, depending on the tweet, these ideas may not be properly conveyed for those that use a screen reader to read tweets. 
 
 For example, below is a tweet about enforcing the Voting Rights Act through the appointment of judges:
@@ -31,6 +31,7 @@ However, when using a screen reader, the information received is different.
 
 The statement in the tweet is replaced with "image", indicating that the image did not have any alt text. People who are using screen readers lose the valuable information within the statement because of this.
 
+This is where SRTV comes in. It bridges the gap between the visual version of a tweet and the screen reader version of a tweet. It shows a tweet as it is when read through a screen reader.
 
 ## How It Works
 
