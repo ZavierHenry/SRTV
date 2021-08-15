@@ -68,6 +68,12 @@ SRTV allows this, but the process is a bit different:
 
 ## Screen Reader Output Caveat
 
+Not all screen readers may have the same output from a tweet as the SRTV bot. There are many different screen readers and many different customization options for each screen reader. 
+
+- NVDA
+- Windows Narrator
+- TalkBack
+
 
 ## Rendering Tweet Issues
 
