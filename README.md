@@ -65,18 +65,8 @@ This option renders the specified tweet into a text tweet. Mutliple tweets will 
 
 ### Private Tweets
 
-This bot is intentionally designed so that you cannot render a tweet sent from a private account, even if the bot has access to the tweet. However, a private account may still want SRTV to render one of their own tweets.
-SRTV allows this, but the process is a bit different:
-
-1. Be a private account. This feature will not work if the account is not private.
-2. Follow @srtvtweeter. The bot won't be able to see the tweet to render otherwise.
-3. Send a Direct Message to @srtvtweeter with the following:
-	- A link to the tweet (be sure the link is of one of your tweets, the bot won't render otherwise)
-    - the word render
-    - the render option
-
-The bot should then respond with your rendered tweet
-
+This bot is intentionally designed so that you cannot render a tweet sent from a private account, even if the bot has access to the tweet.
+The exception is if the person requesting the render is the same person.
 
 ## Screen Reader Output Caveat
 
@@ -88,9 +78,6 @@ For SRTV, the following screen readers were used in testing what tweet output sh
 - TalkBack
 
 If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially if the screen reader is associated with Apple devices.
-
-## Rendering Tweet Issues
-
 
 ## Contributions
 
