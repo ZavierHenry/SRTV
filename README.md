@@ -8,13 +8,13 @@ SRTV (Screen Reader Tweet Visualizer) is a [Twitter bot](https://twitter.com/srt
 ## Motivation
 
 Accessibility is an important consideration for any website. This is especially true for a site like Twitter, where tweets can contain images and videos and entire ideas might be conveyed through emojis or GIFs.
-However, depending on the tweet, these ideas may not be properly conveyed for those that use a screen reader to read tweets. 
+Depending on the tweet, however, these ideas may not be properly conveyed for those that use a screen reader for tweets. 
 
 For example, below is a tweet about enforcing the Voting Rights Act through the appointment of judges:
 
 ![tweet about the Voting Rights Act](assets/clapping_hands.png)
 
-Notice how there is a clapping hands empji between every word. A screen reader will read out each use of the emoji, which would look something like this:
+Notice how there is a clapping hands emoji between every word. A screen reader will read out each use of the emoji, which would look something like this:
 
 ![Tweet about Voting Rights Act with screen reader text](assets/clapping_hands_screen_reader.png)
 
@@ -39,7 +39,10 @@ This is where SRTV comes in. It bridges the gap between the visual version of a 
 
 ## How It Works
 
-To use SRTV with a tweet, reply or quote tweet to it mentioning @srtvtweeter with the word "render" and then a render option. SRTV will then reply with the screen reader version of the tweet.
+To use SRTV, reply to a tweet or quote tweet it mentioning the SRTV bot (@srtvtweeter) with the word "render" and then a render option. SRTV will then reply with the screen reader version of the tweet.
+
+- TODO: add example of this
+
 
 ### Render Commands
 
@@ -51,7 +54,7 @@ This option renders the specified tweet into a video. The video contains the scr
 
 #### Render Image
 
-This option renders the specified tweet into an image. The user also has the option of specifing either a light theme, dim theme, or a dark theme by specifing either "light", "dim", or "dark" before "image". The bot defaults to picking the dim theme.
+This option renders the specified tweet into an image. The user also has the option of specifing either a light theme, dim theme, or a dark theme by specifing either "light", "dim", or "dark" before "image" (e.g. "render dark image"). The bot defaults to picking the dim theme.
 The image also has alt text with the contents of the screen reader output, or reply tweets if the length of the alt text is loo large.
 
 
@@ -64,6 +67,15 @@ This option renders the specified tweet into a text tweet. Mutliple tweets will 
 
 This bot is intentionally designed so that you cannot render a tweet sent from a private account, even if the bot has access to the tweet. However, a private account may still want SRTV to render one of their own tweets.
 SRTV allows this, but the process is a bit different:
+
+1. Be a private account. This feature will not work if the account is not private.
+2. Follow @srtvtweeter. The bot won't be able to see the tweet to render otherwise.
+3. Send a Direct Message to @srtvtweeter with the following:
+	- A link to the tweet (be sure the link is of one of your tweets, the bot won't render otherwise)
+    - the word render
+    - the render option
+
+The bot should then respond with your rendered tweet
 
 
 ## Screen Reader Output Caveat
