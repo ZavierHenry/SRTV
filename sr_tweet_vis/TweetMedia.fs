@@ -98,7 +98,7 @@ module TweetMedia =
     let quotedTweetToString = function
     | Unavailable -> ""
     | Tweet (screenName, name, verified, locked, date, repliedTo, text, media, hasPoll) ->
-        sprintf "%s%s %s%s%s%s%s%s"
+        sprintf "quote tweet %s%s %s%s%s%s%s%s"
             <| repliesToString repliedTo
             <| name
             <| if verified then " verified account " else ""
