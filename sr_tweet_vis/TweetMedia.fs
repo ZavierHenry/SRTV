@@ -106,7 +106,7 @@ module TweetMedia =
             <| $"@{screenName}"
             <| toTimeDeltaText date
             <| text
-            <| if hasPoll then "Show this poll" else List.map mediaToText media |> String.concat ""
+            <| if hasPoll then "show this poll" else List.map mediaToText media |> String.concat ""
 
     let twitterTweetToQuotedTweet includes extendedEntities (tweet:Tweet) =
         let author = findUserById tweet.AuthorID includes

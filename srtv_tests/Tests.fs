@@ -480,9 +480,12 @@ type ``quoted tweets are properly parsed``() =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstring "quote tweet"
 
-    [<Fact>]
-    member __.``quoted tweets with polls in the quote tweet should be indicated``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("quotedTweetPoll.json")>]
+    member __.``quoted tweets with polls in the quote tweet should be indicated``(filepath:string) =
+        let speakText = fetchSpeakText filepath
+        speakText |> should haveSubstring "show this poll"
+
 
 type ``numbers are properly converted to words``() =
     
