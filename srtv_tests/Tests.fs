@@ -514,6 +514,7 @@ type ``numbers are properly converted to words``() =
     static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals/")
     static member currency () = toMemberData <| examples.filterByFilepath (startsWith "numbers/currency/")
     static member abbreviations () = toMemberData <| examples.filterByFilepath (startsWith "numbers/abbreviations/")
+    static member ranges () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ranges/")
 
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
@@ -566,9 +567,13 @@ type ``numbers are properly converted to words``() =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (year, expected)
 
-    [<Fact>]
-    member __.``number ranges are converted to words``() =
-        noTest ()
+    [<Theory>]
+    [<MemberData(nameof(``numbers are properly converted to words``.ranges))>]
+    member __.``number ranges are converted to words``(tweet:SerializableTestTweet) =
+        let speakText = tweet.ToSpeakText()
+
+        for replacement in tweet.Value.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Fact>]
     member __.``addresses are properly converted to words``() =
