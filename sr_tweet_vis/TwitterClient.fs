@@ -1,6 +1,7 @@
 ﻿namespace SRTV
 
 open Utilities
+open System.Text.RegularExpressions
 
 module SRTVResponse = 
 
@@ -68,6 +69,23 @@ module Twitter =
         let (|NotFoundError|_|) (response:TweetQuery) =
             Some ()
             |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Not Found Error") )
+
+        let (|UnavailableReplyRequest|_|) (response:TweetQuery) (tweet:Tweet) = 
+            tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets
+            |> Option.bind (fun ref -> response.Errors |> Seq.tryFind (fun err -> err.Value = ref.ID))
+            |> Option.map (fun _ -> ())
+
+        let (|UnavailableQuoteTweetRequest|_|) (response:TweetQuery) (tweet:Tweet) = 
+            if tweet.ReferencedTweets |> Seq.exists (fun ref -> ref.Type = "quoted")
+            then None
+            else 
+                match Regex.Match(tweet.Text, @"https://t\.co/\w+$") with
+                | m when m.Success ->
+                    tweet.Entities.Urls
+                    |> Seq.tryFind (fun x -> x.Url = m.Value)
+                    |> Option.map (fun x -> Regex.Match(x.ExpandedUrl, @"https://twitter.com/\w+?/status/(\d+)"))
+                    |> Option.map (fun _ -> ())
+                | _ -> None
 
         let (|PrivateTweet|_|) includes (tweet:Tweet) =
             tryFindUserById tweet.InReplyToUserID includes
