@@ -6,9 +6,11 @@ module Substitution =
 
     open Humanizer
 
-    let punctuation = @"[.;,!?\(\)]"
+    let punctuation = @"[.;,!?\(\)%]"
     let whitespaceBoundaryStart = $@"(?<=\s|^|{punctuation})"
     let whitespaceBoundaryEnd = $@"(?=\s|$|{punctuation})"
+
+    let private normalize text = Regex.Replace(text, "\s{2,}", " ")
 
     module Punctuation =
         let simpleReplacement =
@@ -71,40 +73,46 @@ module Substitution =
 
         let private bindRegex pattern = whitespaceBoundaryStart + pattern + whitespaceBoundaryEnd
 
-        let wholeNumberPattern = @"(?<wholeNumber>\d{1,3}(,\d{3})+|\d+)"
-        let decimalPattern = $@"(?<integral>{wholeNumberPattern})?\.(?<fractional>\d+)"
+        let wholeNumberPattern = @"(?<integral>\d{1,3}(,\d{3})+|\d+)"
+        let decimalPattern = $@"{wholeNumberPattern}?\.(?<fractional>\d+)"
+        let unsignedNumberPattern = $@"({decimalPattern}|{wholeNumberPattern})"
+        let numberPattern = $@"(?<sign>\+|-)?{unsignedNumberPattern}"
 
         let private meridiem = @"(?<meridiem>(?:(?:[aA]|[Pp])[Mm]))"
         let private timeShortPattern = $@"(?<hour>[1-9]|1[0-2])(?<between>\s*){meridiem}"
         let timePattern = $@"(?<hour>[0-1]?\d|2[0-3]):(?<minute>[0-5]\d)(?<between>\s*){meridiem}?"
-        let timeRegex = $@"{timeShortPattern}|{timePattern}"
-        
-        //TODO: change function to change decimals without a leading number (e.g .75)
-        let processDecimals text =
-            let evaluator (m:Match) =
-                let integral = int64 m.Groups.[2].Value |> toWords
-                let fractional = Seq.toList m.Groups.[3].Value |> List.map (string >> int64 >> toWords)
-                $"""%s{m.Groups.[1].Value}%s{integral} point %s{String.concat " " fractional}"""
-            Regex.Replace(text, @"(^|\s)(\d+)\.(\d+)", MatchEvaluator(evaluator))
+        let timeRegex = $@"{timePattern}|{timeShortPattern}"
 
-        let processWholeNumbers text =
+
+        let replaceNumbers text =
             let evaluator (m:Match) =
-                m.Groups.["wholeNumber"].Value.Replace(",", "") |> int64 |> toWords
-            Regex.Replace (text, bindRegex wholeNumberPattern, MatchEvaluator(evaluator))
+                let sign = match m.Groups.["sign"].Value with | "+" -> "plus" | "-" -> "minus" | _ -> ""
+                let integral = 
+                    let integral = m.Groups.["integral"]
+                    if integral.Success then integral.Value.Replace(",", "") |> int64 |> toWords else ""
+                let fractional = 
+                    match m.Groups.["fractional"] with
+                    | fractional when fractional.Success ->
+                        Seq.toList fractional.Value
+                        |> List.map (string >> int64 >> toWords)
+                        |> String.concat " "
+                        |> sprintf "point %s"
+                    | _ -> ""
+                $"{sign} {integral} {fractional}"
+            Regex.Replace(text, bindRegex numberPattern, MatchEvaluator(evaluator))
 
         let processRanges text =
             let evaluator (m:Match) =
                 let left = m.Groups.["left"].Value
                 let right = m.Groups.["right"].Value
-                let hasPeriod = String.exists (fun c -> c = '.')
                 let numbersToWords text = 
-                    if hasPeriod text then processDecimals text else processWholeNumbers text
+                    replaceNumbers text
                 $"{numbersToWords left} to {numbersToWords right}"
             Regex.Replace (text, @"(?<left>\d+|\d*(?:\.\d+))-(?<right>\d+|\d*(?:\.\d+))", MatchEvaluator(evaluator))
         
         let processOrdinals text =
             let evaluator (m:Match) =
-                let number = m.Groups.["wholeNumber"].Value.Replace(",", "") |> int
+                let number = m.Groups.["integral"].Value.Replace(",", "") |> int
                 sprintf "%s%s"
                     <| if number >= 1000 && number <= 2000 then "one " else ""
                     <| toOrdinalWords number
@@ -157,9 +165,10 @@ module Substitution =
         Numbers.processPhoneNumbers >>
         Numbers.processRanges >>
         Numbers.processTimes >>
-        Numbers.processDecimals >> 
+        // Numbers.processDecimals >> 
         Numbers.processOrdinals >>
-        Numbers.processWholeNumbers
+        Numbers.replaceNumbers
+       //  Numbers.processWholeNumbers
         
     let private simpleSubstitution = 
         Punctuation.simpleReplacement
@@ -167,7 +176,7 @@ module Substitution =
 
     let private simpleRemoval = String.map (fun c -> if List.contains c Punctuation.removal then ' ' else c)
 
-    let private normalize text = Regex.Replace(text, "\s{2,}", " ")
+    
 
     //Ensure that simple substitution and simple removal are the last two functions called when processing text
     //Not doing so may lead to some unexpected incorrect processing, especially with ranges that require the "-" character

@@ -527,9 +527,15 @@ type ``numbers are properly converted to words``() =
 
     [<Theory>]
     [<InlineData("numbers/negativeNumber.json")>]
+    [<InlineData("numbers/negativeCommaNumber.json")>]
     member __.``numbers under zero include "minus"``(filepath:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should haveSubstitution ("-", "minus")
+        let testTweet = fetchTweet filepath
+        let speakText = testTweet.ToSpeakText()
+
+        for replacement in testTweet.Value.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
+
+
 
     [<Theory>]
     [<InlineData("numbers/decimalPercentage.json", "67.94", "sixty seven point nine four")>]
