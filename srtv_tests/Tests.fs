@@ -475,22 +475,21 @@ type ``quoted tweets are properly parsed``() =
         let testTweet = fetchTweet filepath
         let speakText = testTweet.ToSpeakText()
         let quotedTweet = Option.get testTweet.Value.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
+        
+        speakText |> should haveSubstring (processSpeakText quotedTweet.Text)
+        speakText |> should haveSubstring (processSpeakText quotedTweet.Author.Name)
+        speakText |> should haveSubstring (processSpeakText quotedTweet.Author.ScreenName)
 
-        let quotedSpeakText = 
-            MockTweet (
-                quotedTweet.Text, 
-                quotedTweet.Author.ScreenName, 
-                quotedTweet.Author.Name, 
-                DateTime.Parse(quotedTweet.DateCreated), 
-                quotedTweet.Author.Verified, 
-                quotedTweet.Author.Protected, 
-                None, 
-                Array.toList quotedTweet.RepliedTo, 
-                None,
-                Seq.empty)
-            |> toSpeakText
-        speakText |> should haveSubstring quotedSpeakText
+        for imageAltText in quotedTweet.ImageAltTexts |> Array.filter (fun x -> x.HasAltText) do
+            speakText |> should haveSubstring (Option.get imageAltText.AltText |> processSpeakText)
 
+        quotedTweet.GifAltText
+        |> Option.filter (fun x -> x.HasAltText)
+        |> Option.iter ( fun x -> speakText |> should haveSubstring (Option.get x.AltText |> processSpeakText))
+        
+        quotedTweet.VideoAttribution
+        |> Option.filter (fun x -> x.HasAttribution)
+        |> Option.iter (fun x -> speakText |> should haveSubstring (Option.get x.Attribution |> sprintf "attributed to %s"))
 
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
@@ -514,6 +513,7 @@ type ``numbers are properly converted to words``() =
     static member ordinals () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ordinals/")
     static member currency () = toMemberData <| examples.filterByFilepath (startsWith "numbers/currency/")
     static member abbreviations () = toMemberData <| examples.filterByFilepath (startsWith "numbers/abbreviations/")
+    static member ranges () = toMemberData <| examples.filterByFilepath (startsWith "numbers/ranges/")
 
     [<Theory>]
     [<InlineData("numbers/phoneNumberOnePlus.json")>]
@@ -566,9 +566,13 @@ type ``numbers are properly converted to words``() =
         let speakText = fetchSpeakText filepath
         speakText |> should haveSubstitution (year, expected)
 
-    [<Fact>]
-    member __.``number ranges are converted to words``() =
-        noTest ()
+    [<Theory>]
+    [<MemberData(nameof(``numbers are properly converted to words``.ranges))>]
+    member __.``number ranges are converted to words``(tweet:SerializableTestTweet) =
+        let speakText = tweet.ToSpeakText()
+
+        for replacement in tweet.Value.Replacements do
+            speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
     [<Fact>]
     member __.``addresses are properly converted to words``() =
@@ -684,3 +688,6 @@ type ``extraction of urls are done properly``() =
     [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
     member __.``tco links are properly handled``() =
         noTest ()
+
+
+
