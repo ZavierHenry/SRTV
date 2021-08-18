@@ -46,9 +46,9 @@ module Twitter =
                 Some response 
                 |> isReply
                 |> Option.orElse (isQuoteTweet <| Some response)
-                |> hasText $@"(\s|^)render\s+{pattern}(\s|$)"
+                |> hasText $@"(\s|^)render\s+({pattern})(\s|$)"
 
-            let (|VideoRenderMention|_|) response = renderMention "video" response
+            let (|VideoRenderMention|_|) response = renderMention "video|sound|audio" response
             let (|TextRenderMention|_|) response = renderMention "text" response
             let (|ImageRenderMention|_|) response = 
                 let pattern = @"((?<theme>light|dim|dark)\s+)?image"
