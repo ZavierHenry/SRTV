@@ -50,14 +50,21 @@ SRTV has several options in rendering the screen reader output of tweets. These 
 
 #### Render Video (default)
 
+Command: render (video|audio|sound)
+
 This option renders the specified tweet into a video. The video contains the screen reader audio of the rendered tweet with captions. 
 
 #### Render Image
+
+
+Command: render [light|dim|dark] image
 
 This option renders the specified tweet into an image. The user also has the option of specifing either a light theme, dim theme, or a dark theme by specifing either "light", "dim", or "dark" before "image" (e.g. "render dark image"). The bot defaults to picking the dim theme.
 The image also has alt text with the contents of the screen reader output, or reply tweets if the length of the alt text is loo large.
 
 #### Render Text
+
+Command: render text
 
 This option renders the specified tweet into a text tweet. Mutliple tweets will be sent if the length of the text cannot fit in a single tweet.
 
