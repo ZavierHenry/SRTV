@@ -690,4 +690,29 @@ type ``extraction of urls are done properly``() =
         noTest ()
 
 
+open LinqToTwitter
+open LinqToTwitter.Common
+open System.Text.Json
 
+[<Fact>]
+let ``basic tweet to mockTweet test``() =
+    
+    let text = """{"data": [{"text": "Officially got old head knees, and I’m not happy about it. I thought I was gonna be aight","id": "1428119019547250695","author_id": "94608495","created_at": "2021-08-18T22:18:02.000Z"}],"includes": {"users": [{ "protected": false, "username": "GeorgeFoster72", "id": "94608495", "verified": true, "name": "FOST" }]}}"""
+
+    let tweetQuery : TweetQuery = JsonSerializer.Deserialize(text)
+    let tweet = tweetQuery.Tweets.[0]
+    let includes = tweetQuery.Includes
+    let user = includes.Users.[0]
+
+    let mockTweet = MockTweet(tweet, includes, Seq.empty)
+
+    mockTweet.Date |> should equal tweet.CreatedAt
+    mockTweet.IsProtected |> should equal user.Protected
+    mockTweet.IsVerified |> should equal user.Verified
+    mockTweet.Media |> should be Empty
+    mockTweet.QuotedTweet |> should equal None
+    mockTweet.RepliedTo |> should be Empty
+    mockTweet.Retweeter |> should equal None
+    mockTweet.ScreenName |> should equal user.Username
+    mockTweet.Name |> should equal user.Name
+    mockTweet.Text |> should equal tweet.Text

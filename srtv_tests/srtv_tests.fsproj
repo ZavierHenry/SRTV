@@ -41,6 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LinqToTwitter\src\LinqToTwitter6\LinqToTwitter\LinqToTwitter.csproj" />
     <ProjectReference Include="..\sr_tweet_vis\sr_tweet_vis.fsproj" />
   </ItemGroup>
 
