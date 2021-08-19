@@ -137,32 +137,35 @@ module TweetMedia =
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
+            let referencedTweets = match tweet.ReferencedTweets with | null -> Seq.empty | refs -> seq { yield! refs }
+
             let originalTweet = 
-                tryFindTweetReferenceByType "retweeted" tweet.ReferencedTweets 
+                tryFindTweetReferenceByType "retweeted" referencedTweets
                 |> Option.map (fun ref -> findTweetById ref.ID includes)
                 |> Option.defaultValue tweet
 
             let author = findUserById originalTweet.AuthorID includes
 
             let quotedTweet =
-                tryFindTweetReferenceByType "quoted" tweet.ReferencedTweets
+                tryFindTweetReferenceByType "quoted" referencedTweets
                 |> Option.map (fun ref -> findTweetById ref.ID includes)
                 |> Option.map (twitterTweetToQuotedTweet includes extendedEntities)
 
             let repliedTo = 
-                tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets
+                tryFindTweetReferenceByType "replied_to" referencedTweets
                 |> Option.bind (fun ref -> tryFindTweetById ref.ID includes)
                 |> Option.bind (fun tweet -> tryFindUserById tweet.AuthorID includes)
                 |> Option.map (fun user -> user.Username)
                 |> Option.toList
-
+                
             let retweeter =
                 if originalTweet.ID <> tweet.ID
                 then tryFindUserById tweet.ID includes |> Option.map (fun user -> user.Name)
                 else None
 
             let (media:TweetMedia seq) = 
-                Seq.filter (fun m -> Seq.contains m.MediaKey tweet.Attachments.MediaKeys) includes.Media
+                match includes.Media with | null -> Seq.empty | media -> seq { yield! media }
+                |> Seq.filter (fun m -> Seq.contains m.MediaKey tweet.Attachments.MediaKeys) 
 
             let photos = 
                 let extendedPhotoEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "photo")
@@ -184,12 +187,12 @@ module TweetMedia =
                 |> Seq.map (fun x -> Gif <| tryNonBlankString x.AltText)
 
             let polls =
-                includes.Polls
+                match includes.Polls with | null -> Seq.empty | polls -> seq { yield! polls }
                 |> Seq.filter (fun poll -> Seq.contains poll.ID tweet.Attachments.PollIds)
                 |> Seq.map (fun poll -> Poll (poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList, poll.EndDatetime))
 
             let card = 
-                tweet.Entities.Urls
+                match tweet.Entities with | null -> Seq.empty | entities -> match entities.Urls with | null -> Seq.empty | urls -> seq { yield! urls }
                 |> Seq.filter (fun (url:TweetEntityUrl) -> Seq.isEmpty url.Images |> not)
                 |> Seq.map (fun (url:TweetEntityUrl) -> 
                     let host = Uri(url.UnwoundUrl).Host
