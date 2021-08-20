@@ -50,31 +50,22 @@ module Twitter =
                 match renderableMatch with
                 | Some _ ->
                     renderableMatch
-                    |> Option.bind (fun m -> tryFindReply response |> Option.map (fun ref -> (m, ref)))
-                    |> Option.orElse (renderableMatch |> Option.bind (fun m -> tryFindQuoteTweet response |> Option.map (fun ref -> (m, ref))))
+                    |> Option.bind (fun m -> tryFindReply response)
+                    |> Option.orElse (renderableMatch |> Option.bind (fun m -> tryFindQuoteTweet response))
+                    |> Option.map (fun ref -> ref.ID)
                 | None -> None
 
-            let (|VideoRenderMention|_|) response = 
-                renderMention "video|sound|audio" response
-                |> Option.map (fun (m, ref) -> (m.Groups.["full"], ref.ID))
-            
-            let (|TextRenderMention|_|) response = 
-                renderMention "text" response
-                |> Option.map (fun (m, ref) -> (m.Groups.["full"], ref.ID))
-
-            let (|ImageRenderMention|_|) response = 
-                let pattern = @"((?<theme>light|dim|dark)\s+)?image"
-                renderMention pattern response
-                |> Option.map (fun (m, ref) -> (m.Groups.["theme"], m.Groups.["full"], ref.ID))
+            let (|VideoRenderMention|_|) response = renderMention "video|sound|audio" response
+            let (|TextRenderMention|_|) response = renderMention "text" response
+            let (|ImageRenderMention|_|) response = renderMention @"((?<theme>light|dim|dark)\s+)?image" response
 
             let (|GeneralRenderMention|_|) = function
                 | VideoRenderMention _ -> None
                 | TextRenderMention _ -> None
                 | ImageRenderMention _ -> None
                 | response -> 
-                    let pattern = @"(\s|^)render\s+(?:(?<full>full)\s+)?(\s|$|\?|\.)"
+                    let pattern = @"(\s|^)render\s+(?:full\s+)?(\s|$|\?|\.)"
                     renderMention pattern response
-                    |> Option.map (fun (m, ref) -> (m.Groups.["full"], ref.ID))
 
         let (|AuthorizationError|_|) (response:TweetQuery) =
             Some ()
