@@ -51,34 +51,42 @@ let toImage'(output:string) =
         return File.WriteAllBytes(output, bytes)
     }
 
+type RenderOption =
+    | Video of fullVersion:bool
+    | Image of theme:Theme * fullVersion:bool
+    | Text of fullVersion:bool
+
 let rec handleMentions (client:Client) startDate (token: string option) = async {
 
-    let! mentions = client.GetMentions(startDate)
-    let tweets = 
-        mentions
-        |> ClientResult.map (fun mentions -> mentions.Tweets)
-        |> ClientResult.map (fun tweets -> tweets |> Seq.filter (function
-            | VideoRenderMention _ 
-            | ImageRenderMention _ 
-            | TextRenderMention _ 
-            | GeneralRenderMention _ -> true
-            | _ -> false ))
-        
-    //TODO: convert to SRTV tweet and send
+    match! client.GetMentions(startDate) with
+    | Success mentions -> 
+        let requests =
+            mentions.Tweets
+            |> Seq.filter (function | VideoRenderMention _ | ImageRenderMention _ | TextRenderMention _ | GeneralRenderMention _ -> true | _ -> false)
+            |> Seq.map (function 
+                | VideoRenderMention (full, ID) -> (ID, Video full)
+                | ImageRenderMention (theme, full, ID) -> 
+                    ID, (Image (match theme with | "light" -> Theme.Light, full | "dark" -> Theme.Dark, full | "dim" | _ -> Theme.Dim, full) )
+                | TextRenderMention (full, ID) -> (ID, Text full)
+                | GeneralRenderMention (full, ID) -> (ID, Video full)
+                | response -> (response.ID, Text false) )
+            |> Map
 
-   
+        let! tweets =
+            requests
+            |> Map.toSeq
+            |> Seq.map fst
+            |> client.GetTweetsByIds
 
-    do! match mentions with
-        | Success mentions ->
-            match mentions.Meta.NextToken with
-            | null | "" -> async { return () }
-            | token -> handleMentions client startDate (Some token)
-        | TwitterError (message, exn) | OtherError (message, exn)  -> 
-            async {
-                printfn "Error message occurred: %s" message
-                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
-                return ()
-            }
+
+        do! match mentions.Meta.NextToken with
+        | null | "" -> async { return () }
+        | token -> handleMentions client startDate (Some token)
+
+    | TwitterError (message, exn) | OtherError (message, exn) ->
+        printfn "Error message occurred: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        return ()
 
 }
 

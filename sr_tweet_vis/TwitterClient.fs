@@ -50,22 +50,29 @@ module Twitter =
                 match renderableMatch with
                 | Some _ ->
                     renderableMatch
-                    |> Option.bind (fun m -> tryFindReply response)
-                    |> Option.orElse (renderableMatch |> Option.bind (fun m -> tryFindQuoteTweet response))
-                    |> Option.map (fun ref -> ref.ID)
+                    |> Option.bind ( fun m -> tryFindReply response |> Option.map (fun ref -> (m, ref)) )
+                    |> Option.orElse (renderableMatch |> Option.bind (fun m -> tryFindQuoteTweet response |> Option.map (fun ref -> (m, ref)) ))
                 | None -> None
 
-            let (|VideoRenderMention|_|) response = renderMention "video|sound|audio" response
-            let (|TextRenderMention|_|) response = renderMention "text" response
-            let (|ImageRenderMention|_|) response = renderMention @"((?<theme>light|dim|dark)\s+)?image" response
+            let (|VideoRenderMention|_|) response = 
+                renderMention "video|sound|audio" response
+                |> Option.map (fun (m, ref) -> (m.Groups.["full"].Success, ref.ID))
+
+            let (|TextRenderMention|_|) response = 
+                renderMention "text" response
+                |> Option.map (fun (m, ref) -> (m.Groups.["full"].Success, ref.ID))
+
+            let (|ImageRenderMention|_|) response = 
+                renderMention @"((?<theme>light|dim|dark)\s+)?image" response
+                |> Option.map (fun (m, ref) -> (m.Groups.["theme"].Value, m.Groups.["full"].Success, ref.ID))
 
             let (|GeneralRenderMention|_|) = function
                 | VideoRenderMention _ -> None
                 | TextRenderMention _ -> None
                 | ImageRenderMention _ -> None
-                | response -> 
-                    let pattern = @"(\s|^)render\s+(?:full\s+)?(\s|$|\?|\.)"
-                    renderMention pattern response
+                | response ->
+                    renderMention @"(\s|^)render\s+(?:full\s+)?(\s|$|\?|\.)" response
+                    |> Option.map (fun (m, ref) -> (m.Groups.["full"].Success, ref.ID))
 
         let (|AuthorizationError|_|) (response:TweetQuery) =
             Some ()
@@ -227,8 +234,9 @@ module Twitter =
                 TweetField.CreatedAt
                 TweetField.Entities
                 TweetField.ReferencedTweets
-                TweetField.ReplySettings
                 TweetField.Source
+                TweetField.ReplySettings
+                TweetField.InReplyToUserID
             }
 
             let expansions = seq {
@@ -237,6 +245,7 @@ module Twitter =
                 ExpansionField.MediaKeys
                 ExpansionField.PollIds
                 ExpansionField.AuthorID
+                ExpansionField.InReplyToUserID
             }
 
             let pollFields = seq {
@@ -301,6 +310,23 @@ module Twitter =
                 }
 
                 this.makeTwitterSingleQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
+
+            member this.GetTweetsByIds(ids:string seq) =
+                let query () = query {
+                    for tweet in context.Tweets do
+                        where (
+                            tweet.Type = TweetType.Lookup &&
+                            tweet.Ids = toParams ids &&
+                            tweet.TweetFields = toParams tweetFields &&
+                            tweet.UserFields = toParams userFields &&
+                            tweet.PollFields = toParams pollFields &&
+                            tweet.Expansions = toParams expansions
+                        )
+                        select tweet    
+                }
+
+                this.makeTwitterSingleQuery $"Problem getting ids {ids}" query
+
 
             member this.GetUser(userID:string) =
                 let query () = query {
