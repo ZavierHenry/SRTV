@@ -681,12 +681,16 @@ type ``extraction of urls are done properly``() =
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
-    member __.``url extraction has the right indices``() =
+    member __.``url extraction has the right indices``(test:TwitterUrlConformance.tests_Type.urls_with_indices_Item_Type) =
         noTest ()
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
-    member __.``tco links are properly handled``() =
+    member __.``tco links are properly handled``(test:TwitterUrlConformance.tests_Type.tco_urls_with_params_Item_Type) =
+        noTest ()
+
+    [<Theory>]
+    member __.``directional markers tests are handled correctly``(test:TwitterUrlConformance.tests_Type.urls_with_directional_markers_Item_Type) =
         noTest ()
 
 
@@ -746,5 +750,5 @@ type ``mockTweet constructors parse Twitter response correctly``() =
         mockTweet.Text |> should equal tweet.Text
 
     [<Fact>]
-    let ``response with extended entities are converted to mockTweet``(filepath) =
+    let ``response with extended entities are converted to mockTweet``() =
         noTest ()
