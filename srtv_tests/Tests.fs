@@ -734,7 +734,9 @@ type ``mockTweet constructors parse Twitter response correctly``() =
         mockTweet.IsProtected |> should equal user.Protected
         mockTweet.IsVerified |> should equal user.Verified
 
-        mockTweet.Media |> should be Empty
+        for poll in ( match includes.Polls with | null -> Seq.empty | polls -> seq { yield! polls } ) do
+            let options = poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList
+            mockTweet.Media |> should contain ( Poll (options, poll.EndDatetime) )
 
         mockTweet.QuotedTweet |> should equal None
         mockTweet.RepliedTo |> should be Empty
@@ -742,3 +744,7 @@ type ``mockTweet constructors parse Twitter response correctly``() =
         mockTweet.ScreenName |> should equal user.Username
         mockTweet.Name |> should equal user.Name
         mockTweet.Text |> should equal tweet.Text
+
+    [<Fact>]
+    let ``response with extended entities are converted to mockTweet``(filepath) =
+        noTest ()
