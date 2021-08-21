@@ -694,25 +694,51 @@ open LinqToTwitter
 open LinqToTwitter.Common
 open System.Text.Json
 
-[<Fact>]
-let ``basic tweet to mockTweet test``() =
-    
-    let text = """{"data": [{"text": "Officially got old head knees, and I’m not happy about it. I thought I was gonna be aight","id": "1428119019547250695","author_id": "94608495","created_at": "2021-08-18T22:18:02.000Z"}],"includes": {"users": [{ "protected": false, "username": "GeorgeFoster72", "id": "94608495", "verified": true, "name": "FOST" }]}}"""
+type ``mockTweet constructors parse Twitter response correctly``() =
+    let directory = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/responses/"
 
-    let tweetQuery : TweetQuery = JsonSerializer.Deserialize(text)
-    let tweet = tweetQuery.Tweets.[0]
-    let includes = tweetQuery.Includes
-    let user = includes.Users.[0]
+    let captureObject keyword opener closer text =
+        let rec captureObject' (text:string) opener closer openCount index =
+            if openCount = 0
+            then text.[ .. index - 1]
+            else if index >= text.Length
+            then text
+            else 
+                match string text.[ index ] with
+                | c when c = opener -> captureObject' text opener closer (openCount + 1) (index + 1)
+                | c when c = closer -> captureObject' text opener closer (openCount - 1) (index + 1)
+                | _ -> captureObject' text opener closer openCount (index + 1)
 
-    let mockTweet = MockTweet(tweet, includes, Seq.empty)
+        match Regex.Match(text, $"""(?<="{keyword}":\s+){Regex.Escape opener}""") with
+        | m when m.Success ->
+            captureObject' text.[ m.Index .. ] opener closer 1 1
+        | _ -> ""
 
-    mockTweet.Date |> should equal tweet.CreatedAt
-    mockTweet.IsProtected |> should equal user.Protected
-    mockTweet.IsVerified |> should equal user.Verified
-    mockTweet.Media |> should be Empty
-    mockTweet.QuotedTweet |> should equal None
-    mockTweet.RepliedTo |> should be Empty
-    mockTweet.Retweeter |> should equal None
-    mockTweet.ScreenName |> should equal user.Username
-    mockTweet.Name |> should equal user.Name
-    mockTweet.Text |> should equal tweet.Text
+    let fetchResponse filename = Http.RequestString(directory + filename)
+
+    [<Theory>]
+    [<InlineData("basicResponse.json")>]
+    [<InlineData("pollResponse.json")>]
+    let ``response without extended entities are converted to mockTweet``(filepath) =
+        let tweetQuery : TweetQuery = 
+            fetchResponse filepath 
+            |> captureObject "response" "{" "}"
+            |> JsonSerializer.Deserialize
+
+        let tweet = tweetQuery.Tweets.[0]
+        let includes = tweetQuery.Includes
+        let user = includes.Users.[0]
+
+        let mockTweet = MockTweet(tweet, includes, Seq.empty)
+        mockTweet.Date |> should equal tweet.CreatedAt
+        mockTweet.IsProtected |> should equal user.Protected
+        mockTweet.IsVerified |> should equal user.Verified
+
+        mockTweet.Media |> should be Empty
+
+        mockTweet.QuotedTweet |> should equal None
+        mockTweet.RepliedTo |> should be Empty
+        mockTweet.Retweeter |> should equal None
+        mockTweet.ScreenName |> should equal user.Username
+        mockTweet.Name |> should equal user.Name
+        mockTweet.Text |> should equal tweet.Text
