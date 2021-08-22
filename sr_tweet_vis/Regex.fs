@@ -34,7 +34,7 @@ module Regex =
             + toRange UnicodeRanges.LatinExtendedAdditional
         
         let [<Literal>] private PunycodeURL = @"(?:xn--[-0-9a-z]+)"
-        let private ValidURLCharacters = "[a-z0-9" + Latin + "]"
+        let private ValidURLCharacters = "a-z0-9" + Latin + ""
 
         let [<Literal>] private InvalidCharacters = @"\uFFFE\uFEFF\uFFFF"
         let [<Literal>] private DirectionalCharacters = @"\u061C\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069"
@@ -54,10 +54,10 @@ module Regex =
             $@"(?:(?:{ValidURLGeneralPathCharacters}*(?:{UrlBalancedParens}{ValidURLGeneralPathCharacters}*)*{ValidURLPathEndingCharacters})|(?:@{ValidURLGeneralPathCharacters}+/))"
             
         let private ValidURLSubdomain = 
-            $@"(?>(?:{ValidURLCharacters}[{ValidURLCharacters}\-_]*)?{ValidURLCharacters}\.)"
+            $@"(?>(?:[{ValidURLCharacters}][{ValidURLCharacters}\-_]*)?[{ValidURLCharacters}]\.)"
 
         let private ValidURLDomainName =
-            $@"(?:(?:{ValidURLCharacters}[{ValidURLCharacters}\-]*)?{ValidURLCharacters}\.)"
+            $@"(?:(?:[{ValidURLCharacters}][{ValidURLCharacters}\-]*)?[{ValidURLCharacters}]\.)"
 
         let [<Literal>] private ValidURLGTLD = 
             "(?:(?:삼성|닷컴|닷넷|香格里拉|餐厅|食品|飞利浦|電訊盈科|集团|通販|购物|谷歌|诺基亚|联通|网络|网站|网店|网址|组织机构|移动|珠宝\|点看|游戏|淡马锡|机构|書籍|时尚|新闻|政府|政务|招聘|手表|手机|我爱你|慈善|微博|广东|工行|家電|娱乐|天主教|大拿|大众汽车|在线|嘉里大酒店|嘉里|商标|商店|商城|公益|公司|八卦|健康|信息|佛山|企业|中文网|中信|世界|ポイント|ファッション|セール|ストア|コム|グ
@@ -92,13 +92,13 @@ module Regex =
             |ao|an|am|al|ai|ag|af|ae|ad|ac)(?=[^a-z0-9@+-]|$))"
 
         let [<Literal>] private PunctuationCharacters =
-            @"-_!\""#$%&'\(\)*+,./:;<=>?@\[\]^`\\{|}~"
+            @"-_!\""#$%&'\(\)*+,./:;<=>?@\[\]^`\{|}~"
 
         let private ValidURLUnicodeCharacters =
-            $@"[^{PunctuationCharacters}\s\p{{Z}}\p{{IsGeneralPunctuation}}]"
+            $@"^{PunctuationCharacters}\s\p{{Z}}\p{{IsGeneralPunctuation}}"
 
         let private ValidURLUnicodeDomainName = 
-            $@"(?:(?:{ValidURLUnicodeCharacters}[{ValidURLUnicodeCharacters}\-]*)?{ValidURLUnicodeCharacters}\.)"
+            $@"(?:(?:[{ValidURLUnicodeCharacters}][{ValidURLUnicodeCharacters}\-]*)?[{ValidURLUnicodeCharacters}]\.)"
 
         let private ValidURLDomain =
             $"(?:{ValidURLSubdomain}*{ValidURLDomainName}(?:{ValidURLGTLD}|{ValidURLCCTLD}|{PunycodeURL}))|\
@@ -106,14 +106,14 @@ module Regex =
             (?:{ValidURLUnicodeDomainName}(?:{ValidURLGTLD}|{ValidURLCCTLD}))))|(?:{ValidURLDomainName}{ValidURLCCTLD}(?=/))"
 
         let private ValidURLPattern =
-            $@"(?<all>\
-            (?<preceding>{ValidURLPrecedingCharacters})\
-            (?<url>\
-            (?<protocol>https?://)?\
-            (?<domain>{ValidURLDomain})(?::\
-            (?<port>{ValidURLPortNumber}))?\
-            (?<pathAnchor>/(?>{ValidURLPath}*))?\
-            (?<query>\?{ValidURLQueryCharacters}*{ValidURLQueryEndingCharacters})?))"
+            $"(?<all>\
+                (?<preceding>{ValidURLPrecedingCharacters})\
+                (?<url>\
+                    (?<protocol>https?://)?\
+                    (?<domain>{ValidURLDomain})(?::\
+                    (?<port>{ValidURLPortNumber}))?\
+                    (?<pathAnchor>/(?>{ValidURLPath}*))?\
+                    (?<query>\\?{ValidURLQueryCharacters}*{ValidURLQueryEndingCharacters})?))"
 
         let private ValidTCOUrl =
             $@"^https?://t\.co/([a-z0-9]+)(?:\?{ValidURLQueryCharacters}*{ValidURLQueryEndingCharacters})?"
@@ -147,9 +147,10 @@ module Regex =
                     
 
         let extractUrls text =
-            if String.forall ((<>) '.') text then []
+            if String.forall (fun x -> x <> '.') text then []
             else
                 validURL.Matches(text)
+                |> Seq.cast<Match>
                 |> Seq.map (fun m -> m.Groups)
                 |> Seq.filter (fun groups -> groups.["protocol"].Success || Regex.IsMatch(groups.["preceding"].Value, "[^-_./]$"))
                 |> Seq.map (fun groups -> 
@@ -162,7 +163,7 @@ module Regex =
                     |})
                 |> Seq.filter (fun x ->
                     let tcoMatch = tcoURL.Match(x.url)
-                    tcoMatch.Success && (int tcoMatch.Groups.[1].Value <= TCOSlugMaxLength))
+                    (not tcoMatch.Success) || (int tcoMatch.Groups.[1].Value <= TCOSlugMaxLength))
                 |> Seq.filter (fun x -> validHostWithValidLength x.url.Length x.protocol x.host)
                 |> Seq.map (fun x -> { url = x.url; start = x.start })
                 |> Seq.toList

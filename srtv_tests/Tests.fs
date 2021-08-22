@@ -665,29 +665,47 @@ type ``punctuation is properly converted to words``() =
 open FSharp.Configuration
 type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true, InferTypesFromStrings=false>
 
-open SRTV.Twitter.TwitterClient.Text
+open SRTV.Regex.Urls
 
 type ``extraction of urls are done properly``() =
 
     static member urlIndicesTests = TwitterUrlConformance().tests.urls_with_indices |> toMemberData
     static member tcoTests = TwitterUrlConformance().tests.tco_urls_with_params |> toMemberData
-    static member urlTests = TwitterUrlConformance().tests.urls |> toMemberData
+    static member urlTests = 
+        TwitterUrlConformance().tests.urls
+        |> Seq.cast<TwitterUrlConformance.tests_Type.urls_Item_Type>
+        |> toMemberData
     static member urlDirectionalMarkersTests = TwitterUrlConformance().tests.urls_with_directional_markers |> toMemberData
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlTests))>]
     member __.``urls are extracted``(test:TwitterUrlConformance.tests_Type.urls_Item_Type) = 
-        noTest ()
+        let expected = test.expected |> Seq.filter (not << String.IsNullOrEmpty) |> Seq.toList
+        let actual = extractUrls test.text |> Seq.map (fun {url = url} -> url) |> Seq.toList
+        actual |> should matchList expected
+
+        let length = ``extraction of urls are done properly``.urlTests
+        printfn "Size of url tests %d" (Seq.length length)
+
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
     member __.``url extraction has the right indices``(test:TwitterUrlConformance.tests_Type.urls_with_indices_Item_Type) =
-        noTest ()
+        let expected = 
+            test.expected 
+            |> Seq.cast<TwitterUrlConformance.tests_Type.urls_with_indices_Item_Type.expected_Item_Type>
+            |> Seq.map (fun x -> { url = x.url; start = int x.indices.[0] } )
+            |> Seq.toList
+
+        let actual = extractUrls test.text |> Seq.toList
+        actual |> should matchList expected
+       
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
     member __.``tco links are properly handled``(test:TwitterUrlConformance.tests_Type.tco_urls_with_params_Item_Type) =
         noTest ()
+
 
     [<Theory>]
     member __.``directional markers tests are handled correctly``(test:TwitterUrlConformance.tests_Type.urls_with_directional_markers_Item_Type) =
