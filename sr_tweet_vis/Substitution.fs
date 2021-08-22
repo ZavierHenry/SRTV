@@ -84,7 +84,8 @@ module Substitution =
         let timeRegex = $@"{timePattern}|{timeShortPattern}"
 
         let abbreviations = seq {
-            ( bindRegex $"(?<=(?<sign>\+)?{unsignedNumberPattern}\s+)cm", "centimeters")
+            ( bindRegex @$"(?<=(?<sign>\+)?{unsignedNumberPattern}\s+)cm", "centimeters")
+            ( bindRegex @$"(?<=(?<sign>\+)?{unsignedNumberPattern}\s+)mph", "miles per hour")
         }
 
         let processAbbreviations (text:string) = 
