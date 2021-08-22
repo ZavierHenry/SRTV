@@ -671,10 +671,7 @@ type ``extraction of urls are done properly``() =
 
     static member urlIndicesTests = TwitterUrlConformance().tests.urls_with_indices |> toMemberData
     static member tcoTests = TwitterUrlConformance().tests.tco_urls_with_params |> toMemberData
-    static member urlTests = 
-        TwitterUrlConformance().tests.urls
-        |> Seq.cast<TwitterUrlConformance.tests_Type.urls_Item_Type>
-        |> toMemberData
+    static member urlTests = TwitterUrlConformance().tests.urls |> toMemberData
     static member urlDirectionalMarkersTests = TwitterUrlConformance().tests.urls_with_directional_markers |> toMemberData
 
     [<Theory>]
@@ -684,8 +681,8 @@ type ``extraction of urls are done properly``() =
         let actual = extractUrls test.text |> Seq.map (fun {url = url} -> url) |> Seq.toList
         actual |> should matchList expected
 
-        let length = ``extraction of urls are done properly``.urlTests
-        printfn "Size of url tests %d" (Seq.length length)
+        let length = TwitterUrlConformance().tests.urls |> Seq.length
+        printfn "Size of url tests %d" length
 
 
     [<Theory>]

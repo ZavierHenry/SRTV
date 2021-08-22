@@ -83,6 +83,13 @@ module Substitution =
         let timePattern = $@"(?<hour>[0-1]?\d|2[0-3]):(?<minute>[0-5]\d)(?<between>\s*){meridiem}?"
         let timeRegex = $@"{timePattern}|{timeShortPattern}"
 
+        let abbreviations = seq {
+            ( bindRegex $"(?<=(?<sign>\+)?{unsignedNumberPattern}\s+)cm", "centimeters")
+        }
+
+        let processAbbreviations (text:string) = 
+            abbreviations
+            |> Seq.fold (fun state (pattern, replacement) -> Regex.Replace(state, pattern, replacement)) text
 
         let replaceNumbers text =
             let evaluator (m:Match) =
@@ -163,12 +170,11 @@ module Substitution =
     let private processEmojis = processEmojis' []
     let private processNumbers = 
         Numbers.processPhoneNumbers >>
+        Numbers.processAbbreviations >>
         Numbers.processRanges >>
         Numbers.processTimes >>
-        // Numbers.processDecimals >> 
         Numbers.processOrdinals >>
         Numbers.replaceNumbers
-       //  Numbers.processWholeNumbers
         
     let private simpleSubstitution = 
         Punctuation.simpleReplacement
