@@ -704,6 +704,17 @@ type UrlIndicesTest() =
     member val Text = "" with get, set
     member val Expected : UrlIndicesTestResult [] = [||] with get, set
 
+    interface IXunitSerializable with
+        member this.Serialize(info) =
+            info.AddValue("description", this.Description)
+            info.AddValue("text", this.Text)
+            info.AddValue("expected", this.Expected)
+
+        member this.Deserialize(info) =
+            this.Description <- info.GetValue("description")
+            this.Text <- info.GetValue("text")
+            this.Expected <- info.GetValue("expected")
+
 type TwitterTests() = 
     
     member val Urls : UrlTest [] = [||] with get, set
@@ -734,7 +745,7 @@ let conformanceTests =
 
 type ``extraction of urls are done properly``() =
 
-    static member urlIndicesTests = conformanceTests.Urls |> toMemberData
+    static member urlIndicesTests = conformanceTests.UrlsWithIndices |> toMemberData
     static member tcoTestsWithParams = conformanceTests.TcoUrlsWithParams |> toMemberData
     static member urlTests = conformanceTests.Urls |> toMemberData
     static member urlDirectionalMarkersTests = conformanceTests.UrlsWithDirectionalMarkers |> toMemberData
