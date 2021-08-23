@@ -42,7 +42,7 @@ module TweetMedia =
             "second".ToQuantity(sec) + " left"
         | MinutesFromNow now min when min < 60 -> 
             "minute".ToQuantity(min) + " left"
-        | HoursFromNow now hrs -> 
+        | HoursFromNow now hrs when hrs < 23 -> 
             "hour".ToQuantity(hrs) + " left"
         | DaysFromNow now days ->
             "day".ToQuantity(days) + " left"

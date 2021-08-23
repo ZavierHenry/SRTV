@@ -278,7 +278,7 @@ type ``poll tweets are properly parsed``() =
         let now = DateTime.UtcNow
         let newPoll = 
             match currentPoll with
-            | Poll (options, _) -> Poll (options, float time |> now.AddSeconds)
+            | Poll (options, _) -> Poll (options, float time |> ((+) 0.6) |> now.AddSeconds)
             | _                 -> currentPoll
 
         let date = DateTime.UtcNow
@@ -325,20 +325,28 @@ type ``poll tweets are properly parsed``() =
     [<Fact>]
     member __.``Unfinished polls should not have the words "final results"``() =
         let mockTweet = (fetchTweet "poll.json").ToMockTweet()
+        let currentPoll = Seq.find (function | Poll _ -> true | _ -> false) mockTweet.Media
+        let now = DateTime.UtcNow
+        let newPoll = 
+            match currentPoll with
+            | Poll (options, _) -> Poll (options, now.AddSeconds 17.0)
+            | _                 -> currentPoll
+
         let date = DateTime.UtcNow
         let newMockTweet = 
             MockTweet(
                 mockTweet.Text, 
                 mockTweet.ScreenName, 
                 mockTweet.Name, 
-                date.AddSeconds(5.0), 
+                mockTweet.Date, 
                 mockTweet.IsVerified, 
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
-                mockTweet.RepliedTo, 
+                mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                mockTweet.Media
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
             )
+
         let speakText = newMockTweet.ToSpeakText()
         speakText |> should not' (haveSubstring "final results")
 
