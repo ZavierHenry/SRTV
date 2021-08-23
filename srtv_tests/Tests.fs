@@ -667,39 +667,99 @@ type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true,
 
 open SRTV.Regex.Urls
 
+
+open YamlDotNet.Serialization
+open YamlDotNet.Serialization.NamingConventions
+
+type UrlTest() =
+
+    member val Description = "" with get, set
+    member val Text = "" with get, set
+    member val Expected : string [] = [||] with get, set
+
+    interface IXunitSerializable with
+        member this.Serialize(info) = 
+            info.AddValue("description", this.Description)
+            info.AddValue("text", this.Text)
+            info.AddValue("expected", this.Expected)
+
+        member this.Deserialize(info) =
+            this.Description <- info.GetValue("description")
+            this.Text <- info.GetValue("text")
+            this.Expected <- info.GetValue("expected")
+
+type UrlIndicesTestResult() =
+    
+    member val Url = "" with get, set
+    member val Indices : int [] = [||] with get, set
+
+    interface IXunitSerializable with
+        member this.Serialize(info) = 
+            info.AddValue("url", this.Url)
+            info.AddValue("indices", this.Indices)
+        
+        member this.Deserialize(info) =
+            this.Url <- info.GetValue("url")
+            this.Indices <- info.GetValue("indices")
+
+type UrlIndicesTest() =
+    
+    member val Description = "" with get, set
+    member val Text = "" with get, set
+    member val Expected : UrlIndicesTestResult [] = [||] with get, set
+
+type TwitterTests() = 
+    
+    member val Urls : UrlTest [] = [||] with get, set
+    
+    [<YamlMember(Alias="urls_with_indices", ApplyNamingConventions = false)>]
+    member val UrlsWithIndices : UrlIndicesTest [] = [||] with get, set
+
+    [<YamlMember(Alias="tco_urls_with_params", ApplyNamingConventions = false)>]
+    member val TcoUrlsWithParams : UrlTest [] = [||] with get, set
+
+    [<YamlMember(Alias="urls_with_directional_markers", ApplyNamingConventions = false)>]
+    member val UrlsWithDirectionalMarkers : UrlIndicesTest [] = [||] with get, set
+
+
+type TwitterConformance() =
+    member val Tests = TwitterTests() with get, set
+
+let deserializer = 
+       DeserializerBuilder()
+           .WithNamingConvention(CamelCaseNamingConvention.Instance)
+           .IgnoreUnmatchedProperties()
+           .Build()
+
+let conformanceTests = 
+    Http.RequestString("https://raw.githubusercontent.com/twitter/twitter-text/master/conformance/extract.yml")
+    |> fun root -> deserializer.Deserialize<TwitterConformance>(root).Tests
+
+
 type ``extraction of urls are done properly``() =
 
-    static member urlIndicesTests = TwitterUrlConformance().tests.urls_with_indices |> toMemberData
-    static member tcoTests = TwitterUrlConformance().tests.tco_urls_with_params |> toMemberData
-    static member urlTests = TwitterUrlConformance().tests.urls |> toMemberData
-    static member urlDirectionalMarkersTests = TwitterUrlConformance().tests.urls_with_directional_markers |> toMemberData
+    static member urlIndicesTests = conformanceTests.Urls |> toMemberData
+    static member tcoTestsWithParams = conformanceTests.TcoUrlsWithParams |> toMemberData
+    static member urlTests = conformanceTests.Urls |> toMemberData
+    static member urlDirectionalMarkersTests = conformanceTests.UrlsWithDirectionalMarkers |> toMemberData
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlTests))>]
-    member __.``urls are extracted``(test:TwitterUrlConformance.tests_Type.urls_Item_Type) = 
-        let expected = test.expected |> Seq.filter (not << String.IsNullOrEmpty) |> Seq.toList
-        let actual = extractUrls test.text |> Seq.map (fun {url = url} -> url) |> Seq.toList
-        actual |> should matchList expected
+    member __.``urls are extracted``(test:UrlTest) = 
+        let expected = test.Expected |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.map (fun {url = url} -> url) |> Seq.toList
 
-        let length = TwitterUrlConformance().tests.urls |> Seq.length
-        printfn "Size of url tests %d" length
+        actual |> should matchList expected
 
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
     member __.``url extraction has the right indices``(test:TwitterUrlConformance.tests_Type.urls_with_indices_Item_Type) =
-        let expected = 
-            test.expected 
-            |> Seq.cast<TwitterUrlConformance.tests_Type.urls_with_indices_Item_Type.expected_Item_Type>
-            |> Seq.map (fun x -> { url = x.url; start = int x.indices.[0] } )
-            |> Seq.toList
-
-        let actual = extractUrls test.text |> Seq.toList
-        actual |> should matchList expected
+        noTest ()
        
 
     [<Theory>]
-    [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
+    [<MemberData(nameof(``extraction of urls are done properly``.tcoTestsWithParams))>]
     member __.``tco links are properly handled``(test:TwitterUrlConformance.tests_Type.tco_urls_with_params_Item_Type) =
         noTest ()
 

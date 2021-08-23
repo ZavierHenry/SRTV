@@ -34,6 +34,7 @@
     <PackageReference Include="System.Speech" Version="5.0.0" />
     <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
     <PackageReference Include="Xabe.FFmpeg" Version="5.0.2" />
+    <PackageReference Include="YamlDotNet" Version="11.2.1" />
   </ItemGroup>
 
   <ItemGroup>
