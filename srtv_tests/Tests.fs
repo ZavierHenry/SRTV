@@ -662,11 +662,7 @@ type ``punctuation is properly converted to words``() =
         |> Array.map (sprintf "@%s")
         |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
 
-open FSharp.Configuration
-type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true, InferTypesFromStrings=false>
-
 open SRTV.Regex.Urls
-
 
 open YamlDotNet.Serialization
 open YamlDotNet.Serialization.NamingConventions
@@ -754,19 +750,29 @@ type ``extraction of urls are done properly``() =
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
-    member __.``url extraction has the right indices``(test:TwitterUrlConformance.tests_Type.urls_with_indices_Item_Type) =
-        noTest ()
+    member __.``url extraction has the right indices``(test:UrlIndicesTest) =
+        let expected = test.Expected |> Seq.map (fun x -> { url = x.Url; start = x.Indices.[0]}) |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.toList
+
+        actual |> should matchList expected
        
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.tcoTestsWithParams))>]
-    member __.``tco links are properly handled``(test:TwitterUrlConformance.tests_Type.tco_urls_with_params_Item_Type) =
-        noTest ()
+    member __.``tco links are properly handled``(test:UrlTest) =
+        let expected = test.Expected |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.map (fun {url = url} -> url) |> Seq.toList
+
+        actual |> should matchList expected
 
 
     [<Theory>]
-    member __.``directional markers tests are handled correctly``(test:TwitterUrlConformance.tests_Type.urls_with_directional_markers_Item_Type) =
-        noTest ()
+    [<MemberData(nameof(``extraction of urls are done properly``.urlDirectionalMarkersTests))>]
+    member __.``directional markers tests are handled correctly``(test:UrlIndicesTest) =
+        let expected = test.Expected |> Seq.map (fun x -> { url = x.Url; start = x.Indices.[0]}) |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.toList
+        
+        actual |> should matchList expected
 
 
 open LinqToTwitter
