@@ -268,32 +268,50 @@ type ``poll tweets are properly parsed``() =
         speakText.ToLower() |> should haveSubstring "final results"
 
     [<Theory>]
-    [<InlineData(420, "7 minutes left")>]
-    [<InlineData(15, "15 seconds left")>]
-    [<InlineData(10800, "3 hours left")>]
-    [<InlineData(432000, "5 days left")>]
+    [<InlineData(420, "seven minutes left")>]
+    [<InlineData(15, "fifteen seconds left")>]
+    [<InlineData(10800, "three hours left")>]
+    [<InlineData(432000, "five days left")>]
     member __.``Unfinished polls should indicate the time they have left``(time:int, expected:string) =
         let mockTweet = (fetchTweet "poll.json").ToMockTweet()
+        let currentPoll = Seq.find (function | Poll _ -> true | _ -> false) mockTweet.Media
+        let now = DateTime.UtcNow
+        let newPoll = 
+            match currentPoll with
+            | Poll (options, _) -> Poll (options, float time |> ((+) 0.6) |> now.AddSeconds)
+            | _                 -> currentPoll
+
         let date = DateTime.UtcNow
         let newMockTweet = 
             MockTweet(
                 mockTweet.Text, 
                 mockTweet.ScreenName, 
                 mockTweet.Name, 
-                date.AddSeconds(float time), 
+                mockTweet.Date, 
                 mockTweet.IsVerified, 
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                mockTweet.Media
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
             )
         let speakText = newMockTweet.ToSpeakText()
         speakText |> should haveSubstring expected
 
-    [<Fact>]
-    member __.``Finished polls should display the options and percentages of votes``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("poll.json")>]
+    member __.``Finished polls should display the options and percentages of votes``(filepath) =
+        let testTweet = fetchTweet filepath
+        let speakText = testTweet.ToSpeakText()
+
+        let poll = Option.get testTweet.Value.Tweet.Poll
+        let total = poll.Options |> Array.sumBy (fun x -> x.Votes) |> decimal
+        
+        for option in poll.Options do
+            let percentage = sprintf "%.1f%%" (option.Votes / total * 100m)
+            speakText |> should haveSubstring (processSpeakText option.Option)
+            speakText |> should haveSubstring (processSpeakText percentage)
+
 
     [<Fact>]
     member __.``Polls should output the list of options``() =
@@ -307,20 +325,28 @@ type ``poll tweets are properly parsed``() =
     [<Fact>]
     member __.``Unfinished polls should not have the words "final results"``() =
         let mockTweet = (fetchTweet "poll.json").ToMockTweet()
+        let currentPoll = Seq.find (function | Poll _ -> true | _ -> false) mockTweet.Media
+        let now = DateTime.UtcNow
+        let newPoll = 
+            match currentPoll with
+            | Poll (options, _) -> Poll (options, now.AddSeconds 17.0)
+            | _                 -> currentPoll
+
         let date = DateTime.UtcNow
         let newMockTweet = 
             MockTweet(
                 mockTweet.Text, 
                 mockTweet.ScreenName, 
                 mockTweet.Name, 
-                date.AddSeconds(5.0), 
+                mockTweet.Date, 
                 mockTweet.IsVerified, 
                 mockTweet.IsProtected, 
                 mockTweet.Retweeter, 
-                mockTweet.RepliedTo, 
+                mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                mockTweet.Media
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
             )
+
         let speakText = newMockTweet.ToSpeakText()
         speakText |> should not' (haveSubstring "final results")
 

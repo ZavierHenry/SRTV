@@ -6,8 +6,8 @@ module Substitution =
 
     open Humanizer
 
-    let punctuation = @"[.;,!?\(\)%]"
-    let whitespaceBoundaryStart = $@"(?<=\s|^|{punctuation})"
+    let punctuation = @"[.;,!?\(\)\\%]"
+    let whitespaceBoundaryStart = $@"(?<=\s|\n|^|{punctuation})"
     let whitespaceBoundaryEnd = $@"(?=\s|$|{punctuation})"
 
     let private normalize text = Regex.Replace(text, "\s{2,}", " ")
@@ -81,11 +81,15 @@ module Substitution =
         let private meridiem = @"(?<meridiem>(?:(?:[aA]|[Pp])[Mm]))"
         let private timeShortPattern = $@"(?<hour>[1-9]|1[0-2])(?<between>\s*){meridiem}"
         let timePattern = $@"(?<hour>[0-1]?\d|2[0-3]):(?<minute>[0-5]\d)(?<between>\s*){meridiem}?"
-        let timeRegex = $@"{timePattern}|{timeShortPattern}"
+        let timeRegex = $@"(?:{timePattern}|{timeShortPattern})"
 
         let abbreviations = seq {
             ( bindRegex @$"(?<=(?<sign>\+)?{unsignedNumberPattern}\s+)cm", "centimeters")
             ( bindRegex @$"(?<=(?<sign>\+)?{unsignedNumberPattern}\s+)mph", "miles per hour")
+            ( bindRegex @$"(?<={timeRegex}\s+)ET", "eastern time")
+            ( bindRegex @$"(?<={timeRegex}\s+)CT", "central time")
+            ( bindRegex @$"(?<={timeRegex}\s+)MT", "mountain time")
+            ( bindRegex @$"(?<={timeRegex}\s+)PT", "pacific time")
         }
 
         let processAbbreviations (text:string) = 
@@ -152,7 +156,7 @@ module Substitution =
                     | (_, m) -> $" {toWords m}"
                 let between = m.Groups.["between"].Value
                 let meridiem = 
-                    m.Groups.["meridiem"].Value.ToLower() 
+                    m.Groups.["meridiem"].Value.ToLower()
                     |> Seq.map string 
                     |> String.concat " " 
                     |> fun x -> if x = "" then "" else $" {x}"
