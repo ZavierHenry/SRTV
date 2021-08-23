@@ -662,32 +662,185 @@ type ``punctuation is properly converted to words``() =
         |> Array.map (sprintf "@%s")
         |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
 
-open FSharp.Configuration
-type TwitterUrlConformance = YamlConfig<"assets/extract_url.txt", ReadOnly=true, InferTypesFromStrings=false>
+open SRTV.Regex.Urls
 
-open SRTV.Twitter.TwitterClient.Text
+open YamlDotNet.Serialization
+open YamlDotNet.Serialization.NamingConventions
+
+type UrlTest() =
+
+    member val Description = "" with get, set
+    member val Text = "" with get, set
+    member val Expected : string [] = [||] with get, set
+
+    interface IXunitSerializable with
+        member this.Serialize(info) = 
+            info.AddValue("description", this.Description)
+            info.AddValue("text", this.Text)
+            info.AddValue("expected", this.Expected)
+
+        member this.Deserialize(info) =
+            this.Description <- info.GetValue("description")
+            this.Text <- info.GetValue("text")
+            this.Expected <- info.GetValue("expected")
+
+type UrlIndicesTestResult() =
+    
+    member val Url = "" with get, set
+    member val Indices : int [] = [||] with get, set
+
+    interface IXunitSerializable with
+        member this.Serialize(info) = 
+            info.AddValue("url", this.Url)
+            info.AddValue("indices", this.Indices)
+        
+        member this.Deserialize(info) =
+            this.Url <- info.GetValue("url")
+            this.Indices <- info.GetValue("indices")
+
+type UrlIndicesTest() =
+    
+    member val Description = "" with get, set
+    member val Text = "" with get, set
+    member val Expected : UrlIndicesTestResult [] = [||] with get, set
+
+    interface IXunitSerializable with
+        member this.Serialize(info) =
+            info.AddValue("description", this.Description)
+            info.AddValue("text", this.Text)
+            info.AddValue("expected", this.Expected)
+
+        member this.Deserialize(info) =
+            this.Description <- info.GetValue("description")
+            this.Text <- info.GetValue("text")
+            this.Expected <- info.GetValue("expected")
+
+type TwitterTests() = 
+    
+    member val Urls : UrlTest [] = [||] with get, set
+    
+    [<YamlMember(Alias="urls_with_indices", ApplyNamingConventions = false)>]
+    member val UrlsWithIndices : UrlIndicesTest [] = [||] with get, set
+
+    [<YamlMember(Alias="tco_urls_with_params", ApplyNamingConventions = false)>]
+    member val TcoUrlsWithParams : UrlTest [] = [||] with get, set
+
+    [<YamlMember(Alias="urls_with_directional_markers", ApplyNamingConventions = false)>]
+    member val UrlsWithDirectionalMarkers : UrlIndicesTest [] = [||] with get, set
+
+
+type TwitterConformance() =
+    member val Tests = TwitterTests() with get, set
+
+let deserializer = 
+       DeserializerBuilder()
+           .WithNamingConvention(CamelCaseNamingConvention.Instance)
+           .IgnoreUnmatchedProperties()
+           .Build()
+
+let conformanceTests = 
+    Http.RequestString("https://raw.githubusercontent.com/twitter/twitter-text/master/conformance/extract.yml")
+    |> fun root -> deserializer.Deserialize<TwitterConformance>(root).Tests
+
 
 type ``extraction of urls are done properly``() =
 
-    static member urlIndicesTests = TwitterUrlConformance().tests.urls_with_indices |> toMemberData
-    static member tcoTests = TwitterUrlConformance().tests.tco_urls_with_params |> toMemberData
-    static member urlTests = TwitterUrlConformance().tests.urls |> toMemberData
-    static member urlDirectionalMarkersTests = TwitterUrlConformance().tests.urls_with_directional_markers |> toMemberData
+    static member urlIndicesTests = conformanceTests.UrlsWithIndices |> toMemberData
+    static member tcoTestsWithParams = conformanceTests.TcoUrlsWithParams |> toMemberData
+    static member urlTests = conformanceTests.Urls |> toMemberData
+    static member urlDirectionalMarkersTests = conformanceTests.UrlsWithDirectionalMarkers |> toMemberData
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlTests))>]
-    member __.``urls are extracted``(test:TwitterUrlConformance.tests_Type.urls_Item_Type) = 
-        noTest ()
+    member __.``urls are extracted``(test:UrlTest) = 
+        let expected = test.Expected |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.map (fun {url = url} -> url) |> Seq.toList
+
+        actual |> should matchList expected
+
 
     [<Theory>]
     [<MemberData(nameof(``extraction of urls are done properly``.urlIndicesTests))>]
-    member __.``url extraction has the right indices``() =
-        noTest ()
+    member __.``url extraction has the right indices``(test:UrlIndicesTest) =
+        let expected = test.Expected |> Seq.map (fun x -> { url = x.Url; start = x.Indices.[0]}) |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.toList
+
+        actual |> should matchList expected
+       
 
     [<Theory>]
-    [<MemberData(nameof(``extraction of urls are done properly``.tcoTests))>]
-    member __.``tco links are properly handled``() =
+    [<MemberData(nameof(``extraction of urls are done properly``.tcoTestsWithParams))>]
+    member __.``tco links are properly handled``(test:UrlTest) =
+        let expected = test.Expected |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.map (fun {url = url} -> url) |> Seq.toList
+
+        actual |> should matchList expected
+
+
+    [<Theory>]
+    [<MemberData(nameof(``extraction of urls are done properly``.urlDirectionalMarkersTests))>]
+    member __.``directional markers tests are handled correctly``(test:UrlIndicesTest) =
+        let expected = test.Expected |> Seq.map (fun x -> { url = x.Url; start = x.Indices.[0]}) |> Seq.toList
+        let actual = extractUrls test.Text |> Seq.toList
+        
+        actual |> should matchList expected
+
+
+open LinqToTwitter
+open LinqToTwitter.Common
+open System.Text.Json
+
+type ``mockTweet constructors parse Twitter response correctly``() =
+    let directory = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/responses/"
+
+    let captureObject keyword opener closer text =
+        let rec captureObject' (text:string) opener closer openCount index =
+            if openCount = 0
+            then text.[ .. index - 1]
+            else if index >= text.Length
+            then text
+            else 
+                match string text.[ index ] with
+                | c when c = opener -> captureObject' text opener closer (openCount + 1) (index + 1)
+                | c when c = closer -> captureObject' text opener closer (openCount - 1) (index + 1)
+                | _ -> captureObject' text opener closer openCount (index + 1)
+
+        match Regex.Match(text, $"""(?<="{keyword}":\s+){Regex.Escape opener}""") with
+        | m when m.Success ->
+            captureObject' text.[ m.Index .. ] opener closer 1 1
+        | _ -> ""
+
+    let fetchResponse filename = Http.RequestString(directory + filename)
+
+    [<Theory>]
+    [<InlineData("basicResponse.json")>]
+    [<InlineData("pollResponse.json")>]
+    let ``response without extended entities are converted to mockTweet``(filepath) =
+        let tweetQuery : TweetQuery = 
+            fetchResponse filepath 
+            |> captureObject "response" "{" "}"
+            |> JsonSerializer.Deserialize
+
+        let tweet = tweetQuery.Tweets.[0]
+        let includes = tweetQuery.Includes
+        let user = includes.Users.[0]
+
+        let mockTweet = MockTweet(tweet, includes, Seq.empty)
+        mockTweet.Date |> should equal tweet.CreatedAt
+        mockTweet.IsProtected |> should equal user.Protected
+        mockTweet.IsVerified |> should equal user.Verified
+
+        for poll in ( match includes.Polls with | null -> Seq.empty | polls -> seq { yield! polls } ) do
+            let options = poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList
+            mockTweet.Media |> should contain ( Poll (options, poll.EndDatetime) )
+
+        mockTweet.QuotedTweet |> should equal None
+        mockTweet.RepliedTo |> should be Empty
+        mockTweet.Retweeter |> should equal None
+        mockTweet.ScreenName |> should equal user.Username
+        mockTweet.Name |> should equal user.Name
+        mockTweet.Text |> should equal tweet.Text
+
+    [<Fact>]
+    let ``response with extended entities are converted to mockTweet``() =
         noTest ()
-
-
-
