@@ -12,5 +12,5 @@ RUN dotnet publish "sr_tweet_vis.fsproj" -c Release -o /sr_tweet_vis/publish
 
 FROM mcr.microsoft.com/dotnet/runtime:5.0
 WORKDIR app
-COPY --from=build /app/publish .
+COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet" "sr_tweet_vis.dll"]
