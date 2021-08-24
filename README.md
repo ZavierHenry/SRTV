@@ -39,7 +39,7 @@ This is where SRTV comes in. It bridges the gap between the visual version of a 
 
 ## How It Works
 
-To use SRTV, reply to a tweet or quote tweet it mentioning the SRTV bot (@srtvtweeter) with the word "render" and then a render option. SRTV will then reply with the screen reader version of the tweet.
+To use SRTV, reply to a tweet or quote tweet it mentioning the SRTV bot (@srtvtweeter) with the word "render" and then a render option. SRTV will then reply with the screen reader version of the tweet text.
 
 - TODO: add example of this
 
@@ -61,10 +61,22 @@ The image also has alt text with the contents of the screen reader output, or re
 
 This option renders the specified tweet into a text tweet. Mutliple tweets will be sent if the length of the text cannot fit in a single tweet.
 
-### Private Tweets
+#### Full Text
 
-This bot is intentionally designed so that you cannot render a tweet sent from a private account, even if the bot has access to the tweet.
-The exception is if the person requesting the render is the same person.
+By default, SRTV will only render the text of a tweet. However, by specifying "full" after "render", the bot will render the following as one text:
+
+- Name
+- Screen Name
+- Screen Names the tweet is replying to
+- Whether the account is protected
+- Whether the account is verified
+- Tweet text
+- Quote tweet text
+- Name who retweeted tweet if applicable
+- Alt text of images and gifs
+- Video attribution
+- Url card if available
+
 
 ## Screen Reader Output Caveat
 
