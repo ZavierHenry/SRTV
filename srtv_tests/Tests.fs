@@ -683,10 +683,29 @@ type ``punctuation is properly converted to words``() =
     [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
         let testTweet = fetchTweet filepath
-        let text = processSpeakText (testTweet.ToMockTweet()).Text
-        testTweet.Value.Tweet.RepliedTo
-        |> Array.map (sprintf "@%s")
-        |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
+        let mockTweet = testTweet.ToMockTweet()
+        let otherText = Regex.Replace(mockTweet.Text, @"^((?:@\w+\s+)+)", "")
+
+        let otherMockTweet =
+            MockTweet (
+                otherText,
+                mockTweet.ScreenName,
+                mockTweet.Name,
+                mockTweet.Date,
+                mockTweet.IsVerified,
+                mockTweet.IsProtected,
+                mockTweet.Retweeter,
+                mockTweet.RepliedTo,
+                mockTweet.QuotedTweet,
+                mockTweet.Media
+            )
+
+        let speakText = mockTweet.ToSpeakText()
+        let otherSpeakText = otherMockTweet.ToSpeakText()
+
+        otherMockTweet.Text |> should not' (equal mockTweet.Text)
+        speakText |> should equal otherSpeakText
+       
 
 open SRTV.Regex.Urls
 
