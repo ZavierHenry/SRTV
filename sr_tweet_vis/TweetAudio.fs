@@ -114,6 +114,12 @@ module TweetAudio =
 
             File.WriteAllText(filename, vttfile)
 
+        member this.SpeakOutLoud(words: string) =
+            synth.SetOutputToDefaultAudioDevice()
+            this.speak(words)
+            synth.SetOutputToNull()
+
+
         member this.Synthesize(mockTweet: MockTweet, imagefile: string, outfile: string) = async {
             
             use tempAudioFile = new TempFile()
