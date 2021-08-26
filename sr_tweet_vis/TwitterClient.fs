@@ -241,7 +241,7 @@ module Twitter =
             let mediaFields = seq  {
                 MediaField.Type
                 MediaField.MediaKey
-                "alt_text"
+                MediaField.AltText
             }
 
             do
@@ -311,7 +311,8 @@ module Twitter =
                             tweet.TweetFields = toParams tweetFields &&
                             tweet.UserFields = toParams userFields &&
                             tweet.Expansions = toParams expansions &&
-                            tweet.PollFields = toParams pollFields
+                            tweet.PollFields = toParams pollFields &&
+                            tweet.MediaFields = toParams mediaFields
                         )
                         select tweet
                 }
