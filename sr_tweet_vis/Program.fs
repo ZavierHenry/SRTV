@@ -90,6 +90,21 @@ let sendTweet (client:Client) =
         printfn "Non-Twitter error message: %s" message
         printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
 
+
+
+let getTweet (client:Client) =
+    let id = "1428036269356068882"
+    match Seq.singleton id |> client.GetTweets |> Async.RunSynchronously with
+    | Success tweetQuery ->
+        printfn "Querying tweets was successful"
+        printfn "Tweet ID is %s" tweetQuery.Tweets.[0].ID
+        printfn "Tweet media type is %O" tweetQuery.Includes.Media.[0].Type
+    | TwitterError (message, exn) ->
+        printfn "Twitter error message: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+    | OtherError (message, exn) ->
+        printfn "Non-Twitter error message: %s" message
+        printfn "Error: %O, Stack trace %s" exn exn.StackTrace
     
 [<EntryPoint>]
 let main argv =
@@ -102,7 +117,8 @@ let main argv =
         | assembly ->
             let config = builder.AddUserSecrets(assembly, true, true).Build()
             let client = Client(config)
-            sendTweet client
+            //sendTweet client
+            getTweet client
 
     printfn "End of program..."
     0
