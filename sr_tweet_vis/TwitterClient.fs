@@ -222,7 +222,6 @@ module Twitter =
                 TweetField.CreatedAt
                 TweetField.Entities
                 TweetField.ReferencedTweets
-                TweetField.ReplySettings
                 TweetField.Source
             }
 
@@ -237,6 +236,12 @@ module Twitter =
             let pollFields = seq {
                 PollField.Options
                 PollField.EndDateTime
+            }
+
+            let mediaFields = seq  {
+                MediaField.Type
+                MediaField.MediaKey
+                "alt_text"
             }
 
             do
@@ -296,6 +301,22 @@ module Twitter =
                 }
 
                 this.makeTwitterSingleQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
+
+            member this.GetTweets(ids: string seq) =
+                let query() = query {
+                    for tweet in context.Tweets do
+                        where (
+                            tweet.Type = TweetType.Lookup &&
+                            tweet.Ids = String.concat "," ids &&
+                            tweet.TweetFields = toParams tweetFields &&
+                            tweet.UserFields = toParams userFields &&
+                            tweet.Expansions = toParams expansions &&
+                            tweet.PollFields = toParams pollFields
+                        )
+                        select tweet
+                }
+
+                this.makeTwitterSingleQuery $"Problem getting tweets with ids {ids}" query 
 
             member this.GetUser(userID:string) =
                 let query () = query {
