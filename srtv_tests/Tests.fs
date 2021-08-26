@@ -886,6 +886,32 @@ type ``mockTweet constructors parse Twitter response correctly``() =
         mockTweet.Name |> should equal user.Name
         mockTweet.Text |> should equal tweet.Text
 
-    [<Fact>]
-    let ``response with extended entities are converted to mockTweet``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("imageAltTextResponse.json")>]
+    let ``response with extended entities are converted to mockTweet``(filepath) =
+        let response = fetchResponse filepath
+        let captured = captureObject "response" "{" "}" response
+        let query = JsonSerializer.Deserialize<TweetQuery>(captured)
+        
+        
+        let tweetQuery : TweetQuery = 
+            fetchResponse filepath 
+            |> captureObject "response" "{" "}"
+            |> JsonSerializer.Deserialize
+            
+
+        let statuses : Status list =
+            fetchResponse filepath
+            |> captureObject "entities" "[" "]"
+            |> JsonSerializer.Deserialize
+            |> Seq.toList
+
+        let tweet = tweetQuery.Tweets.[0]
+        let includes = tweetQuery.Includes
+        let entities = statuses.[0].ExtendedEntities.MediaEntities 
+
+        let mockTweet = MockTweet(tweet, includes, entities)
+
+        mockTweet.Media |> should contain (Image <| Some entities.[0].AltText)
+
+   
