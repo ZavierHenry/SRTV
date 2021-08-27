@@ -319,12 +319,12 @@ module Twitter =
 
                 this.makeTwitterSingleQuery $"Problem getting tweets with ids {ids}" query 
 
-            member this.GetUser(userID:string) =
+            member this.GetUserByScreenName(screenName:string) =
                 let query () = query {
                     for user in context.TwitterUser do
                         where ( 
-                            user.Type = UserType.IdLookup && 
-                            user.ID = userID &&
+                            user.Type = UserType.UsernameLookup && 
+                            user.Usernames = screenName &&
                             user.UserFields = toParams userFields
                             )
                         select user
