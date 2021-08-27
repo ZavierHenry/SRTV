@@ -467,8 +467,11 @@ module Twitter =
                     for tweet in context.Status do
                         where (tweet.Type = StatusType.Mentions
                             && tweet.TweetIDs = ids
+                            && tweet.TrimUser = true
+                            && tweet.IncludeAltText = true
+                            && tweet.IncludeEntities = true
                         )
-                        select (tweet.ID, tweet.ExtendedEntities.MediaEntities |> Seq.toList)
+                        select (tweet.ID, match tweet.ExtendedEntities with | null -> [] | extendedEntities -> extendedEntities.MediaEntities |> Seq.toList)
                     }
 
                 this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
