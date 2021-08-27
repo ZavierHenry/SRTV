@@ -683,10 +683,29 @@ type ``punctuation is properly converted to words``() =
     [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
         let testTweet = fetchTweet filepath
-        let text = processSpeakText (testTweet.ToMockTweet()).Text
-        testTweet.Value.Tweet.RepliedTo
-        |> Array.map (sprintf "@%s")
-        |> Array.iter ( fun screenName -> text |> should not' (matchPattern $@"^\s*{processSpeakText screenName}") )
+        let mockTweet = testTweet.ToMockTweet()
+        let otherText = Regex.Replace(mockTweet.Text, @"^((?:@\w+\s+)+)", "")
+
+        let otherMockTweet =
+            MockTweet (
+                otherText,
+                mockTweet.ScreenName,
+                mockTweet.Name,
+                mockTweet.Date,
+                mockTweet.IsVerified,
+                mockTweet.IsProtected,
+                mockTweet.Retweeter,
+                mockTweet.RepliedTo,
+                mockTweet.QuotedTweet,
+                mockTweet.Media
+            )
+
+        let speakText = mockTweet.ToSpeakText()
+        let otherSpeakText = otherMockTweet.ToSpeakText()
+
+        otherMockTweet.Text |> should not' (equal mockTweet.Text)
+        speakText |> should equal otherSpeakText
+       
 
 open SRTV.Regex.Urls
 
@@ -815,6 +834,7 @@ type ``extraction of urls are done properly``() =
 open LinqToTwitter
 open LinqToTwitter.Common
 open System.Text.Json
+open System.Text.Json.Serialization
 
 type ``mockTweet constructors parse Twitter response correctly``() =
     let directory = "https://raw.githubusercontent.com/ZavierHenry/SRTV-test-tweet-collection/main/responses/"
@@ -842,10 +862,14 @@ type ``mockTweet constructors parse Twitter response correctly``() =
     [<InlineData("basicResponse.json")>]
     [<InlineData("pollResponse.json")>]
     let ``response without extended entities are converted to mockTweet``(filepath) =
-        let tweetQuery : TweetQuery = 
+        let options = JsonSerializerOptions()
+        options.Converters.Add( JsonStringEnumConverter() )
+
+        let captured = 
             fetchResponse filepath 
             |> captureObject "response" "{" "}"
-            |> JsonSerializer.Deserialize
+
+        let tweetQuery : TweetQuery = JsonSerializer.Deserialize(captured, options)
 
         let tweet = tweetQuery.Tweets.[0]
         let includes = tweetQuery.Includes
@@ -867,6 +891,28 @@ type ``mockTweet constructors parse Twitter response correctly``() =
         mockTweet.Name |> should equal user.Name
         mockTweet.Text |> should equal tweet.Text
 
-    [<Fact>]
-    let ``response with extended entities are converted to mockTweet``() =
-        noTest ()
+    [<Theory>]
+    [<InlineData("imageAltTextResponse.json")>]
+    let ``response with extended entities are converted to mockTweet``(filepath) =
+        let response = fetchResponse filepath   
+        let capturedResponse = captureObject "response" "{" "}" response
+        let entities = captureObject "entities" "[" "]" response
+
+        let options = JsonSerializerOptions()
+        options.Converters.Add(JsonStringEnumConverter())
+
+        let tweetQuery = JsonSerializer.Deserialize<TweetQuery>(capturedResponse, options)
+        let statuses : Status list = 
+            JsonSerializer.Deserialize<List<Status>>(entities, options)
+            |> Seq.cast<Status>
+            |> Seq.toList
+
+        let tweet = tweetQuery.Tweets.[0]
+        let includes = tweetQuery.Includes
+        let entities = statuses.[0].ExtendedEntities.MediaEntities 
+
+        let mockTweet = MockTweet(tweet, includes, entities)
+
+        mockTweet.Media |> should contain (Image <| Some entities.[0].AltText)
+
+   

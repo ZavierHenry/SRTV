@@ -222,7 +222,6 @@ module Twitter =
                 TweetField.CreatedAt
                 TweetField.Entities
                 TweetField.ReferencedTweets
-                TweetField.ReplySettings
                 TweetField.Source
             }
 
@@ -237,6 +236,12 @@ module Twitter =
             let pollFields = seq {
                 PollField.Options
                 PollField.EndDateTime
+            }
+
+            let mediaFields = seq  {
+                MediaField.Type
+                MediaField.MediaKey
+                MediaField.AltText
             }
 
             do
@@ -297,12 +302,29 @@ module Twitter =
 
                 this.makeTwitterSingleQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
 
-            member this.GetUser(userID:string) =
+            member this.GetTweets(ids: string seq) =
+                let query() = query {
+                    for tweet in context.Tweets do
+                        where (
+                            tweet.Type = TweetType.Lookup &&
+                            tweet.Ids = String.concat "," ids &&
+                            tweet.TweetFields = toParams tweetFields &&
+                            tweet.UserFields = toParams userFields &&
+                            tweet.Expansions = toParams expansions &&
+                            tweet.PollFields = toParams pollFields &&
+                            tweet.MediaFields = toParams mediaFields
+                        )
+                        select tweet
+                }
+
+                this.makeTwitterSingleQuery $"Problem getting tweets with ids {ids}" query 
+
+            member this.GetUserByScreenName(screenName:string) =
                 let query () = query {
                     for user in context.TwitterUser do
                         where ( 
-                            user.Type = UserType.IdLookup && 
-                            user.ID = userID &&
+                            user.Type = UserType.UsernameLookup && 
+                            user.Usernames = screenName &&
                             user.UserFields = toParams userFields
                             )
                         select user
@@ -445,8 +467,11 @@ module Twitter =
                     for tweet in context.Status do
                         where (tweet.Type = StatusType.Mentions
                             && tweet.TweetIDs = ids
+                            && tweet.TrimUser = true
+                            && tweet.IncludeAltText = true
+                            && tweet.IncludeEntities = true
                         )
-                        select (tweet.ID, tweet.ExtendedEntities.MediaEntities |> Seq.toList)
+                        select (tweet.ID, match tweet.ExtendedEntities with | null -> [] | extendedEntities -> extendedEntities.MediaEntities |> Seq.toList)
                     }
 
                 this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
