@@ -87,7 +87,7 @@ For SRTV, the following screen readers were used in testing what tweet output sh
 - Windows Narrator
 - TalkBack
 
-If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially if the screen reader is associated with Apple devices.
+If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially for JAWS or VoiceOver.
 
 ## Contributions
 
