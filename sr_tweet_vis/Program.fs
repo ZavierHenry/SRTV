@@ -39,7 +39,7 @@ let synthesize imagefile outfile = async {
 
 let speak () =
     use synth = new Synthesizer()
-    synth.speak(exampleMockTweet.ToSpeakText())
+    exampleMockTweet.ToSpeakText() |> synth.SpeakOutLoud
 
 
 let toImage'(output:string) =
@@ -109,18 +109,18 @@ let getTweet (client:Client) =
 [<EntryPoint>]
 let main argv =
 
-    let builder = ConfigurationBuilder()
-    if isDevelopmentEnvironment()
-    then
-        match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
-        | null -> ()
-        | assembly ->
-            let config = builder.AddUserSecrets(assembly, true, true).Build()
-            let client = Client(config)
-            //sendTweet client
-            getTweet client
+    //let builder = ConfigurationBuilder()
+    //if isDevelopmentEnvironment()
+    //then
+    //    match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
+    //    | null -> ()
+    //    | assembly ->
+    //        let config = builder.AddUserSecrets(assembly, true, true).Build()
+    //        let client = Client(config)
+    //        sendTweet client
 
-    printfn "End of program..."
+    //printfn "End of program..."
+    speak ()
     0
 
     
