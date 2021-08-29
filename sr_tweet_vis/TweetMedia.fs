@@ -29,6 +29,8 @@ module TweetMedia =
         | BeforeThisWeek now _ as d -> d.ToString("dd MMM")
         | DaysAgo now days when days > 0 ->
             "day".ToQuantity(days) + " ago"
+        | HoursAgo now hrs when hrs > 0 ->
+            "hour".ToQuantity(hrs) + " ago"
         | MinutesAgo now min when min > 0 ->
             "minute".ToQuantity(min) + " ago"
         | SecondsAgo now sec ->
@@ -219,12 +221,13 @@ module TweetMedia =
             )
 
         member this.ToUnprocessedText() : string = 
-            sprintf "%s %s %s %s @%s %s %s %s %s"
+            sprintf "%s %s %s %s @%s %s %s %s %s %s"
             <| match this.Retweeter with | Some name -> $"{name} retweeted " | None -> ""
             <| this.Name
             <| if this.IsVerified then " verified account " else " "
             <| if this.IsProtected then " protected account " else " "
             <| this.ScreenName
+            <| toTimeDeltaText this.Date
             <| repliesToString repliedTo
             <| removeBeginningReplies this.Text this.RepliedTo
             <| (this.QuotedTweet |> Option.map quotedTweetToString |> Option.defaultValue "")
