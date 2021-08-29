@@ -299,10 +299,9 @@ type ``poll tweets are properly parsed``() =
         let now = DateTime.UtcNow
         let newPoll = 
             match currentPoll with
-            | Poll (options, _) -> Poll (options, float time |> ((+) 0.6) |> now.AddSeconds)
+            | Poll (options, _) -> Poll (options, float time |> now.AddSeconds)
             | _                 -> currentPoll
 
-        let date = DateTime.UtcNow
         let newMockTweet = 
             MockTweet(
                 mockTweet.Text, 
@@ -316,7 +315,7 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.QuotedTweet,
                 seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
             )
-        let speakText = newMockTweet.ToSpeakText()
+        let speakText = newMockTweet.ToSpeakText(now)
         speakText |> should haveSubstring expected
 
     [<Theory>]

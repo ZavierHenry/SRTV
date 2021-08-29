@@ -36,22 +36,21 @@ module TweetMedia =
             "second".ToQuantity(sec) + " ago"
         | datetime -> datetime.ToLongTimeString()
     
-    let endDateTimeToText (endDate: DateTime) =
-        let now = DateTime.UtcNow
+    let endDateTimeToText (ref:DateTime) (endDate: DateTime) =
         match endDate.ToUniversalTime() with
-        | SecondsFromNow now sec when sec < 60 -> 
+        | SecondsFromNow ref sec when sec < 60 -> 
             "second".ToQuantity(sec) + " left"
-        | MinutesFromNow now min when min < 60 -> 
+        | MinutesFromNow ref min when min < 60 -> 
             "minute".ToQuantity(min) + " left"
-        | HoursFromNow now hrs when hrs < 23 -> 
+        | HoursFromNow ref hrs when hrs < 23 -> 
             "hour".ToQuantity(hrs) + " left"
-        | DaysFromNow now days ->
+        | DaysFromNow ref days ->
             "day".ToQuantity(days) + " left"
         | date               -> 
-            let days = int (date-now).TotalDays
+            let days = int (date-ref).TotalDays
             "day".ToQuantity(days) + " left"
 
-    let mediaToText = function
+    let mediaToText (ref:DateTime) = function
         | Image alt         -> Option.defaultValue "image" alt
         | Video None        -> "embedded video"
         | Video (Some attribution) -> 
@@ -61,8 +60,8 @@ module TweetMedia =
             $"%s{text} gif"
         | Card  (title, desc, host) -> 
             $"%s{title} %s{desc} %s{host}"
-        | Poll  (options, endTime) when endTime > DateTime.UtcNow ->
-            let endDateText = endDateTimeToText endTime
+        | Poll  (options, endTime) when endTime > ref ->
+            let endDateText = endDateTimeToText ref endTime
             let votes = List.sumBy (fun (_, votes) -> votes) options
             let choices = 
                 List.map fst options
@@ -107,7 +106,7 @@ module TweetMedia =
             <| $"@{screenName}"
             <| toTimeDeltaText ref date
             <| text
-            <| if hasPoll then "show this poll" else List.map mediaToText media |> String.concat ""
+            <| if hasPoll then "show this poll" else List.map (mediaToText ref) media |> String.concat ""
 
     let twitterTweetToQuotedTweet includes extendedEntities (tweet:Tweet) =
         let author = findUserById tweet.AuthorID includes
@@ -230,7 +229,7 @@ module TweetMedia =
             <| repliesToString repliedTo
             <| removeBeginningReplies this.Text this.RepliedTo
             <| (this.QuotedTweet |> Option.map (quotedTweetToString ref) |> Option.defaultValue "")
-            <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
+            <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map (mediaToText ref) this.Media)
     
         member this.ToSpeakText(?ref: DateTime) : string = 
             Option.defaultValue DateTime.UtcNow ref
