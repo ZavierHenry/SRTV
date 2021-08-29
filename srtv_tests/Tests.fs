@@ -208,8 +208,8 @@ type ``test tweets are valid examples``() =
 type ``tweet times are properly shown``() =
 
     [<Theory>]
-    [<InlineData(14399, "three hours ago")>]
-    [<InlineData(259100, "two days ago")>]
+    [<InlineData(14400, "four hours ago")>]
+    [<InlineData(259200, "three days ago")>]
     member __.``tweet times are correctly displayed``(seconds:int, expected:string) =
         let mockTweet = (fetchTweet "basicVerifiedTweet.json").ToMockTweet()
         let now = DateTime.UtcNow
@@ -228,7 +228,7 @@ type ``tweet times are properly shown``() =
                 mockTweet.Media
             )
 
-        let speakText = otherMockTweet.ToSpeakText()
+        let speakText = otherMockTweet.ToSpeakText(now)
         speakText |> should haveSubstring expected
 
 

@@ -22,18 +22,17 @@ module TweetMedia =
         | Card of title : string * desc : string * host : string
         | Poll of options : (string*int) list * endDateTime : DateTime
 
-    let toTimeDeltaText (datetime:DateTime) =
-        let now = DateTime.UtcNow
+    let toTimeDeltaText (ref:DateTime) (datetime:DateTime) =
         match datetime.ToUniversalTime() with
-        | BeforeThisYear now _ as d -> d.ToString("dd MMM yy")
-        | BeforeThisWeek now _ as d -> d.ToString("dd MMM")
-        | DaysAgo now days when days > 0 ->
+        | BeforeThisYear ref _ as d -> d.ToString("dd MMM yy")
+        | BeforeThisWeek ref _ as d -> d.ToString("dd MMM")
+        | DaysAgo ref days when days > 0 ->
             "day".ToQuantity(days) + " ago"
-        | HoursAgo now hrs when hrs > 0 ->
+        | HoursAgo ref hrs when hrs > 0 ->
             "hour".ToQuantity(hrs) + " ago"
-        | MinutesAgo now min when min > 0 ->
+        | MinutesAgo ref min when min > 0 ->
             "minute".ToQuantity(min) + " ago"
-        | SecondsAgo now sec ->
+        | SecondsAgo ref sec ->
             "second".ToQuantity(sec) + " ago"
         | datetime -> datetime.ToLongTimeString()
     
@@ -97,7 +96,7 @@ module TweetMedia =
             media : Media list *
             hasPoll : bool
 
-    let quotedTweetToString = function
+    let quotedTweetToString ref = function
     | Unavailable -> ""
     | Tweet (screenName, name, verified, locked, date, repliedTo, text, media, hasPoll) ->
         sprintf "quote tweet %s%s %s%s%s%s%s%s"
@@ -106,7 +105,7 @@ module TweetMedia =
             <| if verified then " verified account " else ""
             <| if locked then " protected account " else " "
             <| $"@{screenName}"
-            <| toTimeDeltaText date
+            <| toTimeDeltaText ref date
             <| text
             <| if hasPoll then "show this poll" else List.map mediaToText media |> String.concat ""
 
@@ -220,18 +219,20 @@ module TweetMedia =
                 }
             )
 
-        member this.ToUnprocessedText() : string = 
+        member this.ToUnprocessedText(ref: DateTime) : string = 
             sprintf "%s %s %s %s @%s %s %s %s %s %s"
             <| match this.Retweeter with | Some name -> $"{name} retweeted " | None -> ""
             <| this.Name
             <| if this.IsVerified then " verified account " else " "
             <| if this.IsProtected then " protected account " else " "
             <| this.ScreenName
-            <| toTimeDeltaText this.Date
+            <| toTimeDeltaText ref this.Date
             <| repliesToString repliedTo
             <| removeBeginningReplies this.Text this.RepliedTo
-            <| (this.QuotedTweet |> Option.map quotedTweetToString |> Option.defaultValue "")
+            <| (this.QuotedTweet |> Option.map (quotedTweetToString ref) |> Option.defaultValue "")
             <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map mediaToText this.Media)
     
-        member this.ToSpeakText() : string = 
-            processSpeakText <| this.ToUnprocessedText()
+        member this.ToSpeakText(?ref: DateTime) : string = 
+            Option.defaultValue DateTime.UtcNow ref
+            |> this.ToUnprocessedText
+            |> processSpeakText
