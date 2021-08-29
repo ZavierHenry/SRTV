@@ -63,7 +63,7 @@ This option renders the specified tweet into a text tweet. Mutliple tweets will 
 
 #### Full Text
 
-By default, SRTV will only render the text of a tweet. However, by specifying "full" after "render", the bot will render the following as one text:
+By default, SRTV will only render the text, media alt text and image attribution of a tweet. However, by specifying "full" after "render", the bot will render the following as one text:
 
 - Name
 - Screen Name
