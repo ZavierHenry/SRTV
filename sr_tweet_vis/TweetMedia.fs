@@ -19,7 +19,7 @@ module TweetMedia =
         | Image of altText : string option
         | Video of attribution : string option
         | Gif of altText : string option
-        | Card of title : string * desc : string * host : string
+        | Card of title : string * desc : string * host : string * shortUrl : string
         | Poll of options : (string*int) list * endDateTime : DateTime
 
     let toTimeDeltaText (ref:DateTime) (datetime:DateTime) =
@@ -58,7 +58,7 @@ module TweetMedia =
         | Gif text -> 
             let text = Option.defaultValue "embedded video" text
             $"%s{text} gif"
-        | Card  (title, desc, host) -> 
+        | Card  (title, desc, host, _) -> 
             $"%s{title} %s{desc} %s{host}"
         | Poll  (options, endTime) when endTime > ref ->
             let endDateText = endDateTimeToText ref endTime
@@ -197,7 +197,7 @@ module TweetMedia =
                 |> Seq.map (fun (url:TweetEntityUrl) -> 
                     let host = Uri(url.UnwoundUrl).Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
-                    Card (url.Title, url.Description, host))
+                    Card (url.Title, url.Description, host, url.Url))
 
             MockTweet(
                 originalTweet.Text,
