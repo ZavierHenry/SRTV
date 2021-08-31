@@ -13,13 +13,19 @@ module TweetMedia =
 
     open Humanizer
 
-    type SpeakMode = | Timeline | Expanded
+    type UrlType = 
+        | Media
+        | Card
+        | QuoteTweet
+        | Regular
+
+    type Url = Url of url: string * displayUrl: string * urlType: UrlType
 
     type Media =
         | Image of altText : string option
         | Video of attribution : string option
         | Gif of altText : string option
-        | Card of title : string * desc : string * host : string * shortUrl : string
+        | Card of title : string * desc : string * host : string
         | Poll of options : (string*int) list * endDateTime : DateTime
 
     let toTimeDeltaText (ref:DateTime) (datetime:DateTime) =
@@ -58,7 +64,7 @@ module TweetMedia =
         | Gif text -> 
             let text = Option.defaultValue "embedded video" text
             $"%s{text} gif"
-        | Card  (title, desc, host, _) -> 
+        | Card  (title, desc, host) -> 
             $"%s{title} %s{desc} %s{host}"
         | Poll  (options, endTime) when endTime > ref ->
             let endDateText = endDateTimeToText ref endTime
@@ -93,11 +99,12 @@ module TweetMedia =
             repliedTo : string list *
             text : string *
             media : Media list *
+            urls : Url list *
             hasPoll : bool
 
     let quotedTweetToString ref = function
     | Unavailable -> ""
-    | Tweet (screenName, name, verified, locked, date, repliedTo, text, media, hasPoll) ->
+    | Tweet (screenName, name, verified, locked, date, repliedTo, text, media, urls, hasPoll) ->
         sprintf "quote tweet %s%s %s%s%s%s%s%s"
             <| repliesToString repliedTo
             <| name
@@ -120,6 +127,7 @@ module TweetMedia =
             [], 
             tweet.Text, 
             [], 
+            [],
             Seq.isEmpty tweet.Attachments.PollIds |> not
         )
 
@@ -134,6 +142,7 @@ module TweetMedia =
         member this.RepliedTo : string list = repliedTo
         member this.QuotedTweet : QuotedTweet option = quotedTweet
         member this.Media : Media seq = media
+        member this.Urls : Url list = []
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
@@ -168,16 +177,14 @@ module TweetMedia =
                 |> Seq.filter (fun m -> Seq.contains m.MediaKey tweet.Attachments.MediaKeys) 
 
             let photos = 
-                let extendedPhotoEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "photo")
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Photo)
-                |> Seq.map (fun x -> extendedPhotoEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
                 |> Seq.map (fun x -> Image <| tryNonBlankString x.AltText)
 
             let videos = 
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Video)
-                |> Seq.map (fun _ -> Video None)
+                |> Seq.map (fun x -> Video None)
 
             let gifs = 
                 let extendedGifEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "animated_gif")
@@ -197,7 +204,7 @@ module TweetMedia =
                 |> Seq.map (fun (url:TweetEntityUrl) -> 
                     let host = Uri(url.UnwoundUrl).Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
-                    Card (url.Title, url.Description, host, url.Url))
+                    Card (url.Title, url.Description, host))
 
             MockTweet(
                 originalTweet.Text,
