@@ -100,7 +100,7 @@ module TweetMedia =
             repliedTo : string list *
             text : string *
             media : Media list *
-            urls : Url list *
+            urls : Url seq *
             hasPoll : bool
 
     let quotedTweetToString ref = function
@@ -132,7 +132,7 @@ module TweetMedia =
             Seq.isEmpty tweet.Attachments.PollIds |> not
         )
 
-    type MockTweet(text, screenname, name, date, isVerified, isProtected, retweeter, repliedTo, quotedTweet, media) =
+    type MockTweet(text, screenname, name, date, isVerified, isProtected, retweeter, repliedTo, quotedTweet, media, urls) =
         member this.Text : string = text
         member this.ScreenName : string = screenname
         member this.Name : string = name
@@ -143,7 +143,7 @@ module TweetMedia =
         member this.RepliedTo : string list = repliedTo
         member this.QuotedTweet : QuotedTweet option = quotedTweet
         member this.Media : Media seq = media
-        member this.Urls : Url list = []
+        member this.Urls : Url seq = urls
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
@@ -198,14 +198,39 @@ module TweetMedia =
                 match includes.Polls with | null -> Seq.empty | polls -> seq { yield! polls }
                 |> Seq.filter (fun poll -> Seq.contains poll.ID tweet.Attachments.PollIds)
                 |> Seq.map (fun poll -> Poll (poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList, poll.EndDatetime))
+                
 
-            let card = 
-                match tweet.Entities with | null -> Seq.empty | entities -> match entities.Urls with | null -> Seq.empty | urls -> seq { yield! urls }
+            let urls = 
+                match tweet.Entities with 
+                | null -> Seq.empty 
+                | entities -> 
+                    match entities.Urls with 
+                    | null -> Seq.empty 
+                    | urls -> Seq.cast<TweetEntityUrl> urls
+                |> Seq.sortBy (fun url -> url.Start)
+
+            let cards = 
+                urls
                 |> Seq.filter (fun (url:TweetEntityUrl) -> Seq.isEmpty url.Images |> not)
                 |> Seq.map (fun (url:TweetEntityUrl) -> 
                     let host = Uri(url.UnwoundUrl).Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
                     Card (url.Url, url.Title, url.Description, host))
+
+            let mockUrls =
+                urls
+                |> Seq.map (function 
+                    | url when url.Url <> (Seq.last urls).Url -> Url (url.Url, url.DisplayUrl, Regular)
+                    | url when Seq.exists (function | Card (u, _, _, _) -> u = url.Url | _ -> false) cards ->
+                        Url (url.Url, url.DisplayUrl, Media)
+                    | url when 
+                        tryFindTweetReferenceByType "quoted" referencedTweets
+                        |> Option.exists (fun ref -> 
+                            Regex.Match(url.ExpandedUrl, @"^https://twitter\.com/\w+/status/(?<id>\d+)$").Groups.["id"].Value = ref.ID) ->
+                        Url (url.Url, url.DisplayUrl, QuoteTweet)
+                    | url when Regex.IsMatch(url.ExpandedUrl, @"^https://twitter\.com/\w+/status/\d+/(photo|video))") ->
+                        Url (url.Url, url.DisplayUrl, Media)
+                    | url -> Url (url.Url, url.DisplayUrl, Regular) )
 
             MockTweet(
                 originalTweet.Text,
@@ -221,9 +246,10 @@ module TweetMedia =
                     yield! photos
                     yield! videos
                     yield! gifs
-                    yield! card
+                    yield! cards
                     yield! polls
-                }
+                },
+                mockUrls
             )
 
         member this.ToUnprocessedText(ref: DateTime) : string = 

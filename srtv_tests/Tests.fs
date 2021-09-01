@@ -142,7 +142,8 @@ let toMockTweet(root:TestTweet.Root) =
         tweet.Retweeter,
         Array.toList tweet.RepliedTo,
         Option.map toQuotedTweet tweet.QuotedTweet,
-        images @ video @ gif @ poll @ card
+        images @ video @ gif @ poll @ card,
+        []
     )
 
 open Matchers
@@ -226,7 +227,8 @@ type ``tweet times are properly shown``() =
                 mockTweet.Retweeter,
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                mockTweet.Media
+                mockTweet.Media,
+                []
             )
 
         let speakText = otherMockTweet.ToSpeakText(now)
@@ -319,7 +321,8 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll },
+                []
             )
         let speakText = newMockTweet.ToSpeakText(now)
         speakText |> should haveSubstring expected
@@ -370,7 +373,8 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll },
+                []
             )
 
         let speakText = newMockTweet.ToSpeakText()
@@ -723,7 +727,8 @@ type ``punctuation is properly converted to words``() =
                 mockTweet.Retweeter,
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                mockTweet.Media
+                mockTweet.Media,
+                mockTweet.Urls
             )
 
         let speakText = mockTweet.ToSpeakText()
