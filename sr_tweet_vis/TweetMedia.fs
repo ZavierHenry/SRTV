@@ -13,19 +13,20 @@ module TweetMedia =
 
     open Humanizer
 
-    type UrlType = 
-        | Media
-        | Card
-        | QuoteTweet
-        | Regular
-
+    type UrlType = | Media | QuoteTweet | Regular
     type Url = Url of url: string * displayUrl: string * urlType: UrlType
+
+    let processLinks links text =
+        let processLinks' text (Url (url, displayUrl, urlType)) =
+            let newUrl = match urlType with | Regular -> displayUrl | _ -> ""
+            Regex.Replace(text, Regex.Escape url, newUrl)
+        Seq.fold processLinks' text links
 
     type Media =
         | Image of altText : string option
         | Video of attribution : string option
         | Gif of altText : string option
-        | Card of title : string * desc : string * host : string
+        | Card of url: string * title : string * desc : string * host : string
         | Poll of options : (string*int) list * endDateTime : DateTime
 
     let toTimeDeltaText (ref:DateTime) (datetime:DateTime) =
@@ -64,7 +65,7 @@ module TweetMedia =
         | Gif text -> 
             let text = Option.defaultValue "embedded video" text
             $"%s{text} gif"
-        | Card  (title, desc, host) -> 
+        | Card  (_, title, desc, host) -> 
             $"%s{title} %s{desc} %s{host}"
         | Poll  (options, endTime) when endTime > ref ->
             let endDateText = endDateTimeToText ref endTime
@@ -105,14 +106,14 @@ module TweetMedia =
     let quotedTweetToString ref = function
     | Unavailable -> ""
     | Tweet (screenName, name, verified, locked, date, repliedTo, text, media, urls, hasPoll) ->
-        sprintf "quote tweet %s%s %s%s%s%s%s%s"
+        sprintf "quote tweet %s %s %s %s @%s %s %s %s"
             <| repliesToString repliedTo
             <| name
-            <| if verified then " verified account " else ""
-            <| if locked then " protected account " else " "
-            <| $"@{screenName}"
+            <| if verified then "verified account" else ""
+            <| if locked then "protected account" else ""
+            <| screenName
             <| toTimeDeltaText ref date
-            <| text
+            <| (removeBeginningReplies text repliedTo |> processLinks urls)
             <| if hasPoll then "show this poll" else List.map (mediaToText ref) media |> String.concat ""
 
     let twitterTweetToQuotedTweet includes extendedEntities (tweet:Tweet) =
@@ -204,7 +205,7 @@ module TweetMedia =
                 |> Seq.map (fun (url:TweetEntityUrl) -> 
                     let host = Uri(url.UnwoundUrl).Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
-                    Card (url.Title, url.Description, host))
+                    Card (url.Url, url.Title, url.Description, host))
 
             MockTweet(
                 originalTweet.Text,
@@ -234,7 +235,7 @@ module TweetMedia =
             <| this.ScreenName
             <| toTimeDeltaText ref this.Date
             <| repliesToString repliedTo
-            <| removeBeginningReplies this.Text this.RepliedTo
+            <| (removeBeginningReplies this.Text this.RepliedTo |> processLinks this.Urls)
             <| (this.QuotedTweet |> Option.map (quotedTweetToString ref) |> Option.defaultValue "")
             <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map (mediaToText ref) this.Media)
     

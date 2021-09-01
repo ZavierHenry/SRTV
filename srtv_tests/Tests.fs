@@ -90,7 +90,7 @@ let pollToMedia (poll:TestTweet.Poll) =
     Poll ( options, DateTime.Parse (poll.EndDate) )
 
 let urlCardToMedia (card:TestTweet.UrlCard) =
-    Card (card.Title, card.Description, card.Url)
+    Card (Option.defaultValue "" card.ShortenedUrl, card.Title, card.Description, card.Url)
 
 let altTextToMedia f (altText:TestTweet.ImageAltText) : Media =
     f <| Option.filter (fun _ -> altText.HasAltText) altText.AltText
