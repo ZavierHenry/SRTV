@@ -119,6 +119,23 @@ module TweetMedia =
     let twitterTweetToQuotedTweet includes extendedEntities (tweet:Tweet) =
         let author = findUserById tweet.AuthorID includes
 
+        let urls =
+            match tweet.Entities with
+            | null -> Seq.empty
+            | entities ->
+                match entities.Urls with
+                | null -> Seq.empty
+                | urls -> Seq.cast<TweetEntityUrl> urls
+            |> Seq.sortBy (fun url -> url.Start)
+
+        let mockUrls =
+            urls
+            |> Seq.map (function 
+                | url when url.Url <> (Seq.last urls).Url -> Url (url.Url, url.DisplayUrl, Regular)
+                | url when Regex.IsMatch(url.ExpandedUrl, @"^https://twitter\.com/\w+/status/\d+/(photo|video))") ->
+                    Url (url.Url, url.DisplayUrl, Media)
+                | url -> Url (url.Url, url.DisplayUrl, Regular) )
+
         Tweet (
             author.Username, 
             author.Name, 
@@ -128,7 +145,7 @@ module TweetMedia =
             [], 
             tweet.Text, 
             [], 
-            [],
+            mockUrls,
             Seq.isEmpty tweet.Attachments.PollIds |> not
         )
 
