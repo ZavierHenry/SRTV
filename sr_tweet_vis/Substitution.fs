@@ -133,14 +133,14 @@ module Substitution =
         let processAmericanPhoneNumbers text =
             let evaluator (m:Match) =
                 let number = 
-                    m.Groups.["number"].Value.Replace("-", "").Replace(" ", "")
+                    Regex.Replace(m.Groups.["number"].Value, @"[\- .]", "")
                     |> Seq.map (string >> Convert.ToInt64 >> toWords)
                     |> Seq.indexed
                     |> Seq.groupBy (fun (index, _) -> if index < 3 then 0 else if index < 6 then 1 else 2)
                     |> Seq.map (fun (_, group) -> Seq.map snd group |> String.concat " ")
                     |> String.concat ". "
                 m.Groups.["start"].Value + number + m.Groups.["end"].Value
-            Regex.Replace(text, @"(?<start>^|\s)(?<number>\d{3}(?:[ \-])\d{3}(?:[ \-])\d{4})(?<end>\s|$)", MatchEvaluator(evaluator))
+            Regex.Replace(text, @"(?<start>^|\s)(?<number>\d{3}(?:[ \-.])\d{3}(?:[ \-.])\d{4})(?<end>\s|$)", MatchEvaluator(evaluator))
 
         let processPhoneNumbers = processAmericanPhoneNumbers
         

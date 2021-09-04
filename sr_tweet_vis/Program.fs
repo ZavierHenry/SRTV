@@ -29,6 +29,7 @@ let exampleMockTweet =
         None,
         [],
         None,
+        [],
         []
 )
 
@@ -98,7 +99,7 @@ let getTweet (client:Client) =
     | Success tweetQuery ->
         printfn "Querying tweets was successful"
         printfn "Tweet ID is %s" tweetQuery.Tweets.[0].ID
-        printfn "Tweet media type is %O" tweetQuery.Includes.Media.[0].Type
+        printfn "Tweet alt text is %s" tweetQuery.Includes.Media.[0].AltText
     | TwitterError (message, exn) ->
         printfn "Twitter error message: %s" message
         printfn "Error: %O, Stack trace: %s" exn exn.StackTrace

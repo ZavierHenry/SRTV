@@ -90,14 +90,21 @@ let pollToMedia (poll:TestTweet.Poll) =
     Poll ( options, DateTime.Parse (poll.EndDate) )
 
 let urlCardToMedia (card:TestTweet.UrlCard) =
-    Card (card.Title, card.Description, card.Url)
-
+    let host = Uri(card.UnwoundUrl).Host
+    Card (card.Url, card.Title, card.Description, host)
 
 let altTextToMedia f (altText:TestTweet.ImageAltText) : Media =
     f <| Option.filter (fun _ -> altText.HasAltText) altText.AltText
 
 let attributionToMedia (attribution:TestTweet.VideoAttribution) : Media =
     Video <| Option.filter (fun _ -> attribution.HasAttribution) attribution.Attribution
+
+
+let toUrlType = function 
+    | "regular" -> UrlType.Regular 
+    | "quoteTweet" -> UrlType.QuoteTweet 
+    | "media" -> UrlType.Media 
+    | _ -> UrlType.Regular
 
 let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
     let toMedia (f:'a -> Media) = Option.toList << Option.map f
@@ -108,6 +115,9 @@ let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
         let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
         let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
         let video = toMedia attributionToMedia tweet.VideoAttribution
+        let urls = 
+            tweet.Urls 
+            |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
 
         Tweet (
             tweet.Author.ScreenName,
@@ -118,6 +128,7 @@ let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
             Array.toList tweet.RepliedTo,
             tweet.Text,
             images @ gif @ video,
+            urls,
             tweet.HasPoll ))
     |> Option.defaultValue Unavailable
 
@@ -126,11 +137,12 @@ let toMockTweet(root:TestTweet.Root) =
     let toMedia (f:'a -> Media) = Option.toList << Option.map f
     
     let poll = toMedia pollToMedia tweet.Poll
-    let card = toMedia urlCardToMedia tweet.UrlCard
+    let cards = Array.map urlCardToMedia tweet.UrlCards |> Array.toList
     let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
     let video = toMedia attributionToMedia tweet.VideoAttribution
 
     let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
+    let urls = tweet.Urls |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
     
     MockTweet(
         tweet.Text,
@@ -142,7 +154,8 @@ let toMockTweet(root:TestTweet.Root) =
         tweet.Retweeter,
         Array.toList tweet.RepliedTo,
         Option.map toQuotedTweet tweet.QuotedTweet,
-        images @ video @ gif @ poll @ card
+        images @ video @ gif @ poll @ cards,
+        urls
     )
 
 open Matchers
@@ -207,9 +220,37 @@ type ``test tweets are valid examples``() =
 
 type ``tweet times are properly shown``() =
 
+    [<Theory>]
+    [<InlineData(14400, "four hours ago")>]
+    [<InlineData(2640, "forty four minutes ago")>]
+    [<InlineData(259200, "three days ago")>]
+    member __.``tweet times are correctly displayed``(seconds:int, expected:string) =
+        let mockTweet = (fetchTweet "basicVerifiedTweet.json").ToMockTweet()
+        let now = DateTime.UtcNow
+        let newDate = now.AddSeconds(float -seconds)
+        let otherMockTweet =
+            MockTweet (
+                mockTweet.Text,
+                mockTweet.ScreenName,
+                mockTweet.Name,
+                newDate,
+                mockTweet.IsVerified,
+                mockTweet.IsProtected,
+                mockTweet.Retweeter,
+                mockTweet.RepliedTo,
+                mockTweet.QuotedTweet,
+                mockTweet.Media,
+                []
+            )
+
+        let speakText = otherMockTweet.ToSpeakText(now)
+        speakText |> should haveSubstring expected
+
+
     [<Fact>]
-    member __.``tweet times are correctly displayed``() =
+    member __.``Quote tweet times are correctly displayed``() =
         noTest ()
+
 
 type ``verified tweets are properly parsed``() =
 
@@ -278,10 +319,9 @@ type ``poll tweets are properly parsed``() =
         let now = DateTime.UtcNow
         let newPoll = 
             match currentPoll with
-            | Poll (options, _) -> Poll (options, float time |> ((+) 0.6) |> now.AddSeconds)
+            | Poll (options, _) -> Poll (options, float time |> now.AddSeconds)
             | _                 -> currentPoll
 
-        let date = DateTime.UtcNow
         let newMockTweet = 
             MockTweet(
                 mockTweet.Text, 
@@ -293,9 +333,10 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll },
+                []
             )
-        let speakText = newMockTweet.ToSpeakText()
+        let speakText = newMockTweet.ToSpeakText(now)
         speakText |> should haveSubstring expected
 
     [<Theory>]
@@ -344,7 +385,8 @@ type ``poll tweets are properly parsed``() =
                 mockTweet.Retweeter, 
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll }
+                seq { yield! Seq.except [currentPoll] mockTweet.Media; newPoll },
+                []
             )
 
         let speakText = newMockTweet.ToSpeakText()
@@ -697,7 +739,8 @@ type ``punctuation is properly converted to words``() =
                 mockTweet.Retweeter,
                 mockTweet.RepliedTo,
                 mockTweet.QuotedTweet,
-                mockTweet.Media
+                mockTweet.Media,
+                mockTweet.Urls
             )
 
         let speakText = mockTweet.ToSpeakText()
