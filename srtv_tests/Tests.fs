@@ -90,13 +90,21 @@ let pollToMedia (poll:TestTweet.Poll) =
     Poll ( options, DateTime.Parse (poll.EndDate) )
 
 let urlCardToMedia (card:TestTweet.UrlCard) =
-    Card (Option.defaultValue "" card.ShortenedUrl, card.Title, card.Description, card.Url)
+    let host = Uri(card.UnwoundUrl).Host
+    Card (card.Url, card.Title, card.Description, host)
 
 let altTextToMedia f (altText:TestTweet.ImageAltText) : Media =
     f <| Option.filter (fun _ -> altText.HasAltText) altText.AltText
 
 let attributionToMedia (attribution:TestTweet.VideoAttribution) : Media =
     Video <| Option.filter (fun _ -> attribution.HasAttribution) attribution.Attribution
+
+
+let toUrlType = function 
+    | "regular" -> UrlType.Regular 
+    | "quoteTweet" -> UrlType.QuoteTweet 
+    | "media" -> UrlType.Media 
+    | _ -> UrlType.Regular
 
 let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
     let toMedia (f:'a -> Media) = Option.toList << Option.map f
@@ -107,6 +115,9 @@ let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
         let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
         let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
         let video = toMedia attributionToMedia tweet.VideoAttribution
+        let urls = 
+            tweet.Urls 
+            |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
 
         Tweet (
             tweet.Author.ScreenName,
@@ -117,7 +128,7 @@ let toQuotedTweet (quotedTweet:TestTweet.QuotedTweet) =
             Array.toList tweet.RepliedTo,
             tweet.Text,
             images @ gif @ video,
-            [],
+            urls,
             tweet.HasPoll ))
     |> Option.defaultValue Unavailable
 
@@ -126,11 +137,12 @@ let toMockTweet(root:TestTweet.Root) =
     let toMedia (f:'a -> Media) = Option.toList << Option.map f
     
     let poll = toMedia pollToMedia tweet.Poll
-    let card = toMedia urlCardToMedia tweet.UrlCard
+    let cards = Array.map urlCardToMedia tweet.UrlCards |> Array.toList
     let gif = toMedia (altTextToMedia Gif) tweet.GifAltText
     let video = toMedia attributionToMedia tweet.VideoAttribution
 
     let images = tweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
+    let urls = tweet.Urls |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
     
     MockTweet(
         tweet.Text,
@@ -142,8 +154,8 @@ let toMockTweet(root:TestTweet.Root) =
         tweet.Retweeter,
         Array.toList tweet.RepliedTo,
         Option.map toQuotedTweet tweet.QuotedTweet,
-        images @ video @ gif @ poll @ card,
-        []
+        images @ video @ gif @ poll @ cards,
+        urls
     )
 
 open Matchers
