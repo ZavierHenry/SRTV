@@ -753,7 +753,7 @@ type ``links are properly handled in tweets``() =
         let speakText = mockTweet.ToSpeakText()
 
         for Url (url, _, _) in mockTweet.Urls do
-            speakText |> should not' (haveSubstring url)
+            speakText |> should not' (haveSubstring <| processSpeakText url)
 
     [<Theory>]
     [<InlineData("multipleTcoLinks.json")>]
