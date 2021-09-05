@@ -705,14 +705,6 @@ type ``punctuation is properly converted to words``() =
     member __.``periods properly indicate a long pause``() =
         noTest ()
 
-    [<Theory>]
-    [<InlineData("urlCard.json")>]
-    [<InlineData("imagesAltText.json")>]
-    [<InlineData("multipleTcoLinks.json")>]
-    member __.``t.co links are removed from the tweet``(filepath:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should not' (haveSubstring "t.co/")
-
     [<Fact>]
     member __.``symbols that should be removed are properly removed``() =
         noTest ()
@@ -749,6 +741,28 @@ type ``punctuation is properly converted to words``() =
         otherMockTweet.Text |> should not' (equal mockTweet.Text)
         speakText |> should equal otherSpeakText
        
+
+type ``links are properly handled in tweets``() =
+
+    [<Theory>]
+    [<InlineData("urlCard.json")>]
+    [<InlineData("imagesAltText.json")>]
+    [<InlineData("multipleTcoLinks.json")>]
+    member __.``tco links are removed from the tweet``(filepath:string) =
+        let mockTweet = (fetchTweet filepath).ToMockTweet()
+        let speakText = mockTweet.ToSpeakText()
+
+        for Url (url, _, _) in mockTweet.Urls do
+            speakText |> should not' (haveSubstring url)
+
+    [<Theory>]
+    [<InlineData("multipleTcoLinks.json")>]
+    member __.``regular links show up as the display url``(filepath:string) =
+        let mockTweet = (fetchTweet filepath).ToMockTweet()
+        let speakText = mockTweet.ToSpeakText()
+
+        for Url (url, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, t) -> t = UrlType.Regular) do
+            speakText |> should haveSubstitution (url, processSpeakText displayUrl)
 
 open SRTV.Regex.Urls
 
@@ -829,7 +843,6 @@ let deserializer =
 let conformanceTests = 
     Http.RequestString("https://raw.githubusercontent.com/twitter/twitter-text/master/conformance/extract.yml")
     |> fun root -> deserializer.Deserialize<TwitterConformance>(root).Tests
-
 
 type ``extraction of urls are done properly``() =
 
