@@ -762,7 +762,7 @@ type ``links are properly handled in tweets``() =
         let speakText = mockTweet.ToSpeakText()
 
         for Url (url, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, t) -> t = UrlType.Regular) do
-            speakText |> should haveSubstitution (url, processSpeakText displayUrl)
+            speakText |> should haveSubstitution (processSpeakText url, processSpeakText displayUrl)
 
 open SRTV.Regex.Urls
 
