@@ -761,8 +761,20 @@ type ``links are properly handled in tweets``() =
         let mockTweet = (fetchTweet filepath).ToMockTweet()
         let speakText = mockTweet.ToSpeakText()
 
-        for Url (url, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, t) -> t = UrlType.Regular) do
+        for Url (url, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, UrlType.Regular) -> true | _ -> false) do
             speakText |> should haveSubstitution (processSpeakText url, processSpeakText displayUrl)
+
+    [<Theory>]
+    [<InlineData("imagesAltText.json")>]
+    [<InlineData("quotedTweet.json")>]
+    [<InlineData("quotedTweetPoll.json")>]
+    member __.``media and quote tweet links should NOT have the display url in the text``(filepath:string) =
+        let mockTweet = (fetchTweet filepath).ToMockTweet()
+        let speakText = mockTweet.ToSpeakText()
+
+        for Url (_, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, UrlType.Media) | Url (_, _, UrlType.QuoteTweet) -> true | _ -> false) do
+            speakText |> should not' (haveSubstring <| processSpeakText displayUrl)
+
 
 open SRTV.Regex.Urls
 
