@@ -542,22 +542,36 @@ type ``quoted tweets are properly parsed``() =
     member __.``quoted tweets should be shown``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = testTweet.ToSpeakText()
-        let quotedTweet = Option.get testTweet.Value.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
-        
-        speakText |> should haveSubstring (processSpeakText quotedTweet.Text)
-        speakText |> should haveSubstring (processSpeakText quotedTweet.Author.Name)
-        speakText |> should haveSubstring (processSpeakText quotedTweet.Author.ScreenName)
+        let quotedTestTweet = Option.get testTweet.Value.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
+        let toMedia (f:'a -> Media) = Option.toList << Option.map f
 
-        for imageAltText in quotedTweet.ImageAltTexts |> Array.filter (fun x -> x.HasAltText) do
-            speakText |> should haveSubstring (Option.get imageAltText.AltText |> processSpeakText)
+        let quotedImages = 
+            quotedTestTweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
 
-        quotedTweet.GifAltText
-        |> Option.filter (fun x -> x.HasAltText)
-        |> Option.iter ( fun x -> speakText |> should haveSubstring (Option.get x.AltText |> processSpeakText))
-        
-        quotedTweet.VideoAttribution
-        |> Option.filter (fun x -> x.HasAttribution)
-        |> Option.iter (fun x -> speakText |> should haveSubstring (Option.get x.Attribution |> sprintf "attributed to %s"))
+        let quotedGif =
+            toMedia (altTextToMedia Gif) quotedTestTweet.GifAltText
+
+        let quotedVideo =
+            toMedia attributionToMedia quotedTestTweet.VideoAttribution
+
+        let quotedSpeakText =
+            MockTweet(
+                quotedTestTweet.Text,
+                quotedTestTweet.Author.ScreenName,
+                quotedTestTweet.Author.Name,
+                DateTime.Parse quotedTestTweet.DateCreated,
+                quotedTestTweet.Author.Verified,
+                quotedTestTweet.Author.Protected,
+                None,
+                quotedTestTweet.RepliedTo |> Array.toList,
+                None,
+                quotedImages @ quotedGif @ quotedVideo,
+                quotedTestTweet.Urls |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
+            )
+            |> toSpeakText
+
+        speakText |> should haveSubstring quotedSpeakText
+       
 
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
