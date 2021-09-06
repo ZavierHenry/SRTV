@@ -542,22 +542,36 @@ type ``quoted tweets are properly parsed``() =
     member __.``quoted tweets should be shown``(filepath:string) =
         let testTweet = fetchTweet filepath
         let speakText = testTweet.ToSpeakText()
-        let quotedTweet = Option.get testTweet.Value.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
-        
-        speakText |> should haveSubstring (processSpeakText quotedTweet.Text)
-        speakText |> should haveSubstring (processSpeakText quotedTweet.Author.Name)
-        speakText |> should haveSubstring (processSpeakText quotedTweet.Author.ScreenName)
+        let quotedTestTweet = Option.get testTweet.Value.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
+        let toMedia (f:'a -> Media) = Option.toList << Option.map f
 
-        for imageAltText in quotedTweet.ImageAltTexts |> Array.filter (fun x -> x.HasAltText) do
-            speakText |> should haveSubstring (Option.get imageAltText.AltText |> processSpeakText)
+        let quotedImages = 
+            quotedTestTweet.ImageAltTexts |> Array.map (altTextToMedia Image) |> Array.toList
 
-        quotedTweet.GifAltText
-        |> Option.filter (fun x -> x.HasAltText)
-        |> Option.iter ( fun x -> speakText |> should haveSubstring (Option.get x.AltText |> processSpeakText))
-        
-        quotedTweet.VideoAttribution
-        |> Option.filter (fun x -> x.HasAttribution)
-        |> Option.iter (fun x -> speakText |> should haveSubstring (Option.get x.Attribution |> sprintf "attributed to %s"))
+        let quotedGif =
+            toMedia (altTextToMedia Gif) quotedTestTweet.GifAltText
+
+        let quotedVideo =
+            toMedia attributionToMedia quotedTestTweet.VideoAttribution
+
+        let quotedSpeakText =
+            MockTweet(
+                quotedTestTweet.Text,
+                quotedTestTweet.Author.ScreenName,
+                quotedTestTweet.Author.Name,
+                DateTime.Parse quotedTestTweet.DateCreated,
+                quotedTestTweet.Author.Verified,
+                quotedTestTweet.Author.Protected,
+                None,
+                quotedTestTweet.RepliedTo |> Array.toList,
+                None,
+                quotedImages @ quotedGif @ quotedVideo,
+                quotedTestTweet.Urls |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
+            )
+            |> toSpeakText
+
+        speakText |> should haveSubstring quotedSpeakText
+       
 
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
@@ -705,14 +719,6 @@ type ``punctuation is properly converted to words``() =
     member __.``periods properly indicate a long pause``() =
         noTest ()
 
-    [<Theory>]
-    [<InlineData("urlCard.json")>]
-    [<InlineData("imagesAltText.json")>]
-    [<InlineData("multipleTcoLinks.json")>]
-    member __.``t.co links are removed from the tweet``(filepath:string) =
-        let speakText = fetchSpeakText filepath
-        speakText |> should not' (haveSubstring "t.co/")
-
     [<Fact>]
     member __.``symbols that should be removed are properly removed``() =
         noTest ()
@@ -749,6 +755,40 @@ type ``punctuation is properly converted to words``() =
         otherMockTweet.Text |> should not' (equal mockTweet.Text)
         speakText |> should equal otherSpeakText
        
+
+type ``links are properly handled in tweets``() =
+
+    [<Theory>]
+    [<InlineData("urlCard.json")>]
+    [<InlineData("imagesAltText.json")>]
+    [<InlineData("multipleTcoLinks.json")>]
+    member __.``tco links are removed from the tweet``(filepath:string) =
+        let mockTweet = (fetchTweet filepath).ToMockTweet()
+        let speakText = mockTweet.ToSpeakText()
+
+        for Url (url, _, _) in mockTweet.Urls do
+            speakText |> should not' (haveSubstring <| processSpeakText url)
+
+    [<Theory>]
+    [<InlineData("multipleTcoLinks.json")>]
+    member __.``regular links show up as the display url``(filepath:string) =
+        let mockTweet = (fetchTweet filepath).ToMockTweet()
+        let speakText = mockTweet.ToSpeakText()
+
+        for Url (url, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, UrlType.Regular) -> true | _ -> false) do
+            speakText |> should haveSubstitution (processSpeakText url, processSpeakText displayUrl)
+
+    [<Theory>]
+    [<InlineData("imagesAltText.json")>]
+    [<InlineData("quotedTweet.json")>]
+    [<InlineData("quotedTweetPoll.json")>]
+    member __.``media and quote tweet links should NOT have the display url in the text``(filepath:string) =
+        let mockTweet = (fetchTweet filepath).ToMockTweet()
+        let speakText = mockTweet.ToSpeakText()
+
+        for Url (_, displayUrl, _) in mockTweet.Urls |> Seq.filter (function | Url (_, _, UrlType.Media) | Url (_, _, UrlType.QuoteTweet) -> true | _ -> false) do
+            speakText |> should not' (haveSubstring <| processSpeakText displayUrl)
+
 
 open SRTV.Regex.Urls
 
@@ -829,7 +869,6 @@ let deserializer =
 let conformanceTests = 
     Http.RequestString("https://raw.githubusercontent.com/twitter/twitter-text/master/conformance/extract.yml")
     |> fun root -> deserializer.Deserialize<TwitterConformance>(root).Tests
-
 
 type ``extraction of urls are done properly``() =
 
