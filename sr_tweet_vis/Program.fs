@@ -40,7 +40,7 @@ let synthesize imagefile outfile = async {
 
 let speak () =
     use synth = new Synthesizer()
-    synth.speak(exampleMockTweet.ToSpeakText())
+    synth.Speak(exampleMockTweet.ToSpeakText(), "random_file.mp4")
 
 
 let toImage'(output:string) =
