@@ -76,7 +76,7 @@ module TweetCaptions =
 
         member __.HasLineOverflow text =
             Regex.Split(text, punctuation)
-            |> Array.exists (fun line -> Regex.Matches(@"\s+", line).Count >= ChunkSize)
+            |> Array.exists (fun line -> Regex.Matches(line, @"\s+").Count >= ChunkSize)
 
         member __.ToSilenceDetectionText text =
             let lines = Regex.Split(text, punctuation) |> Array.toList
@@ -200,7 +200,7 @@ module TweetAudio =
                     if m.Success then timestamps <- float m.Groups.["time"].Value :: timestamps)
 
             do! conversion.Start() |> Async.AwaitTask |> Async.Ignore
-            return timestamps
+            return timestamps |> List.rev
         }
 
         member __.MakeVideo(audioFile :string, subtitleFile: string, imageFile: string, outFile:string) = async {
@@ -304,9 +304,9 @@ module TweetAudio =
             let! timestamps =
                 match captions.HasLineOverflow(speakText) with
                 | true ->
-                    use tempCaptionsAudioFile = new TempFile()
-                    let captionText = captions.ToSilenceDetectionText(speakText)
                     async {
+                        use tempCaptionsAudioFile = new TempFile()
+                        let captionText = captions.ToSilenceDetectionText(speakText)
                         do! this.Speak(captionText, tempCaptionsAudioFile.Path)
                         return! ffmpeg.SilenceDetect(tempCaptionsAudioFile.Path)
                     }
