@@ -120,27 +120,27 @@ let buildClient () =
 let main argv =
 
     match argv with
-    | [| _; "synthesize"; text; imagefile; outfile |] ->
+    | [| "synthesize"; text; imagefile; outfile |] ->
         synthesize text imagefile outfile
-    | [| _; "synthesize"; text; imagefile |] ->
+    | [| "synthesize"; text; imagefile |] ->
         synthesize text imagefile "synthesis.mp4"
-    | [| _; "speak"; text; outfile|] ->
+    | [| "speak"; text; outfile |] ->
         speak text outfile
-    | [| _; "speak"; text |] ->
+    | [| "speak"; text |] ->
         speak text "speakText.wav"
-    | [| _; "image"; outfile |] ->
+    | [| "image"; outfile |] ->
         toImage' outfile
-    | [| _; "image" |] ->
+    | [| "image" |] ->
         toImage' "sampeImage.jpg"
-    | [| _; "sendTweet"; text |] ->
+    | [| "sendTweet"; text |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client -> sendTweet text client
-    | [| _; "getTweet"; id |] ->
+    | [| "getTweet"; id |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client -> getTweet id client
-    | _ -> async { printfn "Program cannot understand parameters..." }
+    | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
     |> Async.RunSynchronously
 
     //let builder = ConfigurationBuilder()

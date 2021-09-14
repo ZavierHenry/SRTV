@@ -5,7 +5,7 @@
     },
     "speak_default": {
       "commandName": "Project",
-      "commandLineArgs": "\"this is a great moment\", \"speakResult.wav\""
+      "commandLineArgs": "\"speak\" \"this is a great moment\" \"speakResult.wav\""
     }
   }
 }
