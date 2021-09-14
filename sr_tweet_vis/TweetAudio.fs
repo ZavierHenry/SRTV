@@ -69,20 +69,42 @@ module TweetCaptions =
     //        $"WEBVTT\n\n{printedCues}\n"
 
     type Captions() =
-        let mutable timestamps : float list = []
         let punctuation = @"(?<=[?.!])\s+"
+        let [<Literal>] ChunkSize = 15
 
         static member toTimestamp seconds = TimeSpan.FromSeconds(seconds).ToString("hh\:mm\:ss\,fff")
-        member __.add (time:string) = timestamps <- float time :: timestamps
 
-        member __.ToCaptions(text) =
+        member __.HasLineOverflow text =
+            Regex.Split(text, punctuation)
+            |> Array.exists (fun line -> Regex.Matches(@"\s+", line).Count >= ChunkSize)
+
+        member __.ToSilenceDetectionText text =
             let lines = Regex.Split(text, punctuation) |> Array.toList
             let captionLines =
                 lines
                 |> List.indexed
                 |> List.collect (fun (index, line) ->
-                    line.Split(" ")
-                    |> Array.chunkBySize 15
+                    Regex.Split(line, @"\s+")
+                    |> Array.chunkBySize ChunkSize
+                    |> Array.map (String.concat " ")
+                    |> Array.toList
+                    |> List.map (fun x -> (index, x)))
+
+            captionLines
+            |> List.map (fun (lineIndex, text) ->
+                match List.filter (fun (i, _) -> i = lineIndex) captionLines with
+                | [] | [ _ ]  -> text
+                | _         -> Regex.Replace(text, @"(?<![.!?])$", "."))
+            |> String.concat " "
+
+        member __.ToCaptions(text, timestamps) =
+            let lines = Regex.Split(text, punctuation) |> Array.toList
+            let captionLines =
+                lines
+                |> List.indexed
+                |> List.collect (fun (index, line) ->
+                    Regex.Split(line, @"\s+")
+                    |> Array.chunkBySize ChunkSize
                     |> Array.map (String.concat " ")
                     |> Array.toList
                     |> List.map (fun x -> (index, x)))
@@ -90,7 +112,7 @@ module TweetCaptions =
                 captionLines
                 |> List.map (fun (lineIndex, text) ->
                     match List.filter (fun (i, _) -> i = lineIndex) captionLines with
-                    | [] | [_]  -> (lineIndex, text)
+                    | [] | [ _ ]  -> (lineIndex, text)
                     | _         -> (lineIndex, Regex.Replace(text, @"(?<![.!?])$", ".")))
 
             timestamps
@@ -157,10 +179,12 @@ module TweetAudio =
         do
             Path.GetDirectoryName(@"C:\FFMPEG\bin\ffmpeg.exe") |> FFmpeg.SetExecutablesPath
 
-        member __.SilenceDetect(audioFilename: string, captions: Captions) = async {
+        member __.SilenceDetect(audioFilename: string) = async {
+            let mutable timestamps : float list = []
+
             let! audioInfo = FFmpeg.GetMediaInfo(audioFilename) |> Async.AwaitTask
             let audioStream = Seq.head audioInfo.AudioStreams
-
+            
             let conversion =
                 FFmpeg.Conversions.New()
                     .UseMultiThread(false)
@@ -172,15 +196,13 @@ module TweetAudio =
             conversion.OnDataReceived.AddHandler(
                 fun _ e ->
                     let m = Regex.Match(e.Data, @"silence_end:\s+(?<time>\d+\.\d+)")
-                    if m.Success then captions.add m.Groups.["time"].Value)
+                    if m.Success then timestamps <- float m.Groups.["time"].Value :: timestamps)
 
-            let! _ = conversion.Start() |> Async.AwaitTask
-            return ()
+            do! conversion.Start() |> Async.AwaitTask |> Async.Ignore
+            return timestamps
         }
 
-        member __.MakeVideo(audioFile :string, subtitles: string, imageFile: string, outFile:string) = async {
-            use captionsFile = new TempFile()
-            do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
+        member __.MakeVideo(audioFile :string, subtitleFile: string, imageFile: string, outFile:string) = async {
             
             let! audioInfo = FFmpeg.GetMediaInfo(audioFile) |> Async.AwaitTask
             let audioStream = 
@@ -192,7 +214,7 @@ module TweetAudio =
             let videoStream =
                 (Seq.head videoInfo.VideoStreams)
                     .SetCodec(VideoCodec.libx264)
-                    .AddSubtitles(captionsFile.Path, "utf-8")
+                    .AddSubtitles(subtitleFile, "utf-8", "BorderStyle=3")
                     :> IStream
 
             let conversion =
@@ -209,14 +231,14 @@ module TweetAudio =
 
             do! conversion.Start() |> Async.AwaitTask |> Async.Ignore
         }
-            
-
 
     type Synthesizer() =
 
-        let synth = new SpeechSynthesizer()
+        //let synth = new SpeechSynthesizer()
+
         let captions = Captions()
         let engine = TTS()
+        let ffmpeg = FFMPEG()
 
         //let saveCaptions (e:SpeakProgressEventArgs) =
         //    captions.add e.AudioPosition e.Text
@@ -225,8 +247,8 @@ module TweetAudio =
         //    if e.Bookmark = "end of speech"
         //    then captions.finalize e.AudioPosition
 
-        do
-            Path.GetDirectoryName(@"C:\FFMPEG\bin\ffmpeg.exe") |> FFmpeg.SetExecutablesPath
+        //do
+        //    Path.GetDirectoryName(@"C:\FFMPEG\bin\ffmpeg.exe") |> FFmpeg.SetExecutablesPath
 
         //do 
         //    synth.Rate <- -1
@@ -246,8 +268,6 @@ module TweetAudio =
 
         //member private this.speakToFile(mockTweet: MockTweet, filename: string) =
         //    this.Speak(mockTweet, filename)
-
-        
 
 
         //member private this.speakToFile(mockTweet: MockTweet, filename: string) =
@@ -277,39 +297,60 @@ module TweetAudio =
 
         member this.Synthesize(mockTweet: MockTweet, imagefile: string, outfile: string) = async {
             
+            let speakText = mockTweet.ToSpeakText()
             use tempAudioFile = new TempFile()
-            use tempCaptionsFile = new TempFile()
 
-            //this.speakToFile(mockTweet, tempAudioFile.Path)
-            do! this.captionsToFile(tempCaptionsFile.Path)
+            do! this.Speak(speakText, tempAudioFile.Path)
+            let! timestamps =
+                match captions.HasLineOverflow(speakText) with
+                | true ->
+                    use tempCaptionsAudioFile = new TempFile()
+                    let text = captions.ToSilenceDetectionText(speakText)
+                    async {
+                        do! this.Speak(text, tempCaptionsAudioFile.Path)
+                        return! ffmpeg.SilenceDetect(tempCaptionsAudioFile.Path)
+                    }
+                | false -> ffmpeg.SilenceDetect(tempAudioFile.Path)
 
-            let! videoInfo = FFmpeg.GetMediaInfo(imagefile) |> Async.AwaitTask
-            let! audioInfo = FFmpeg.GetMediaInfo(tempAudioFile.Path) |> Async.AwaitTask
+            let subtitles = captions.ToCaptions(speakText, timestamps)
+            use captionsFile = new TempFile()
+            do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
 
-            let videoStream = Seq.head videoInfo.VideoStreams
-            let videoStream = 
-                videoStream.SetCodec(VideoCodec.libx264)
-                    .AddSubtitles(tempCaptionsFile.Path, "utf-8", "BorderStyle=3")
-                    :> IStream
+            do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imagefile, outfile)
 
-            let audioStream = Seq.head audioInfo.AudioStreams
-            let audioStream = audioStream.SetCodec(AudioCodec.aac) :> IStream
+            //use tempAudioFile = new TempFile()
+            //use tempCaptionsFile = new TempFile()
 
-            let conversion = 
-                FFmpeg.Conversions.New()
-                    .UseMultiThread(false)
-                    .AddParameter("-loop 1", ParameterPosition.PreInput)
-                    .AddStream(videoStream, audioStream)
-                    .AddParameter("-tune stillimage")
-                    .UseShortest(true)
-                    .SetPixelFormat(PixelFormat.yuv420p)
-                    .SetAudioBitrate(192000L)
-                    .SetOutput(outfile)
-                    .SetOverwriteOutput(true)
+            ////this.speakToFile(mockTweet, tempAudioFile.Path)
+            //do! this.captionsToFile(tempCaptionsFile.Path)
 
-            let! _ = conversion.Start() |> Async.AwaitTask
-            return ()
+            //let! videoInfo = FFmpeg.GetMediaInfo(imagefile) |> Async.AwaitTask
+            //let! audioInfo = FFmpeg.GetMediaInfo(tempAudioFile.Path) |> Async.AwaitTask
+
+            //let videoStream = Seq.head videoInfo.VideoStreams
+            //let videoStream = 
+            //    videoStream.SetCodec(VideoCodec.libx264)
+            //        .AddSubtitles(tempCaptionsFile.Path, "utf-8", "BorderStyle=3")
+            //        :> IStream
+
+            //let audioStream = Seq.head audioInfo.AudioStreams
+            //let audioStream = audioStream.SetCodec(AudioCodec.aac) :> IStream
+
+            //let conversion = 
+            //    FFmpeg.Conversions.New()
+            //        .UseMultiThread(false)
+            //        .AddParameter("-loop 1", ParameterPosition.PreInput)
+            //        .AddStream(videoStream, audioStream)
+            //        .AddParameter("-tune stillimage")
+            //        .UseShortest(true)
+            //        .SetPixelFormat(PixelFormat.yuv420p)
+            //        .SetAudioBitrate(192000L)
+            //        .SetOutput(outfile)
+            //        .SetOverwriteOutput(true)
+
+            //let! _ = conversion.Start() |> Async.AwaitTask
+            //return ()
         }
 
         interface IDisposable with
-            member __.Dispose() = synth.Dispose()
+            member __.Dispose() = ()
