@@ -153,6 +153,7 @@ module TweetAudio =
                     FileName = location,
                     RedirectStandardOutput = true
                 )
+
             startInfo.ArgumentList.Add("--text")
             startInfo.ArgumentList.Add(text)
 
