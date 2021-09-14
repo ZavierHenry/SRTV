@@ -290,14 +290,13 @@ module TweetAudio =
 
         //    //File.WriteAllText(filename, vttfile)
 
-        member private this.captionsToFile(filename: string) = async {
-            let subtitles = captions.ToString()
-            do! File.WriteAllTextAsync(filename, subtitles) |> Async.AwaitTask
-        }
+        //member private this.captionsToFile(filename: string) = async {
+        //    let subtitles = captions.ToString()
+        //    do! File.WriteAllTextAsync(filename, subtitles) |> Async.AwaitTask
+        //}
 
-        member this.Synthesize(mockTweet: MockTweet, imagefile: string, outfile: string) = async {
+        member this.Synthesize(speakText: string, imagefile: string, outfile: string) = async {
             
-            let speakText = mockTweet.ToSpeakText()
             use tempAudioFile = new TempFile()
 
             do! this.Speak(speakText, tempAudioFile.Path)
@@ -305,9 +304,9 @@ module TweetAudio =
                 match captions.HasLineOverflow(speakText) with
                 | true ->
                     use tempCaptionsAudioFile = new TempFile()
-                    let text = captions.ToSilenceDetectionText(speakText)
+                    let captionText = captions.ToSilenceDetectionText(speakText)
                     async {
-                        do! this.Speak(text, tempCaptionsAudioFile.Path)
+                        do! this.Speak(captionText, tempCaptionsAudioFile.Path)
                         return! ffmpeg.SilenceDetect(tempCaptionsAudioFile.Path)
                     }
                 | false -> ffmpeg.SilenceDetect(tempAudioFile.Path)
@@ -352,5 +351,5 @@ module TweetAudio =
             //return ()
         }
 
-        interface IDisposable with
-            member __.Dispose() = ()
+        //interface IDisposable with
+        //    member __.Dispose() = ()
