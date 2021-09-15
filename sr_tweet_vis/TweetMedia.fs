@@ -31,8 +31,8 @@ module TweetMedia =
 
     let toTimeDeltaText (ref:DateTime) (datetime:DateTime) =
         match datetime.ToUniversalTime() with
-        | BeforeThisYear ref _ as d -> d.ToString("dd MMM yy")
-        | BeforeThisWeek ref _ as d -> d.ToString("dd MMM")
+        | BeforeThisYear ref _ as d -> d.ToString("MMM dd yy")
+        | BeforeThisWeek ref _ as d -> d.ToString("MMM dd")
         | DaysAgo ref days when days > 0 ->
             "day".ToQuantity(days) + " ago"
         | HoursAgo ref hrs when hrs > 0 ->

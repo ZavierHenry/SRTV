@@ -1,15 +1,15 @@
 {
   "profiles": {
-    "sr_tweet_vis": {
-      "commandName": "Project"
+    "WSL": {
+      "commandName": "WSL2"
     },
-    "sr_tweet_vis_tofile": {
+    "speak_default": {
       "commandName": "Project",
-      "commandLineArgs": "\"~/Pictures/srtv_background.png\" \"~/Downloads/synthesized_tweet.mp4\""
+      "commandLineArgs": "\"speak\" \"this is a great moment\" \"speakResult.wav\""
     },
-    "sr_tweet_image": {
+    "synthesis": {
       "commandName": "Project",
-      "commandLineArgs": "\"~/Downloads/tweet_image.jpg\""
+      "commandLineArgs": "\"synthesize\" \"Let me put you on game don't you know that I run this place\" \"./synthesis.mp4\""
     }
   }
 }

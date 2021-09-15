@@ -17,7 +17,6 @@ open SRTV.Twitter.Patterns.Mentions
 open System.Reflection
 
 
-
 let exampleMockTweet =
     MockTweet(
         "I love that the Harvey’s burger chain got its name because the John Harvey Motors car dealership was going out of business and a guy opening a burger shop got the dealership sign for cheap.  A thrifty Canadian icon.",
@@ -33,14 +32,11 @@ let exampleMockTweet =
         []
 )
 
-let synthesize imagefile outfile = async {
-    use synth = new Synthesizer()
-    do! synth.Synthesize(exampleMockTweet, imagefile, outfile)
-}
+let synthesize text outfile =
+    Synthesizer().Synthesize(text, outfile)
 
-let speak () =
-    use synth = new Synthesizer()
-    synth.speak(exampleMockTweet.ToSpeakText())
+let speak text filename =
+    Synthesizer().Speak(text, filename)
 
 
 let toImage'(output:string) =
@@ -80,46 +76,77 @@ let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
     String.IsNullOrEmpty(environmentVariable) || environmentVariable.ToLower() = "development"
 
-let sendTweet (client:Client) =
-    let tweet = SRTV.SRTVResponse.TextTweet "If you are reading this, the test tweet was successful"
-    match client.TweetAsync tweet |> Async.RunSynchronously with
-    | Success _ -> printfn "Sending tweet was successful..."
-    | TwitterError (message, exn) ->
-        printfn "Twitter error message: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
-    | OtherError (message, exn) ->
-        printfn "Non-Twitter error message: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+let sendTweet text (client:Client) =
+    let tweet = SRTV.SRTVResponse.TextTweet text
+    async {
+        match! client.TweetAsync tweet with
+        | Success _ -> printfn "Sending tweet was successful..."
+        | TwitterError (message, exn) ->
+            printfn "Twitter error message: %s" message
+            printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        | OtherError (message, exn) ->
+            printfn "Non-Twitter error message: %s" message
+            printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+    }
 
-
-
-let getTweet (client:Client) =
-    let id = "1428036269356068882"
-    match Seq.singleton id |> client.GetTweets |> Async.RunSynchronously with
-    | Success tweetQuery ->
-        printfn "Querying tweets was successful"
-        printfn "Tweet ID is %s" tweetQuery.Tweets.[0].ID
-        printfn "Tweet alt text is %s" tweetQuery.Includes.Media.[0].AltText
-    | TwitterError (message, exn) ->
-        printfn "Twitter error message: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
-    | OtherError (message, exn) ->
-        printfn "Non-Twitter error message: %s" message
-        printfn "Error: %O, Stack trace %s" exn exn.StackTrace
     
+
+let getTweet id (client:Client) =
+    async {
+        match! Seq.singleton id |> client.GetTweets with
+        | Success tweetQuery ->
+            printfn "Querying tweets was successful"
+            printfn "Tweet ID is %s" tweetQuery.Tweets.[0].ID
+            printfn "Tweet alt text is %s" tweetQuery.Includes.Media.[0].AltText
+        | TwitterError (message, exn) ->
+            printfn "Twitter error message: %s" message
+            printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        | OtherError (message, exn) ->
+            printfn "Non-Twitter error message: %s" message
+            printfn "Error: %O, Stack trace %s" exn exn.StackTrace
+    }
+    
+    
+let buildClient () =
+    let builder = ConfigurationBuilder()
+    Some ()
+    |> Option.filter (fun _ -> isDevelopmentEnvironment())
+    |> Option.map (fun _ -> Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)))
+    |> Option.filter (function | null -> false | _ -> true)
+    |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
+
+
 [<EntryPoint>]
 let main argv =
 
-    let builder = ConfigurationBuilder()
-    if isDevelopmentEnvironment()
-    then
-        match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
-        | null -> ()
-        | assembly ->
-            let config = builder.AddUserSecrets(assembly, true, true).Build()
-            let client = Client(config)
-            //sendTweet client
-            getTweet client
+    match argv with
+    | [| "synthesize"; text; outfile |] -> synthesize text outfile
+    | [| "synthesize"; text |] -> synthesize text "synthesis.mp4"
+    | [| "speak"; text; outfile |] -> speak text outfile
+    | [| "speak"; text |] -> speak text "speakText.wav"
+    | [| "image"; outfile |] -> toImage' outfile
+    | [| "image" |] -> toImage' "sampleImage.jpg"
+    | [| "sendTweet"; text |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> sendTweet text client
+    | [| "getTweet"; id |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> getTweet id client
+    | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
+    |> Async.RunSynchronously
+
+    //let builder = ConfigurationBuilder()
+    //if isDevelopmentEnvironment()
+    //then
+    //    match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
+    //    | null -> ()
+    //    | assembly ->
+    //        let config = builder.AddUserSecrets(assembly, true, true).Build()
+    //        let client = Client(config)
+    //        //sendTweet client
+    //        getTweet id client
 
     printfn "End of program..."
     0
