@@ -308,7 +308,7 @@ module TweetAudio =
         //    do! File.WriteAllTextAsync(filename, subtitles) |> Async.AwaitTask
         //}
 
-        member this.Synthesize(speakText: string, imagefile: string, outfile: string) = async {
+        member this.Synthesize(speakText: string, outfile: string) = async {
             
             use tempAudioFile = new TempFile()
 
@@ -328,7 +328,10 @@ module TweetAudio =
             use captionsFile = new TempFile()
             do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
 
-            do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imagefile, outfile)
+            let imageFile = 
+                Path.Join(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.FullName, "assets", "black_rect.jpg")
+
+            do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
 
             //use tempAudioFile = new TempFile()
             //use tempCaptionsFile = new TempFile()

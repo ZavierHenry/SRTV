@@ -32,8 +32,8 @@ let exampleMockTweet =
         []
 )
 
-let synthesize text imagefile outfile =
-    Synthesizer().Synthesize(text, imagefile, outfile)
+let synthesize text outfile =
+    Synthesizer().Synthesize(text, outfile)
 
 let speak text filename =
     Synthesizer().Speak(text, filename)
@@ -120,18 +120,12 @@ let buildClient () =
 let main argv =
 
     match argv with
-    | [| "synthesize"; text; imagefile; outfile |] ->
-        synthesize text imagefile outfile
-    | [| "synthesize"; text; imagefile |] ->
-        synthesize text imagefile "synthesis.mp4"
-    | [| "speak"; text; outfile |] ->
-        speak text outfile
-    | [| "speak"; text |] ->
-        speak text "speakText.wav"
-    | [| "image"; outfile |] ->
-        toImage' outfile
-    | [| "image" |] ->
-        toImage' "sampeImage.jpg"
+    | [| "synthesize"; text; outfile |] -> synthesize text outfile
+    | [| "synthesize"; text |] -> synthesize text "synthesis.mp4"
+    | [| "speak"; text; outfile |] -> speak text outfile
+    | [| "speak"; text |] -> speak text "speakText.wav"
+    | [| "image"; outfile |] -> toImage' outfile
+    | [| "image" |] -> toImage' "sampleImage.jpg"
     | [| "sendTweet"; text |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }

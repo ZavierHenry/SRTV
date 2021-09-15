@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="assets\black_rect.jpg" />
     <Content Include="assets\template.html" />
     <None Include="assets\emojis.csv" />
     <None Include="scripts\emojiExtractor.fsx" />
