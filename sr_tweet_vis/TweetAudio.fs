@@ -71,6 +71,7 @@ module TweetCaptions =
     type Captions() =
         let punctuation = @"(?<=[?.!])\s+"
         let [<Literal>] ChunkSize = 15
+        let [<Literal>] SilenceDelay = 0.55
 
         static member toTimestamp seconds = TimeSpan.FromSeconds(seconds).ToString("hh\:mm\:ss\,fff")
 
@@ -108,6 +109,7 @@ module TweetCaptions =
                     |> Array.map (String.concat " ")
                     |> Array.toList
                     |> List.map (fun x -> (index, x)))
+
             let captionLines =
                 captionLines
                 |> List.map (fun (lineIndex, text) ->
@@ -116,16 +118,26 @@ module TweetCaptions =
                     | _         -> (lineIndex, Regex.Replace(text, @"(?<![.!?])$", ".")))
 
             timestamps
-            |> List.zip captionLines.[ 0 .. timestamps.Length - 1 ]
+            |> List.zip captionLines.[ 0 .. timestamps.Length - 1]
             |> List.indexed
             |> List.map (fun (index, ((lineIndex, text), ts)) ->
-                let endTime = if lines.[lineIndex] = text then ts else ts - 0.5
+                let endTime = 
+                    captionLines.[0 .. index] 
+                    |> List.filter (fun (lineIndex, text) -> lines.[lineIndex] <> text)
+                    |> List.length
+                    |> fun x -> ts - (SilenceDelay * float x)
+
                 let startTime =
                     match index with
                     | 0 -> 0.0
-                    | i when lines.[fst captionLines.[i-1]] <> snd captionLines.[i-1] ->
-                        timestamps.[i-1] - 0.5
-                    | i -> timestamps.[i-1]
+                    | i ->
+                        captionLines.[0 .. i - 1]
+                        |> List.filter (fun (lineIndex, text) -> lines.[lineIndex] <> text)
+                        |> List.length
+                        |> fun x -> timestamps.[i-1] - (SilenceDelay * float x)
+                    //| i when lines.[fst captionLines.[i-1]] <> snd captionLines.[i-1] ->
+                    //    timestamps.[i-1] - 0.5
+                    //| i -> timestamps.[i-1]
                 let text =
                     if lines.[lineIndex] <> text then Regex.Replace(text, @".$", "") else text
                 $"{index+1}\n%s{Captions.toTimestamp startTime} --> %s{Captions.toTimestamp <| endTime - 0.001}\n{text}")
