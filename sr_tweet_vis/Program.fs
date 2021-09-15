@@ -137,17 +137,6 @@ let main argv =
     | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
     |> Async.RunSynchronously
 
-    //let builder = ConfigurationBuilder()
-    //if isDevelopmentEnvironment()
-    //then
-    //    match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
-    //    | null -> ()
-    //    | assembly ->
-    //        let config = builder.AddUserSecrets(assembly, true, true).Build()
-    //        let client = Client(config)
-    //        //sendTweet client
-    //        getTweet id client
-
     printfn "End of program..."
     0
 
