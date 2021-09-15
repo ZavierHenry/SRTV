@@ -209,8 +209,6 @@ module TweetAudio =
             use captionsFile = new TempFile()
             do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
 
-            let imageFile = 
-                Path.Join(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.FullName, "assets", "black_rect.jpg")
-
+            let imageFile = Path.Join(Environment.CurrentDirectory, "assets", "black_rect.jpg")
             do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
         }
