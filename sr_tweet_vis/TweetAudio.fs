@@ -88,7 +88,6 @@ module TweetAudio =
     open System.Diagnostics
 
     type TTS() =
-        //let location = @"C:\TTS\Scripts\tts.exe"
         let modelName = "tts_models/en/ljspeech/vits"
         let [<Literal>] EnvironmentVariable = "TTS_EXECUTABLE"
 
@@ -136,8 +135,6 @@ module TweetAudio =
             tryFindEnvironmentVariable(EnvironmentVariable)
             |> Option.orElse (tryFindExecutableNameOnPath "ffmpeg")
             |> Option.iter (Path.GetDirectoryName >> FFmpeg.SetExecutablesPath)
-            
-            //Path.GetDirectoryName(@"C:\FFMPEG\bin\ffmpeg.exe") |> FFmpeg.SetExecutablesPath
 
         member __.SilenceDetect(audioFilename: string) = async {
             let mutable timestamps : float list = []
