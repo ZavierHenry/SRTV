@@ -63,7 +63,7 @@ This option renders the specified tweet into a text tweet. Mutliple tweets will 
 
 #### Full Text
 
-By default, SRTV will only render the text of a tweet. However, by specifying "full" after "render", the bot will render the following as one text:
+By default, SRTV will only render the text, media alt text and image attribution of a tweet. However, by specifying "full" after "render", the bot will render the following as one text:
 
 - Name
 - Screen Name
@@ -87,7 +87,7 @@ For SRTV, the following screen readers were used in testing what tweet output sh
 - Windows Narrator
 - TalkBack
 
-If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially if the screen reader is associated with Apple devices.
+If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially for JAWS or VoiceOver.
 
 ## Contributions
 

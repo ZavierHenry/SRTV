@@ -1,15 +1,19 @@
 {
   "profiles": {
-    "sr_tweet_vis": {
-      "commandName": "Project"
+    "WSL": {
+      "commandName": "WSL2"
     },
-    "sr_tweet_vis_tofile": {
+    "speak_default": {
       "commandName": "Project",
-      "commandLineArgs": "\"~/Pictures/srtv_background.png\" \"~/Downloads/synthesized_tweet.mp4\""
+      "commandLineArgs": "\"speak\" \"this is a great moment\" \"speakResult.wav\""
     },
-    "sr_tweet_image": {
+    "synthesis": {
       "commandName": "Project",
-      "commandLineArgs": "\"~/Downloads/tweet_image.jpg\""
+      "commandLineArgs": "\"synthesize\" \"clapping hands THIS clapping hands IS clapping hands HOW clapping hands YOU clapping hands ENFORCE clapping hands THE clapping hands VOTING clapping hands RIGHTS clapping hands ACT clapping hands\" \"./synthesis.mp4\"",
+      "environmentVariables": {
+        "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
+      }
     }
   }
 }
