@@ -88,15 +88,21 @@ module TweetAudio =
     open System.Diagnostics
 
     type TTS() =
-        let location = @"C:\TTS\Scripts\tts.exe"
         let modelName = "tts_models/en/ljspeech/vits"
+        let [<Literal>] EnvironmentVariable = "TTS_EXECUTABLE"
+
+        let filename = 
+            tryFindEnvironmentVariable EnvironmentVariable 
+            |> Option.orElse (tryFindExecutableNameOnPath "tts") 
+            |> Option.orElseWith(fun () -> failwithf "Cannot find TTS engine in either %s env variable or in PATH" EnvironmentVariable)
+            |> Option.get
 
         member private __.buildCoquiProcess text outpath = 
             let startInfo =
                 ProcessStartInfo(
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    FileName = location,
+                    FileName = filename,
                     RedirectStandardOutput = true
                 )
 
@@ -123,8 +129,12 @@ module TweetAudio =
         let duration = 0.5
         let bitrate = 192000L
 
+        let [<Literal>] EnvironmentVariable = "FFMPEG_EXECUTABLE"
+
         do
-            Path.GetDirectoryName(@"C:\FFMPEG\bin\ffmpeg.exe") |> FFmpeg.SetExecutablesPath
+            tryFindEnvironmentVariable(EnvironmentVariable)
+            |> Option.orElse (tryFindExecutableNameOnPath "ffmpeg")
+            |> Option.iter (Path.GetDirectoryName >> FFmpeg.SetExecutablesPath)
 
         member __.SilenceDetect(audioFilename: string) = async {
             let mutable timestamps : float list = []

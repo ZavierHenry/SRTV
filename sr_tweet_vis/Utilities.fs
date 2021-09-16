@@ -13,6 +13,16 @@ module Utilities =
 
     let tryNonBlankString str = Some str |> Option.filter (not << String.IsNullOrEmpty)
 
+    let tryFindEnvironmentVariable var =
+        Environment.GetEnvironmentVariable(var) 
+        |> Some
+        |> Option.filter (function | null | "" -> false | _ -> true)
+
+    let tryFindExecutableNameOnPath name =
+        match Environment.GetEnvironmentVariable("PATH") with | null -> "" | paths -> paths
+        |> fun path -> path.Split(Path.PathSeparator)
+        |> Seq.tryFind (fun dir -> Path.Join(dir, name) |> File.Exists || Path.Join(dir, $"{name}.exe") |> File.Exists)
+
     module DateTimePatterns =
 
         let private toTimeAgo (span:float) =
