@@ -1,22 +1,32 @@
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
-COPY LinqToTwitter/ /LinqToTwitter
-WORKDIR app
+# Copy local submodule
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS submodule
+COPY LinqToTwitter/src/LinqToTwitter6 /LinqToTwitter/src/LinqToTwitter6
+
+# Restore dependencies
+FROM submodule AS build
+WORKDIR /app
 COPY sr_tweet_vis/sr_tweet_vis.fsproj .
 RUN dotnet restore
 
+# Publish app
 FROM build AS publish
 COPY sr_tweet_vis/ .
 RUN dotnet publish -c Release -o publish
 
-FROM synesthesiam/coqui-tts AS base
-RUN wget https://packages.microsoft.com/config/debian/10/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-RUN dpkg -i packages-microsoft-prod.deb
-RUN rm packages-microsoft-prod.deb
-RUN apt-get update; \
-  apt-get install -y apt-transport-https && \
-  apt-get update && \
-  apt-get install -y dotnet-runtime-5.0
 
-FROM base
+# Get FFMPEG library
+FROM jrottenberg/ffmpeg AS ffmpeg
+
+# Get Coqui TTS engine
+FROM synesthesiam/coqui-tts:latest AS tts
+
+# Run program
+FROM mcr.microsoft.com/dotnet/runtime:5.0
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "sr_tweet_vis.dll"]
+COPY --from=publish /app/assets/ /app/assets
+COPY --from=ffmpeg / /
+COPY --from=tts / /
+ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
+ENV TTS_EXECUTABLE="/app/bin/tts"
+ENV LD_LIBRARY_PATH="/usr/local/lib"
+ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "speak", "This is the chosen spoken text to test the docker version of this. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
