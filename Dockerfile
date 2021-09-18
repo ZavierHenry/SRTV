@@ -29,4 +29,4 @@ COPY --from=tts / /
 ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
-ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "speak", "This is the chosen spoken text to test the docker version of this. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
+ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "speak", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
