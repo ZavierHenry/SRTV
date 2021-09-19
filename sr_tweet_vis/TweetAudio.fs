@@ -88,7 +88,7 @@ module TweetAudio =
     open System.Diagnostics
 
     type TTS() =
-        let modelName = "tts_models/en/ljspeech/vits"
+        let [<Literal>] modelName = "tts_models/en/ljspeech/speedy-speech-wn"
         let [<Literal>] EnvironmentVariable = "TTS_EXECUTABLE"
 
         let filename = 
@@ -102,8 +102,7 @@ module TweetAudio =
                 ProcessStartInfo(
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    FileName = filename,
-                    RedirectStandardOutput = true
+                    FileName = filename
                 )
 
             startInfo.ArgumentList.Add("--text")

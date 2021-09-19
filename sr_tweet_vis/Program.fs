@@ -105,8 +105,7 @@ let getTweet id (client:Client) =
             printfn "Non-Twitter error message: %s" message
             printfn "Error: %O, Stack trace %s" exn exn.StackTrace
     }
-    
-    
+   
 let buildClient () =
     let builder = ConfigurationBuilder()
     Some ()
@@ -115,13 +114,12 @@ let buildClient () =
     |> Option.filter (function | null -> false | _ -> true)
     |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
 
-
 [<EntryPoint>]
 let main argv =
 
     match argv with
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
-    | [| "synthesize"; text |] -> synthesize text "synthesis.mp4"
+    | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
     | [| "speak"; text |] -> speak text "speakText.wav"
     | [| "image"; outfile |] -> toImage' outfile
@@ -136,7 +134,6 @@ let main argv =
         | Some client -> getTweet id client
     | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
     |> Async.RunSynchronously
-
     printfn "End of program..."
     0
 
