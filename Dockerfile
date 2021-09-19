@@ -14,19 +14,13 @@ COPY sr_tweet_vis/ .
 RUN dotnet publish -c Release -o publish
 
 
-# Get FFMPEG library
-FROM jrottenberg/ffmpeg AS ffmpeg
-
-# Get Coqui TTS engine
-FROM synesthesiam/coqui-tts:latest AS tts
-
 # Run program
 FROM mcr.microsoft.com/dotnet/runtime:5.0
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets
-COPY --from=ffmpeg / /
-COPY --from=tts / /
+COPY --from=jrottenberg/ffmpeg / /
+COPY --from=synesthesiam/coqui-tts:latest / /
 ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
-ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "speak", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
+# ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "synthesize", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]

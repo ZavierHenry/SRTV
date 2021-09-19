@@ -119,7 +119,7 @@ let main argv =
 
     match argv with
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
-    | [| "synthesize"; text |] -> synthesize text "synthesis.mp4"
+    | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
     | [| "speak"; text |] -> speak text "speakText.wav"
     | [| "image"; outfile |] -> toImage' outfile

@@ -88,7 +88,7 @@ module TweetAudio =
     open System.Diagnostics
 
     type TTS() =
-        let [<Literal>] modelName = "tts_models/en/ljspeech/tacotron2-DCA"
+        let [<Literal>] modelName = "tts_models/en/ljspeech/speedy-speech-wn"
         let [<Literal>] EnvironmentVariable = "TTS_EXECUTABLE"
 
         let filename = 
