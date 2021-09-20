@@ -13,13 +13,17 @@ FROM build AS publish
 COPY sr_tweet_vis/ .
 RUN dotnet publish -c Release -o publish
 
+FROM synesthesiam/coqui-tts:latest AS tts
+RUN rm -r TTS-*/
+RUN rm TTS-*.tar.gz
+
 
 # Run program
 FROM mcr.microsoft.com/dotnet/runtime:5.0
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets
 COPY --from=jrottenberg/ffmpeg / /
-COPY --from=synesthesiam/coqui-tts:latest / /
+COPY --from=tts / /
 ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
