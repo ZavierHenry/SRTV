@@ -13,13 +13,22 @@ FROM build AS publish
 COPY sr_tweet_vis/ .
 RUN dotnet publish -c Release -o publish
 
+# Extract needed TTS files and directories
+FROM synesthesiam/coqui-tts:latest AS tts
+RUN mkdir /TTS
+RUN cp -r /app /usr /lib /etc /TTS
+
+# Extract needed FFMPEG files and directories
+FROM jrottenberg/ffmpeg AS ffmpeg
+RUN mkdir /FFMPEG
+RUN cp -r -t /FFMPEG /lib /etc /usr
 
 # Run program
 FROM mcr.microsoft.com/dotnet/runtime:5.0
 COPY --from=publish /app/publish .
-COPY --from=publish /app/assets/ /app/assets
-COPY --from=jrottenberg/ffmpeg / /
-COPY --from=synesthesiam/coqui-tts:latest / /
+COPY --from=publish /app/assets/ /app/assets/
+COPY --from=ffmpeg /FFMPEG .
+COPY --from=tts /TTS .
 ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
