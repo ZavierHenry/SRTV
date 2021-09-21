@@ -125,7 +125,7 @@ module TweetAudio =
     type FFMPEG() =
         
         let threshold = -40
-        let duration = 0.5
+        let duration = 0.4
         let bitrate = 192000L
 
         let [<Literal>] EnvironmentVariable = "FFMPEG_EXECUTABLE"
