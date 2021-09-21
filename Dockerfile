@@ -17,13 +17,15 @@ FROM synesthesiam/coqui-tts:latest AS tts
 RUN rm -r TTS-*/
 RUN rm TTS-*.tar.gz
 
-
 # Run program
 FROM mcr.microsoft.com/dotnet/runtime:5.0
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets
-COPY --from=jrottenberg/ffmpeg / /
-COPY --from=tts / /
+COPY --from=jrottenberg/ffmpeg / /FFMPEG
+COPY --from=tts /app /app
+COPY --from=tts /usr /usr
+COPY --from=tts /lib /lib
+COPY --from=tts /etc /etc
 ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
