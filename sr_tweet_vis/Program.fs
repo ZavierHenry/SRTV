@@ -127,9 +127,9 @@ let main argv =
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
     | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
-    | [| "speak"; text |] -> speak text "speakText.wav"
+    | [| "speak"; text |] -> speak text <| Path.Join (Environment.CurrentDirectory, "speakText.wav")
     | [| "image"; outfile |] -> toImage' outfile
-    | [| "image" |] -> toImage' "sampleImage.jpg"
+    | [| "image" |] -> toImage' <| Path.Join (Environment.CurrentDirectory, "sampleImage.jpg")
     | [| "sendTweet"; text |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
