@@ -124,10 +124,7 @@ module Twitter =
 
         open System.IO
         open SRTVResponse
-        open System.Text.RegularExpressions
-
         open Microsoft.Extensions.Configuration
-        open Microsoft.Extensions.Hosting
 
         module Text =
             open SRTV.Regex.Urls
