@@ -136,10 +136,7 @@ module Twitter =
 
         open System.IO
         open SRTVResponse
-        open System.Text.RegularExpressions
-
         open Microsoft.Extensions.Configuration
-        open Microsoft.Extensions.Hosting
 
         module Text =
             open SRTV.Regex.Urls
@@ -175,7 +172,7 @@ module Twitter =
 
         type ClientResult<'a> =
             | Success of 'a
-            | TwitterError of message:string * exn:exn
+            | TwitterError of message:string * exn:TwitterQueryException
             | OtherError of message:string * exn:exn
 
             static member bind<'a, 'b> (f: 'a -> ClientResult<'b>) =
@@ -189,23 +186,23 @@ module Twitter =
                 | Success x                     -> Success (f x)
                 | TwitterError (message, exn)   -> TwitterError (message, exn)
                 | OtherError (message, exn)     -> OtherError (message, exn) 
-            
 
         type AsyncClientResult<'a> = Async<ClientResult<'a>>
+        
+        type ClientResult<'a> with
+            static member bindAsync<'a, 'b> (f: 'a -> AsyncClientResult<'b>) result = async {
+                match result with
+                | Success x                     -> return! f x
+                | TwitterError (message, exn)   -> return TwitterError (message, exn)
+                | OtherError (message, exn)     -> return OtherError (message, exn)
+            }
 
-        let bindAsync<'a, 'b> (f: 'a -> AsyncClientResult<'b>) result = async {
-            match result with
-            | Success x                     -> return! f x
-            | TwitterError (message, exn)   -> return TwitterError (message, exn)
-            | OtherError (message, exn)     -> return OtherError (message, exn)
-        }
-
-        let mapAsync<'a, 'b> (f: 'a -> Async<'b>) result = async {
-            match result with
-            | Success x                     -> let! b = f x in return Success b
-            | TwitterError (message, exn)   -> return TwitterError (message, exn)
-            | OtherError (message, exn)     -> return OtherError (message, exn)
-        }
+            static member mapAsync<'a, 'b> (f: 'a -> AsyncClientResult<'b>) result = async {
+                match result with
+                | Success x                     -> let! b = f x in return Success b
+                | TwitterError (message, exn)   -> return TwitterError (message, exn)
+                | OtherError (message, exn)     -> return OtherError (message, exn)
+            }
 
         open FSharp.Data
         type JVal = JsonValue
@@ -235,8 +232,6 @@ module Twitter =
                 TweetField.Entities
                 TweetField.ReferencedTweets
                 TweetField.Source
-                TweetField.ReplySettings
-                TweetField.InReplyToUserID
             }
 
             let expansions = seq {
@@ -253,6 +248,12 @@ module Twitter =
                 PollField.EndDateTime
             }
 
+            let mediaFields = seq  {
+                MediaField.Type
+                MediaField.MediaKey
+                MediaField.AltText
+            }
+
             do
                 credentialStore.AccessToken <- config.GetValue("TwitterAccount:AccessToken")
                 credentialStore.AccessTokenSecret <- config.GetValue("TwitterAccount:AccessTokenSecret")
@@ -267,7 +268,8 @@ module Twitter =
                     let! result = thunk ()
                     return Success result
                 with
-                | exn   -> return TwitterError (failureMessage, exn)
+                | :? TwitterQueryException as exn -> return TwitterError (failureMessage, exn)
+                | exn   -> return OtherError (failureMessage, exn)
             }
 
             member this.makeTwitterListQuery<'a> failure (thunkQuery:unit ->Linq.IQueryable<'a>) =
@@ -311,29 +313,29 @@ module Twitter =
 
                 this.makeTwitterSingleQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
 
-            member this.GetTweetsByIds(ids:string seq) =
-                let query () = query {
+            member this.GetTweets(ids: string seq) =
+                let query() = query {
                     for tweet in context.Tweets do
                         where (
                             tweet.Type = TweetType.Lookup &&
-                            tweet.Ids = toParams ids &&
+                            tweet.Ids = String.concat "," ids &&
                             tweet.TweetFields = toParams tweetFields &&
                             tweet.UserFields = toParams userFields &&
+                            tweet.Expansions = toParams expansions &&
                             tweet.PollFields = toParams pollFields &&
-                            tweet.Expansions = toParams expansions
+                            tweet.MediaFields = toParams mediaFields
                         )
-                        select tweet    
+                        select tweet
                 }
 
-                this.makeTwitterSingleQuery $"Problem getting ids {ids}" query
+                this.makeTwitterSingleQuery $"Problem getting tweets with ids {ids}" query 
 
-
-            member this.GetUser(userID:string) =
+            member this.GetUserByScreenName(screenName:string) =
                 let query () = query {
                     for user in context.TwitterUser do
                         where ( 
-                            user.Type = UserType.IdLookup && 
-                            user.ID = userID &&
+                            user.Type = UserType.UsernameLookup && 
+                            user.Usernames = screenName &&
                             user.UserFields = toParams userFields
                             )
                         select user
@@ -341,13 +343,16 @@ module Twitter =
 
                 this.makeTwitterSingleQuery $"Problem getting user with ID {userID}" query
 
-            member private this.uploadAudioAsync(filename: Audio) =
-                try
-                    File.ReadAllBytes(filename) |> Success
-                with
-                | ex -> OtherError ("Error retrieving audio file", ex)
+            member private this.uploadAudioAsync(filename: Audio) = async {
+                return!
+                    try
+                        File.ReadAllBytes(filename) |> Success
+                    with
+                    | ex -> OtherError ("Error retrieving audio file", ex)
 
-                |> bindAsync (this.uploadMediaAsync "video/mp4" "tweet_video")
+                    |> ClientResult.bindAsync (this.uploadMediaAsync "video/mp4" "tweet_video")
+            }
+                
 
             member private this.uploadImageAsync(image: Image) =
                 let mime = "image/jpg"
@@ -386,10 +391,10 @@ module Twitter =
                     | ([], _)        -> return Success ()
                     | (t :: rest, Some mediaID) ->
                         let! result = this.sendReplyAsync(originalTweetID, t, mediaID)
-                        return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
+                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
                     | (t :: rest, None) ->
                         let! result = this.sendReplyAsync(originalTweetID, t)
-                        return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
+                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
             }
 
             member this.handleTweetAsync(text: string list, ?mediaID: uint64) = async {
@@ -397,7 +402,7 @@ module Twitter =
                 | []        -> return Success ()
                 | t :: rest ->
                     let! result = match mediaID with | Some mediaID -> this.sendTweetAsync(t, mediaID) | None -> this.sendTweetAsync(t)
-                    return! bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
+                    return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
             }
 
             member this.ReplyAsync(originalTweetID: uint64, tweet: SRTVTweet) = async {
@@ -405,16 +410,16 @@ module Twitter =
                 | AudioTweet (audio, text) ->
                     let! mediaID = this.uploadAudioAsync audio
                     let splitText = Text.splitTwitterText text
-                    return! bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) mediaID
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) mediaID
                 | ImageTweet (image, text, altText) ->
                     let! mediaID = this.uploadImageAsync image
                     let boundFunction mediaID = async { 
                         let! result = this.uploadImageAltText altText mediaID
                         return ClientResult.map (fun () -> mediaID) result
                     }
-                    let! result = bindAsync boundFunction mediaID
+                    let! result = ClientResult.bindAsync boundFunction mediaID
                     let splitText = Text.splitTwitterText text
-                    return! bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) result
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) result
                 | TextTweet text ->
                     let splitText = Text.splitTwitterText text
                     return! this.handleReplyAsync(originalTweetID, splitText)       
@@ -425,19 +430,17 @@ module Twitter =
                 | AudioTweet (audio, text) ->
                     let! mediaID = this.uploadAudioAsync audio
                     let splitText = Text.splitTwitterText text
-                    return! bindAsync (fun mediaID -> this.handleTweetAsync(splitText, mediaID)) mediaID
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleTweetAsync(splitText, mediaID)) mediaID
                 | ImageTweet (image, text, altText) ->
                     let! mediaID = this.uploadImageAsync image
                     let boundFunction mediaID = async {
                         let! result = this.uploadImageAltText altText mediaID
                         return ClientResult.map (fun () -> mediaID) result
                     }
-                    let! result = bindAsync boundFunction mediaID
-                    let splitText = Text.splitTwitterText text
-                    return! bindAsync (fun mediaID -> this.handleTweetAsync(splitText, mediaID)) result
+                    let! result = ClientResult.bindAsync boundFunction mediaID
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleTweetAsync(Text.splitTwitterText text, mediaID)) result
                 | TextTweet text ->
-                    let splitText = Text.splitTwitterText text
-                    return! this.handleTweetAsync(splitText)
+                    return! this.handleTweetAsync(Text.splitTwitterText text)
             }
 
             //Assumes that dm text is below Twitter limit of 10000 characters
@@ -452,18 +455,18 @@ module Twitter =
                     let boundFunction (mediaID:uint64) =
                         let call() = context.NewDirectMessageEventAsync(recipient, text, mediaID) |> Async.AwaitTask
                         makeTwitterCall call
-                    return! bindAsync boundFunction mediaID
+                    return! ClientResult.bindAsync boundFunction mediaID
                 | ImageTweet (image, text, altText) ->
                     let! mediaID = this.uploadImageAsync image
                     let boundFunction mediaID = async {
                         let! result = this.uploadImageAltText altText mediaID
                         return ClientResult.map (fun () -> mediaID) result
                     }    
-                    let! result = bindAsync boundFunction mediaID
+                    let! result = ClientResult.bindAsync boundFunction mediaID
                     let func (mediaID:uint64) =
                         let call() = context.NewDirectMessageEventAsync(recipient, text, mediaID) |> Async.AwaitTask
                         makeTwitterCall call
-                    return! bindAsync func result
+                    return! ClientResult.bindAsync func result
                 | TextTweet text ->
                     let call() = context.NewDirectMessageEventAsync(recipient, text) |> Async.AwaitTask
                     return! makeTwitterCall call
@@ -476,8 +479,11 @@ module Twitter =
                     for tweet in context.Status do
                         where (tweet.Type = StatusType.Mentions
                             && tweet.TweetIDs = ids
+                            && tweet.TrimUser = true
+                            && tweet.IncludeAltText = true
+                            && tweet.IncludeEntities = true
                         )
-                        select (tweet.ID, tweet.ExtendedEntities.MediaEntities |> Seq.toList)
+                        select (tweet.ID, match tweet.ExtendedEntities with | null -> [] | extendedEntities -> extendedEntities.MediaEntities |> Seq.toList)
                     }
 
                 this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query

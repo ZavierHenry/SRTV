@@ -67,10 +67,10 @@ module TweetImage =
             |> transformDOM (Node.hasId "tweetText") (setText <| mockTweet.ToSpeakText())
 
         async {
-            let! _ = BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask
+            do! BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask |> Async.Ignore
 
-            let launchOptions = LaunchOptions()
-            launchOptions.Headless <- true
+            let launchOptions = LaunchOptions(Headless = true)
+            //launchOptions.Headless <- true
 
             let! browser = Puppeteer.LaunchAsync(launchOptions) |> Async.AwaitTask
             let! page = browser.NewPageAsync() |> Async.AwaitTask
@@ -82,14 +82,14 @@ module TweetImage =
             let! left = page.EvaluateExpressionAsync<decimal>(@"document.getElementById(""tweetContainer"").offsetLeft") |> Async.AwaitTask
             let! top = page.EvaluateExpressionAsync<decimal>(@"document.getElementById(""tweetContainer"").offsetTop") |> Async.AwaitTask
 
-            let clip = Clip()
-            clip.Width <- width
-            clip.Height <- height
-            clip.X <- left
-            clip.Y <- top
+            let clip = Clip(Width = width, Height = height, X = left, Y = top)
+            //clip.Width <- width
+            //clip.Height <- height
+            //clip.X <- left
+            //clip.Y <- top
 
-            let screenshotOptions = ScreenshotOptions()
-            screenshotOptions.Clip <- clip
+            let screenshotOptions = ScreenshotOptions(Clip = clip)
+            //screenshotOptions.Clip <- clip
 
             return! page.ScreenshotDataAsync(screenshotOptions) |> Async.AwaitTask
         }

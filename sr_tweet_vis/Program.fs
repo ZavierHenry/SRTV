@@ -13,9 +13,9 @@ open SRTV.TweetImage
 open SRTV.Twitter.TwitterClient
 open SRTV.Twitter.Patterns
 open SRTV.Twitter.Patterns.Mentions
+open SRTV.SRTVResponse
 
 open System.Reflection
-
 
 
 let exampleMockTweet =
@@ -29,17 +29,15 @@ let exampleMockTweet =
         None,
         [],
         None,
+        [],
         []
 )
 
-let synthesize imagefile outfile = async {
-    use synth = new Synthesizer()
-    do! synth.Synthesize(exampleMockTweet, imagefile, outfile)
-}
+let synthesize text outfile =
+    Synthesizer().Synthesize(text, outfile)
 
-let speak () =
-    use synth = new Synthesizer()
-    synth.speak(exampleMockTweet.ToSpeakText())
+let speak text filename =
+    Synthesizer().Speak(text, filename)
 
 
 let toImage'(output:string) =
@@ -58,35 +56,25 @@ type RenderOption =
 
 let rec handleMentions (client:Client) startDate (token: string option) = async {
 
-    match! client.GetMentions(startDate) with
-    | Success mentions -> 
-        let requests =
-            mentions.Tweets
-            |> Seq.filter (function | VideoRenderMention _ | ImageRenderMention _ | TextRenderMention _ | GeneralRenderMention _ -> true | _ -> false)
-            |> Seq.map (function 
-                | VideoRenderMention (full, ID) -> (ID, Video full)
-                | ImageRenderMention (theme, full, ID) -> 
-                    ID, (Image (match theme with | "light" -> Theme.Light, full | "dark" -> Theme.Dark, full | "dim" | _ -> Theme.Dim, full) )
-                | TextRenderMention (full, ID) -> (ID, Text full)
-                | GeneralRenderMention (full, ID) -> (ID, Video full)
-                | response -> (response.ID, Text false) )
-            |> Map
+    let! mentions = client.GetMentions(startDate)
+    let tweets = 
+        mentions
+        |> ClientResult.map (fun mentions -> mentions.Tweets)
+        |> ClientResult.map (fun tweets -> tweets |> Seq.filter (function
+            | VideoRenderMention _ 
+            | ImageRenderMention _ 
+            | TextRenderMention _ 
+            | GeneralRenderMention _ -> true
+            | _ -> false ))
+        
+    //TODO: convert to SRTV tweet and send
 
-        let! tweets =
-            requests
-            |> Map.toSeq
-            |> Seq.map fst
-            |> client.GetTweetsByIds
-
-
-        do! match mentions.Meta.NextToken with
-            | null | "" -> async { return () }
+    do! match mentions with
+        | Success mentions ->
+            match mentions.Meta.NextToken with
+            | "" -> async { return () }
             | token -> handleMentions client startDate (Some token)
-
-    | TwitterError (message, exn) | OtherError (message, exn) ->
-        printfn "Error message occurred: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
-        return ()
+        | _ -> async { return () }
 
 }
 
@@ -94,31 +82,64 @@ let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
     String.IsNullOrEmpty(environmentVariable) || environmentVariable.ToLower() = "development"
 
-let sendTweet (client:Client) =
-    let tweet = SRTV.SRTVResponse.TextTweet "If you are reading this, the test tweet was successful"
-    match client.TweetAsync tweet |> Async.RunSynchronously with
-    | Success _ -> printfn "Sending tweet was successful..."
-    | TwitterError (message, exn) ->
-        printfn "Twitter error message: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
-    | OtherError (message, exn) ->
-        printfn "Non-Twitter error message: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+let sendTweet text (client:Client) =
+    let tweet = TextTweet text
+    async {
+        match! client.TweetAsync tweet with
+        | Success _ -> printfn "Sending tweet was successful..."
+        | TwitterError (message, exn) ->
+            printfn "Twitter error message: %s" message
+            printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        | OtherError (message, exn) ->
+            printfn "Non-Twitter error message: %s" message
+            printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+    }
 
     
+
+let getTweet id (client:Client) =
+    async {
+        match! Seq.singleton id |> client.GetTweets with
+        | Success tweetQuery ->
+            printfn "Querying tweets was successful"
+            printfn "Tweet ID is %s" tweetQuery.Tweets.[0].ID
+            printfn "Tweet alt text is %s" tweetQuery.Includes.Media.[0].AltText
+        | TwitterError (message, exn) ->
+            printfn "Twitter error message: %s" message
+            printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        | OtherError (message, exn) ->
+            printfn "Non-Twitter error message: %s" message
+            printfn "Error: %O, Stack trace %s" exn exn.StackTrace
+    }
+   
+let buildClient () =
+    let builder = ConfigurationBuilder()
+    Some ()
+    |> Option.filter (fun _ -> isDevelopmentEnvironment())
+    |> Option.map (fun _ -> AppDomain.CurrentDomain.FriendlyName |> AssemblyName |> Assembly.Load)
+    |> Option.filter (function | null -> false | _ -> true)
+    |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
+
 [<EntryPoint>]
 let main argv =
 
-    let builder = ConfigurationBuilder()
-    if isDevelopmentEnvironment()
-    then
-        match Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)) with
-        | null -> ()
-        | assembly ->
-            let config = builder.AddUserSecrets(assembly, true, true).Build()
-            let client = Client(config)
-            sendTweet client
-
+    match argv with
+    | [| "synthesize"; text; outfile |] -> synthesize text outfile
+    | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
+    | [| "speak"; text; outfile |] -> speak text outfile
+    | [| "speak"; text |] -> speak text "speakText.wav"
+    | [| "image"; outfile |] -> toImage' outfile
+    | [| "image" |] -> toImage' "sampleImage.jpg"
+    | [| "sendTweet"; text |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> sendTweet text client
+    | [| "getTweet"; id |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> getTweet id client
+    | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
+    |> Async.RunSynchronously
     printfn "End of program..."
     0
 
