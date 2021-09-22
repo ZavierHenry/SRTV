@@ -110,7 +110,7 @@ let buildClient () =
     let builder = ConfigurationBuilder()
     Some ()
     |> Option.filter (fun _ -> isDevelopmentEnvironment())
-    |> Option.map (fun _ -> Assembly.Load(AssemblyName(AppDomain.CurrentDomain.FriendlyName)))
+    |> Option.map (fun _ -> AppDomain.CurrentDomain.FriendlyName |> AssemblyName |> Assembly.Load)
     |> Option.filter (function | null -> false | _ -> true)
     |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
 
