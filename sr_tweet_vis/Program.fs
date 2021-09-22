@@ -80,8 +80,8 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
 
 
         do! match mentions.Meta.NextToken with
-        | null | "" -> async { return () }
-        | token -> handleMentions client startDate (Some token)
+            | null | "" -> async { return () }
+            | token -> handleMentions client startDate (Some token)
 
     | TwitterError (message, exn) | OtherError (message, exn) ->
         printfn "Error message occurred: %s" message
