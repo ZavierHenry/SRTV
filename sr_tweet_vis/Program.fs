@@ -13,6 +13,7 @@ open SRTV.TweetImage
 open SRTV.Twitter.TwitterClient
 open SRTV.Twitter.Patterns
 open SRTV.Twitter.Patterns.Mentions
+open SRTV.SRTVResponse
 
 open System.Reflection
 
@@ -77,7 +78,7 @@ let isDevelopmentEnvironment () =
     String.IsNullOrEmpty(environmentVariable) || environmentVariable.ToLower() = "development"
 
 let sendTweet text (client:Client) =
-    let tweet = SRTV.SRTVResponse.TextTweet text
+    let tweet = TextTweet text
     async {
         match! client.TweetAsync tweet with
         | Success _ -> printfn "Sending tweet was successful..."
