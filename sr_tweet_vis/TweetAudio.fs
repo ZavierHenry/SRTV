@@ -5,12 +5,22 @@ open System.IO
 open System
 open System.Text.RegularExpressions
 
-module TweetCaptions =
+module TweetAudio =
+
+    open Xabe.FFmpeg
+    open System.Diagnostics
+
+    open Utilities
+
+    type Silence = 
+        | Silence of float * float
+        
+        static member duration = function | Silence (_, dur) -> dur
+        static member endSeconds = function | Silence (es, _) -> es
 
     type Captions() =
         let punctuation = @"(?<=[?.!])\s+"
         let [<Literal>] ChunkSize = 15
-        let [<Literal>] SilenceDelay = 0.55
 
         static member toTimestamp seconds = TimeSpan.FromSeconds(seconds).ToString("hh\:mm\:ss\,fff")
 
@@ -38,6 +48,7 @@ module TweetCaptions =
             |> String.concat " "
 
         member __.ToCaptions(text, timestamps) =
+
             let lines = Regex.Split(text, punctuation) |> Array.toList
             let captionLines =
                 lines
@@ -56,36 +67,28 @@ module TweetCaptions =
                     | [] | [ _ ]  -> (lineIndex, text)
                     | _         -> (lineIndex, Regex.Replace(text, @"(?<![.!?])$", ".")))
 
+            let captionDelay = 
+                captionLines.[ 0 .. List.length timestamps - 1]
+                |> List.indexed
+                |> List.scan (fun delay (index, (lineIndex, text)) -> delay + if lines.[lineIndex] <> text then Silence.duration timestamps.[index] else 0.0) 0.0
+                |> List.tail
+
+
             timestamps
             |> List.zip captionLines.[ 0 .. timestamps.Length - 1]
             |> List.indexed
-            |> List.map (fun (index, ((lineIndex, text), ts)) ->
-                let endTime = 
-                    captionLines.[0 .. index] 
-                    |> List.filter (fun (lineIndex, text) -> lines.[lineIndex] <> text)
-                    |> List.length
-                    |> fun x -> ts - (SilenceDelay * float x)
+            |> List.map (fun (index, ((lineIndex, text), Silence (ts, _))) ->
+                let endTime = ts - captionDelay.[index]
 
                 let startTime =
                     match index with
                     | 0 -> 0.0
-                    | i ->
-                        captionLines.[0 .. i - 1]
-                        |> List.filter (fun (lineIndex, text) -> lines.[lineIndex] <> text)
-                        |> List.length
-                        |> fun x -> timestamps.[i-1] - (SilenceDelay * float x)
+                    | i -> Silence.endSeconds timestamps.[i-1] - captionDelay.[i-1]
+
                 let text =
                     if lines.[lineIndex] <> text then Regex.Replace(text, @".$", "") else text
                 $"{index+1}\n%s{Captions.toTimestamp startTime} --> %s{Captions.toTimestamp <| endTime - 0.001}\n{text}")
             |> String.concat "\n\n"
-
-module TweetAudio =
-    open Xabe.FFmpeg
-
-    open TweetCaptions
-    open Utilities
-
-    open System.Diagnostics
 
     type TTS() =
         let [<Literal>] modelName = "tts_models/en/ljspeech/speedy-speech-wn"
@@ -130,13 +133,16 @@ module TweetAudio =
 
         let [<Literal>] EnvironmentVariable = "FFMPEG_EXECUTABLE"
 
+        let silenceEndRegex = Regex(@"silence_end:\s+(?<time>\d+\.\d+)")
+        let durationRegex = Regex(@"silence_duration:\s+(?<duration>\d+\.\d+)")
+
         do
             tryFindEnvironmentVariable(EnvironmentVariable)
             |> Option.orElse (tryFindExecutableNameOnPath "ffmpeg")
             |> Option.iter (Path.GetDirectoryName >> FFmpeg.SetExecutablesPath)
 
         member __.SilenceDetect(audioFilename: string) = async {
-            let mutable timestamps : float list = []
+            let mutable timestamps : Silence list = []
 
             let! audioInfo = FFmpeg.GetMediaInfo(audioFilename) |> Async.AwaitTask
             let audioStream = Seq.head audioInfo.AudioStreams
@@ -151,11 +157,17 @@ module TweetAudio =
 
             conversion.OnDataReceived.AddHandler(
                 fun _ e ->
-                    let m = Regex.Match(e.Data, @"silence_end:\s+(?<time>\d+\.\d+)")
-                    if m.Success then timestamps <- float m.Groups.["time"].Value :: timestamps)
+                    let silenceEnd = silenceEndRegex.Match(e.Data)
+                    let duration = durationRegex.Match(e.Data)
+
+                    if silenceEnd.Success && duration.Success 
+                    then
+                        let se = silenceEnd.Groups.["time"].Value
+                        let duration = duration.Groups.["duration"].Value
+                        timestamps <- Silence (float se, float duration) :: timestamps)
 
             do! conversion.Start() |> Async.AwaitTask |> Async.Ignore
-            return timestamps |> List.rev
+            return timestamps |> List.sortBy (fun (Silence (se, _)) -> se)
         }
 
         member __.MakeVideo(audioFile :string, subtitleFile: string, imageFile: string, outFile:string) = async {
