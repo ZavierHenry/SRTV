@@ -49,6 +49,11 @@ let toImage'(output:string) =
         return File.WriteAllBytes(output, bytes)
     }
 
+type RenderOption =
+    | Video of fullVersion:bool
+    | Image of theme:Theme * fullVersion:bool
+    | Text of fullVersion:bool
+
 let rec handleMentions (client:Client) startDate (token: string option) = async {
 
     let! mentions = client.GetMentions(startDate)
