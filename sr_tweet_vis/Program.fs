@@ -69,12 +69,20 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
         
     //TODO: convert to SRTV tweet and send
 
-    do! match mentions with
-        | Success mentions ->
-            match mentions.Meta.NextToken with
-            | "" -> async { return () }
-            | token -> handleMentions client startDate (Some token)
-        | _ -> async { return () }
+    match mentions with
+    | Success mentions ->
+        match mentions.Meta with
+        | null -> return ()
+        | meta ->
+            match meta.NextToken with
+            | "" | null -> return ()
+            | token -> handleMentions client startDate (Some token) |> Async.Start
+    | TwitterError (message, exn) ->
+        printfn "A Twitter error has occurred: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+    | OtherError (message, exn) ->
+        printfn "An error has occurred: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
 
 }
 
@@ -127,9 +135,9 @@ let main argv =
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
     | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
-    | [| "speak"; text |] -> speak text "speakText.wav"
+    | [| "speak"; text |] -> speak text <| Path.Join (Environment.CurrentDirectory, "speakText.wav")
     | [| "image"; outfile |] -> toImage' outfile
-    | [| "image" |] -> toImage' "sampleImage.jpg"
+    | [| "image" |] -> toImage' <| Path.Join (Environment.CurrentDirectory, "sampleImage.jpg")
     | [| "sendTweet"; text |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
