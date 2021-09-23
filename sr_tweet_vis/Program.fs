@@ -69,12 +69,20 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
         
     //TODO: convert to SRTV tweet and send
 
-    do! match mentions with
-        | Success mentions ->
-            match mentions.Meta.NextToken with
-            | "" -> async { return () }
-            | token -> handleMentions client startDate (Some token)
-        | _ -> async { return () }
+    match mentions with
+    | Success mentions ->
+        match mentions.Meta with
+        | null -> return ()
+        | meta ->
+            match meta.NextToken with
+            | "" | null -> return ()
+            | token -> handleMentions client startDate (Some token) |> Async.Start
+    | TwitterError (message, exn) ->
+        printfn "A Twitter error has occurred: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+    | OtherError (message, exn) ->
+        printfn "An error has occurred: %s" message
+        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
 
 }
 
