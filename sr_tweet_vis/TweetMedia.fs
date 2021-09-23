@@ -270,6 +270,11 @@ module TweetMedia =
             )
 
         member this.ToUnprocessedText(ref: DateTime) : string = 
+            sprintf "%s %s"
+            <| (removeBeginningReplies this.Text this.RepliedTo |> processLinks this.Urls)
+            <| (if Seq.isEmpty this.Media then "" else " ") + String.concat " " (Seq.map (mediaToText ref) this.Media)
+
+        member this.ToFullUnprocessedText(ref: DateTime) : string = 
             sprintf "%s %s %s %s @%s %s %s %s %s %s"
             <| match this.Retweeter with | Some name -> $"{name} retweeted " | None -> ""
             <| this.Name
@@ -286,3 +291,11 @@ module TweetMedia =
             Option.defaultValue DateTime.UtcNow ref
             |> this.ToUnprocessedText
             |> processSpeakText
+
+        member this.ToFullSpeakText(?ref: DateTime) : string =
+            Option.defaultValue DateTime.UtcNow ref
+            |> this.ToFullUnprocessedText
+            |> processSpeakText
+
+
+
