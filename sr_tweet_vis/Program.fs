@@ -50,18 +50,51 @@ let toImage'(output:string) =
         return File.WriteAllBytes(output, bytes)
     }
 
+type RenderRequest = 
+    {
+        requestTweetID: string
+        requestDateTime: DateTime
+        renderTweetID: string
+        renderOptions: RenderOptions
+    }
+    static member init (requestTweetID: string, requestDateTime: DateTime, renderTweetID: string, renderOptions: RenderOptions) =
+        {
+            requestTweetID = requestTweetID
+            requestDateTime = requestDateTime
+            renderTweetID = renderTweetID
+            renderOptions = renderOptions
+        }
+
+
 let rec handleMentions (client:Client) startDate (token: string option) = async {
 
     let! mentions = client.GetMentions(startDate)
-    let tweets = 
+    let requests = 
+        let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
         mentions
         |> ClientResult.map (fun mentions -> mentions.Tweets)
-        |> ClientResult.map (fun tweets -> tweets |> Seq.filter (function
+        |> ClientResult.map (Seq.filter (function
             | VideoRenderMention _ 
             | ImageRenderMention _ 
             | TextRenderMention _ 
             | GeneralRenderMention _ -> true
             | _ -> false ))
+        |> ClientResult.map (Seq.map (function
+            | VideoRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+            | ImageRenderMention (requestTweetID, requestDateTime, theme, fullVersion, renderTweetID) -> 
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Image (Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim, toVersion fullVersion))
+            | TextRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Text (toVersion fullVersion))
+            | GeneralRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+            | _ -> RenderRequest.init ("", DateTime.UtcNow, "", Video Version.Regular)))
+
+    let! tweets =
+        requests
+        |> ClientResult.map ( Seq.map (fun {renderTweetID = id} -> id) )
+        |> ClientResult.bindAsync client.GetTweets
+
         
     //TODO: convert to SRTV tweet and send
 
