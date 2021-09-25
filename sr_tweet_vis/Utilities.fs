@@ -11,7 +11,13 @@ module Utilities =
             | Dim -> "dim"
             | Dark -> "dark"
 
-    type RenderOption =
+        static member fromAttributeValue = function
+            | "light"   -> Some Theme.Light
+            | "dim"     -> Some Theme.Dim
+            | "dark"    -> Some Theme.Dark
+            | _         -> None
+
+    type RenderOptions =
         | Video of fullVersion:bool
         | Image of theme:Theme * fullVersion:bool
         | Text of fullVersion:bool

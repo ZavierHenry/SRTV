@@ -234,7 +234,7 @@ module TweetAudio =
             do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
         }
 
-        member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOption) =
+        member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOptions) =
             match renderOptions with
             | Video fullVersion
             | Text fullVersion
