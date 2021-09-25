@@ -15,8 +15,9 @@ open SRTV.Twitter.Patterns
 open SRTV.Twitter.Patterns.Mentions
 open SRTV.SRTVResponse
 
-open System.Reflection
+open SRTV.Utilities
 
+open System.Reflection
 
 let exampleMockTweet =
     MockTweet(
@@ -45,14 +46,9 @@ let toImage'(output:string) =
     let profileUrl = "https://pbs.twimg.com/profile_images/1011409104441630720/ksmEpPII_normal.jpg"
 
     async {
-        let! bytes = toImage exampleMockTweet profileUrl source Theme.Dim
+        let! bytes = toImage exampleMockTweet profileUrl source DateTime.UtcNow <| Image (Theme.Dim, false)
         return File.WriteAllBytes(output, bytes)
     }
-
-type RenderOption =
-    | Video of fullVersion:bool
-    | Image of theme:Theme * fullVersion:bool
-    | Text of fullVersion:bool
 
 let rec handleMentions (client:Client) startDate (token: string option) = async {
 
@@ -104,7 +100,6 @@ let sendTweet text (client:Client) =
     }
 
     
-
 let getTweet id (client:Client) =
     async {
         match! Seq.singleton id |> client.GetTweets with

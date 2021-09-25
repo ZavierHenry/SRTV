@@ -233,3 +233,11 @@ module TweetAudio =
             let imageFile = Path.Join(Environment.CurrentDirectory, "assets", "black_rect.jpg")
             do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
         }
+
+        member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOption) =
+            match renderOptions with
+            | Video fullVersion
+            | Text fullVersion
+            | Image (_, fullVersion) ->
+                let text = if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref)
+                this.Synthesize(text, outfile)

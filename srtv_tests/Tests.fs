@@ -172,6 +172,7 @@ type SerializableTestTweet(tweet:TestTweet.Root) =
 
     member this.ToMockTweet() = toMockTweet this.Value
     member this.ToSpeakText() = this.ToMockTweet().ToSpeakText()
+    member this.ToFullSpeakText() = this.ToMockTweet().ToFullSpeakText()
 
     interface IXunitSerializable with
         member this.Serialize(info) = info.AddValue( infoKey, this.Value.ToString() )
@@ -194,8 +195,10 @@ let fetchTweet filename = examples.fetch filename
 let fetchExamples () = examples.examples ()
 
 let toSpeakText (mockTweet:MockTweet) = mockTweet.ToSpeakText()
+let toFullSpeakText (mockTweet:MockTweet) = mockTweet.ToFullSpeakText()
 
 let fetchSpeakText filename = (fetchTweet filename).ToSpeakText()
+let fetchFullSpeakText filename = (fetchTweet filename).ToFullSpeakText()
 
 let inline noTest () = failwith<unit> "Test has not been implemented as of yet"
 
@@ -243,7 +246,7 @@ type ``tweet times are properly shown``() =
                 []
             )
 
-        let speakText = otherMockTweet.ToSpeakText(now)
+        let speakText = otherMockTweet.ToFullSpeakText(now)
         speakText |> should haveSubstring expected
 
 
@@ -267,13 +270,13 @@ type ``verified tweets are properly parsed``() =
     [<Theory>]
     [<MemberData(nameof(``verified tweets are properly parsed``.verifiedTweets))>]
     member __.``speak text should indicate that the author is verified for verified accounts``(testTweet:SerializableTestTweet) =
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         speakText |> should haveSubstring "verified account"
 
     [<Theory>]
     [<MemberData(nameof(``verified tweets are properly parsed``.unverifiedTweets))>]
     member __.``speak test should NOT indicate that the author is verified for unverified accounts``(testTweet:SerializableTestTweet) =
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         speakText |> should not' (haveSubstring "verified account")
 
 type ``tweets from protected accounts are properly parsed``() =
@@ -291,13 +294,13 @@ type ``tweets from protected accounts are properly parsed``() =
     [<Theory>]
     [<MemberData(nameof(``tweets from protected accounts are properly parsed``.protectedTweets))>]
     member __.``speak text should indicate that the author is private for private accounts``(testTweet:SerializableTestTweet) =
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         speakText |> should haveSubstring "protected account"
 
     [<Theory>]
     [<MemberData(nameof(``tweets from protected accounts are properly parsed``.unprotectedTweets))>]
     member __.``speak text should NOT indicate that that author is private for public accounts``(testTweet:SerializableTestTweet) =
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         speakText |> should not' (haveSubstring "protected account")
 
 type ``poll tweets are properly parsed``() =
@@ -451,7 +454,7 @@ type ``replies are properly parsed``() =
     [<InlineData("sevenReplyingTo.json")>]
     member __.``replies properly show the screen names of the accounts being replied to``(filepath:string) =
         let testTweet = fetchTweet filepath
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
 
         speakText |> should haveSubstring "Replying to"
 
@@ -504,7 +507,7 @@ type ``replies are properly parsed``() =
     [<InlineData("sevenReplyingTo.json")>]
     member __.``beginning replies are removed from the tweet text``(filepath:string) =
         let testTweet = fetchTweet filepath
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         
         let repliedToPattern = 
             testTweet.Value.Tweet.RepliedTo
@@ -532,7 +535,7 @@ type ``retweets are properly parsed``() =
     [<InlineData("retweet.json")>]
     member __.``retweets properly show the name of the account retweeting the tweet``(filepath:string) =
         let testTweet = fetchTweet filepath
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         speakText |> should haveSubstring $"{Option.get testTweet.Value.Tweet.Retweeter |> processSpeakText} retweeted"
 
 type ``quoted tweets are properly parsed``() =
@@ -541,7 +544,7 @@ type ``quoted tweets are properly parsed``() =
     [<InlineData("quotedTweet.json")>]
     member __.``quoted tweets should be shown``(filepath:string) =
         let testTweet = fetchTweet filepath
-        let speakText = testTweet.ToSpeakText()
+        let speakText = testTweet.ToFullSpeakText()
         let quotedTestTweet = Option.get testTweet.Value.Tweet.QuotedTweet |> fun x -> Option.get x.Tweet
         let toMedia (f:'a -> Media) = Option.toList << Option.map f
 
@@ -568,7 +571,7 @@ type ``quoted tweets are properly parsed``() =
                 quotedImages @ quotedGif @ quotedVideo,
                 quotedTestTweet.Urls |> Array.map (fun url -> Url (url.Url, url.DisplayUrl, toUrlType url.Type))
             )
-            |> toSpeakText
+            |> toFullSpeakText
 
         speakText |> should haveSubstring quotedSpeakText
        
@@ -576,13 +579,13 @@ type ``quoted tweets are properly parsed``() =
     [<Theory>]
     [<InlineData("quotedTweet.json")>]
     member __.``there should be an indication that a tweet is being quoted``(filepath:string) =
-        let speakText = fetchSpeakText filepath
+        let speakText = fetchFullSpeakText filepath
         speakText |> should haveSubstring "quote tweet"
 
     [<Theory>]
     [<InlineData("quotedTweetPoll.json")>]
     member __.``quoted tweets with polls in the quote tweet should be indicated``(filepath:string) =
-        let speakText = fetchSpeakText filepath
+        let speakText = fetchFullSpeakText filepath
         speakText |> should haveSubstring "show this poll"
 
 
@@ -699,7 +702,7 @@ type ``emojis are properly converted to words``() =
     [<Theory>]
     [<MemberData(nameof(``emojis are properly converted to words``.emojis))>]
     member __.``Emojis should have correct speak text``(tweet:SerializableTestTweet) =
-        let speakText = tweet.ToSpeakText()
+        let speakText = tweet.ToFullSpeakText()
         for replacement in tweet.Value.Replacements do
             speakText |> should haveSubstitution (replacement.OldText, replacement.NewText)
 
