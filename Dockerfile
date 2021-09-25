@@ -20,8 +20,10 @@ RUN cp -r -t /TTS /app /usr /etc /lib
 
 # Extract needed FFMPEG files and directories
 FROM jrottenberg/ffmpeg AS ffmpeg
-RUN mkdir -p /FFMPEG/usr
-RUN cp -r /usr/local /FFMPEG/usr/local
+RUN mkdir -p /FFMPEG/usr/local/bin
+RUN mkdir -p /FFMPEG/usr/local/lib
+RUN cp -r /usr/local/bin/ffmpeg /FFMPEG/usr/local/bin/ffmpeg
+RUN cp -r /usr/local/lib /FFMPEG/usr/local/
 RUN cp -r -t /FFMPEG /lib /etc
 
 # Run program
