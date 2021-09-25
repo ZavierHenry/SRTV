@@ -47,11 +47,17 @@ module TweetImage =
     type ImageTemplate = HtmlProvider<"assets/template.html">
 
     let toImage (mockTweet:MockTweet) profileUrl source ref renderOptions =
-        let (theme, text) = 
-            match renderOptions with 
-            | Image (theme, fullVersion) -> (theme, if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref))
-            | Text fullVersion | Video fullVersion -> 
-                (Theme.Dim, if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref))
+        let theme =
+            match renderOptions with
+            | Image (theme, _) -> theme
+            | Text _ | Video _ -> Theme.Dim
+
+        let text = 
+            match renderOptions with
+            | Image (_, Version.Full) | Text Version.Full | Video Version.Full ->
+                mockTweet.ToFullSpeakText(ref)
+            | Image (_, Version.Regular) | Text Version.Regular | Video Version.Regular ->
+                mockTweet.ToSpeakText(ref)
 
         let document =
             ImageTemplate.GetSample().Html

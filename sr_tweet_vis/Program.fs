@@ -46,7 +46,7 @@ let toImage'(output:string) =
     let profileUrl = "https://pbs.twimg.com/profile_images/1011409104441630720/ksmEpPII_normal.jpg"
 
     async {
-        let! bytes = toImage exampleMockTweet profileUrl source DateTime.UtcNow <| Image (Theme.Dim, false)
+        let! bytes = toImage exampleMockTweet profileUrl source DateTime.UtcNow <| Image (Theme.Dim, Version.Regular)
         return File.WriteAllBytes(output, bytes)
     }
 

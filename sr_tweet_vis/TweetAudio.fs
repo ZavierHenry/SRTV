@@ -235,9 +235,13 @@ module TweetAudio =
         }
 
         member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOptions) =
-            match renderOptions with
-            | Video fullVersion
-            | Text fullVersion
-            | Image (_, fullVersion) ->
-                let text = if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref)
-                this.Synthesize(text, outfile)
+            let text = 
+                match renderOptions with
+                | Video Version.Full | Text Version.Full | Image (_, Version.Full) ->
+                    mockTweet.ToFullSpeakText(ref)
+                | Video Version.Regular | Text Version.Regular | Image (_, Version.Regular) ->
+                    mockTweet.ToSpeakText(ref)
+
+            this.Synthesize(text, outfile)
+            
+            
