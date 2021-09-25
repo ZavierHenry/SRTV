@@ -8,6 +8,7 @@ module TweetImage =
     open FSharp.Data.HtmlActivePatterns
 
     open TweetMedia
+    open Utilities
 
     module Doc = FSharp.Data.HtmlDocument
     module Node = FSharp.Data.HtmlNode
@@ -45,14 +46,13 @@ module TweetImage =
 
     type ImageTemplate = HtmlProvider<"assets/template.html">
 
-    type Theme = 
-        Light | Dim | Dark
-        static member toAttributeValue = function
-            | Light -> "light"
-            | Dim -> "dim"
-            | Dark -> "dark"
+    let toImage (mockTweet:MockTweet) profileUrl source ref renderOptions =
+        let (theme, text) = 
+            match renderOptions with 
+            | Image (theme, fullVersion) -> (theme, if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref))
+            | Text fullVersion | Video fullVersion -> 
+                (Theme.Dim, if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref))
 
-    let toImage (mockTweet:MockTweet) profileUrl source theme =
         let document =
             ImageTemplate.GetSample().Html
             |> transformDOM (Node.hasId "tweetContainer") (Theme.toAttributeValue theme |> setAttribute "theme")
@@ -64,7 +64,7 @@ module TweetImage =
             |> transformDOM (Node.hasId "dateOutput") (setText <| mockTweet.Date.ToString(@"MMM d, yyyy"))
             |> transformDOM (Node.hasId "timeOutput") (setText <| mockTweet.Date.ToString(@"h\:mm tt"))
             |> transformDOM (Node.hasId "client") (setText source)
-            |> transformDOM (Node.hasId "tweetText") (setText <| mockTweet.ToSpeakText())
+            |> transformDOM (Node.hasId "tweetText") (setText text)
 
         async {
             do! BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask |> Async.Ignore

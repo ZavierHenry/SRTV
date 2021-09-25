@@ -4,6 +4,18 @@ module Utilities =
     open System
     open System.IO
 
+    type Theme = 
+        Light | Dim | Dark
+        static member toAttributeValue = function
+            | Light -> "light"
+            | Dim -> "dim"
+            | Dark -> "dark"
+
+    type RenderOption =
+        | Video of fullVersion:bool
+        | Image of theme:Theme * fullVersion:bool
+        | Text of fullVersion:bool
+    
     type TempFile() =
         let path = Path.GetTempFileName()
         member this.Path = path
