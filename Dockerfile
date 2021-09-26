@@ -15,19 +15,22 @@ RUN dotnet publish -c Release -o publish
 
 # Extract needed TTS files and directories
 FROM synesthesiam/coqui-tts:latest AS tts
-RUN mkdir -p /TTS
+RUN mkdir -p /TTS/usr/local/bin
+RUN cp -r /usr/local/bin/python3 /TTS/usr/local/bin/python3
 RUN cp -r -t /TTS /app /usr /etc /lib
+RUN rm -r /TTS/usr/include
 
 # Extract needed FFMPEG files and directories
 FROM jrottenberg/ffmpeg AS ffmpeg
 RUN mkdir -p /FFMPEG/usr/local/bin
 RUN mkdir -p /FFMPEG/usr/local/lib
 RUN cp -r /usr/local/bin/ffmpeg /FFMPEG/usr/local/bin/ffmpeg
-RUN cp -r /usr/local/lib /FFMPEG/usr/local/
+RUN cp -r /usr/local/lib /FFMPEG/usr/local
 RUN cp -r -t /FFMPEG /lib /etc
 
+
 # Run program
-FROM mcr.microsoft.com/dotnet/runtime:5.0
+FROM mcr.microsoft.com/dotnet/runtime:5.0 AS base
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
 COPY --from=ffmpeg /FFMPEG .
