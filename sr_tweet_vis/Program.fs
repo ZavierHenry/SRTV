@@ -66,8 +66,15 @@ type RenderRequest =
         }
 
 
-let rec handleMentions (client:Client) startDate (token: string option) = async {
+let handleRequests (client:Client) (queryResponse:LinqToTwitter.TweetQuery) (requests:RenderRequest seq) =
+    let tweets = nullableSequenceToValue queryResponse.Tweets
+    ""
 
+        
+
+
+let rec handleMentions (client:Client) startDate (token: string option) = async {
+        
     let! mentions = client.GetMentions(startDate)
     let requests = 
         let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
@@ -90,7 +97,7 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
                 RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
             | _ -> RenderRequest.init ("", DateTime.UtcNow, "", Video Version.Regular)))
 
-    let! tweets =
+    let! query =
         requests
         |> ClientResult.map ( Seq.map (fun {renderTweetID = id} -> id) )
         |> ClientResult.bindAsync client.GetTweets
@@ -107,11 +114,11 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
             | "" | null -> return ()
             | token -> handleMentions client startDate (Some token) |> Async.Start
     | TwitterError (message, exn) ->
-        printfn "A Twitter error has occurred: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        printfn "A Twitter query exception has occurred when trying to get mentions: %s" message
+        printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
     | OtherError (message, exn) ->
-        printfn "An error has occurred: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        printfn "A non-Twitter-query exception has occurred when trying to get mentions: %s" message
+        printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
 
 }
 

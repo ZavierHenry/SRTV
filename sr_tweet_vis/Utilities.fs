@@ -31,6 +31,10 @@ module Utilities =
         interface IDisposable with
             member this.Dispose() = File.Delete(path)
 
+    let nullableSequenceToValue<'a> = function
+        | null -> Seq.empty<'a>
+        | sequence -> sequence
+
     let tryNonBlankString str = Some str |> Option.filter (not << String.IsNullOrEmpty)
 
     let tryFindEnvironmentVariable var =
