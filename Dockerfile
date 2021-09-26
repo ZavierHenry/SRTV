@@ -21,21 +21,22 @@ RUN cp -r -t /TTS /app /usr /etc /lib
 RUN rm -r /TTS/usr/include
 
 # Extract needed FFMPEG files and directories
-FROM jrottenberg/ffmpeg AS ffmpeg
-RUN mkdir -p /FFMPEG/usr/local/bin
-RUN mkdir -p /FFMPEG/usr/local/lib
-RUN cp -r /usr/local/bin/ffmpeg /FFMPEG/usr/local/bin/ffmpeg
-RUN cp -r /usr/local/lib /FFMPEG/usr/local
-RUN cp -r -t /FFMPEG /lib /etc
+FROM jrottenberg/ffmpeg:scratch AS ffmpeg
+#RUN mkdir -p /FFMPEG/usr/local/bin
+#RUN mkdir -p /FFMPEG/usr/local/lib
+#RUN cp -r /usr/local/bin/ffmpeg /FFMPEG/usr/local/bin/ffmpeg
+#RUN cp -r /usr/local/lib /FFMPEG/usr/local
+# RUN cp -r -t /FFMPEG /lib /etc
 
 
 # Run program
 FROM mcr.microsoft.com/dotnet/runtime:5.0 AS base
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
-COPY --from=ffmpeg /FFMPEG .
+# COPY --from=ffmpeg /FFMPEG .
+COPY --from=ffmpeg / /
 COPY --from=tts /TTS .
-ENV FFMPEG_EXECUTABLE="/usr/local/bin/ffmpeg"
+ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "synthesize", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
