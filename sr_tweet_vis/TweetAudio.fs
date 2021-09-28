@@ -234,10 +234,14 @@ module TweetAudio =
             do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
         }
 
-        member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOption) =
-            match renderOptions with
-            | Video fullVersion
-            | Text fullVersion
-            | Image (_, fullVersion) ->
-                let text = if fullVersion then mockTweet.ToFullSpeakText(ref) else mockTweet.ToSpeakText(ref)
-                this.Synthesize(text, outfile)
+        member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOptions) =
+            let text = 
+                match renderOptions with
+                | Video Version.Full | Text Version.Full | Image (_, Version.Full) ->
+                    mockTweet.ToFullSpeakText(ref)
+                | Video Version.Regular | Text Version.Regular | Image (_, Version.Regular) ->
+                    mockTweet.ToSpeakText(ref)
+
+            this.Synthesize(text, outfile)
+            
+            

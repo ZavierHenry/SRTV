@@ -46,22 +46,62 @@ let toImage'(output:string) =
     let profileUrl = "https://pbs.twimg.com/profile_images/1011409104441630720/ksmEpPII_normal.jpg"
 
     async {
-        let! bytes = toImage exampleMockTweet profileUrl source DateTime.UtcNow <| Image (Theme.Dim, false)
+        let! bytes = toImage exampleMockTweet profileUrl source DateTime.UtcNow <| Image (Theme.Dim, Version.Regular)
         return File.WriteAllBytes(output, bytes)
     }
 
-let rec handleMentions (client:Client) startDate (token: string option) = async {
+type RenderRequest = 
+    {
+        requestTweetID: string
+        requestDateTime: DateTime
+        renderTweetID: string
+        renderOptions: RenderOptions
+    }
+    static member init (requestTweetID: string, requestDateTime: DateTime, renderTweetID: string, renderOptions: RenderOptions) =
+        {
+            requestTweetID = requestTweetID
+            requestDateTime = requestDateTime
+            renderTweetID = renderTweetID
+            renderOptions = renderOptions
+        }
 
+
+let handleRequests (client:Client) (queryResponse:LinqToTwitter.TweetQuery) (requests:RenderRequest seq) =
+    let tweets = nullableSequenceToValue queryResponse.Tweets
+    ""
+
+        
+
+
+let rec handleMentions (client:Client) startDate (token: string option) = async {
+        
     let! mentions = client.GetMentions(startDate)
-    let tweets = 
+    let requests = 
+        let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
         mentions
         |> ClientResult.map (fun mentions -> mentions.Tweets)
-        |> ClientResult.map (fun tweets -> tweets |> Seq.filter (function
+        |> ClientResult.map (Seq.filter (function
             | VideoRenderMention _ 
             | ImageRenderMention _ 
             | TextRenderMention _ 
             | GeneralRenderMention _ -> true
             | _ -> false ))
+        |> ClientResult.map (Seq.map (function
+            | VideoRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+            | ImageRenderMention (requestTweetID, requestDateTime, theme, fullVersion, renderTweetID) -> 
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Image (Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim, toVersion fullVersion))
+            | TextRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Text (toVersion fullVersion))
+            | GeneralRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+            | _ -> RenderRequest.init ("", DateTime.UtcNow, "", Video Version.Regular)))
+
+    let! query =
+        requests
+        |> ClientResult.map ( Seq.map (fun {renderTweetID = id} -> id) )
+        |> ClientResult.bindAsync client.GetTweets
+
         
     //TODO: convert to SRTV tweet and send
 
@@ -74,11 +114,11 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
             | "" | null -> return ()
             | token -> handleMentions client startDate (Some token) |> Async.Start
     | TwitterError (message, exn) ->
-        printfn "A Twitter error has occurred: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        printfn "A Twitter query exception has occurred when trying to get mentions: %s" message
+        printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
     | OtherError (message, exn) ->
-        printfn "An error has occurred: %s" message
-        printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        printfn "A non-Twitter-query exception has occurred when trying to get mentions: %s" message
+        printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
 
 }
 

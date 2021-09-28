@@ -36,6 +36,8 @@ module Twitter =
 
         module Mentions =
 
+            let currentTime () = System.DateTime.UtcNow
+
             let tryFindReply (tweet:Tweet) = tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets
             let tryFindQuoteTweet (tweet:Tweet) = tryFindTweetReferenceByType "quoted" tweet.ReferencedTweets
             
@@ -56,15 +58,15 @@ module Twitter =
 
             let (|VideoRenderMention|_|) response = 
                 renderMention "video|sound|audio" response
-                |> Option.map (fun (m, ref) -> (m.Groups.["full"].Success, ref.ID))
+                |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
             let (|TextRenderMention|_|) response = 
                 renderMention "text" response
-                |> Option.map (fun (m, ref) -> (m.Groups.["full"].Success, ref.ID))
+                |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
             let (|ImageRenderMention|_|) response = 
                 renderMention @"((?<theme>light|dim|dark)\s+)?image" response
-                |> Option.map (fun (m, ref) -> (m.Groups.["theme"].Value, m.Groups.["full"].Success, ref.ID))
+                |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["theme"].Value, m.Groups.["full"].Success, ref.ID))
 
             let (|GeneralRenderMention|_|) = function
                 | VideoRenderMention _ -> None
@@ -72,7 +74,7 @@ module Twitter =
                 | ImageRenderMention _ -> None
                 | response ->
                     renderMention @"(\s|^)render\s+(?:full\s+)?(\s|$|\?|\.)" response
-                    |> Option.map (fun (m, ref) -> (m.Groups.["full"].Success, ref.ID))
+                    |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
         let (|AuthorizationError|_|) (response:TweetQuery) =
             Some ()
@@ -81,23 +83,6 @@ module Twitter =
         let (|NotFoundError|_|) (response:TweetQuery) =
             Some ()
             |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Not Found Error") )
-
-        let (|UnavailableReplyRequest|_|) (response:TweetQuery) (tweet:Tweet) = 
-            tryFindTweetReferenceByType "replied_to" tweet.ReferencedTweets
-            |> Option.bind (fun ref -> response.Errors |> Seq.tryFind (fun err -> err.Value = ref.ID))
-            |> Option.map (fun _ -> ())
-
-        let (|UnavailableQuoteTweetRequest|_|) (response:TweetQuery) (tweet:Tweet) = 
-            if tweet.ReferencedTweets |> Seq.exists (fun ref -> ref.Type = "quoted")
-            then None
-            else 
-                match Regex.Match(tweet.Text, @"https://t\.co/\w+$") with
-                | m when m.Success ->
-                    tweet.Entities.Urls
-                    |> Seq.tryFind (fun x -> x.Url = m.Value)
-                    |> Option.map (fun x -> Regex.Match(x.ExpandedUrl, @"https://twitter.com/\w+?/status/(\d+)"))
-                    |> Option.map (fun _ -> ())
-                | _ -> None
 
         let (|PrivateTweet|_|) includes (tweet:Tweet) =
             tryFindUserById tweet.InReplyToUserID includes

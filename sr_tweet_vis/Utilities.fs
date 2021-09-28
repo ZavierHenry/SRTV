@@ -11,10 +11,18 @@ module Utilities =
             | Dim -> "dim"
             | Dark -> "dark"
 
-    type RenderOption =
-        | Video of fullVersion:bool
-        | Image of theme:Theme * fullVersion:bool
-        | Text of fullVersion:bool
+        static member fromAttributeValue = function
+            | "light"   -> Some Theme.Light
+            | "dim"     -> Some Theme.Dim
+            | "dark"    -> Some Theme.Dark
+            | _         -> None
+
+    type Version = | Regular | Full
+
+    type RenderOptions =
+        | Video of version:Version
+        | Image of theme:Theme * version:Version
+        | Text of version:Version
     
     type TempFile() =
         let path = Path.GetTempFileName()
@@ -22,6 +30,10 @@ module Utilities =
 
         interface IDisposable with
             member this.Dispose() = File.Delete(path)
+
+    let nullableSequenceToValue<'a> = function
+        | null -> Seq.empty<'a>
+        | sequence -> sequence
 
     let tryNonBlankString str = Some str |> Option.filter (not << String.IsNullOrEmpty)
 
