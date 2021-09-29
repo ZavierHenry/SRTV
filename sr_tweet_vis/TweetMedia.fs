@@ -200,9 +200,11 @@ module TweetMedia =
                 |> Seq.map (fun x -> Image <| tryNonBlankString x.AltText)
 
             let videos = 
+                let extendedVideoEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "video")
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Video)
-                |> Seq.map (fun x -> Video None)
+                |> Seq.map (fun x -> extendedVideoEntities |> Seq.find (fun y -> string y.ID = Regex.Match(x.MediaKey, @"_(\d+)$").Groups.[1].Value))
+                |> Seq.map (fun x -> Video <| tryNonBlankString x.SourceUser.Name)
 
             let gifs = 
                 let extendedGifEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "animated_gif")
