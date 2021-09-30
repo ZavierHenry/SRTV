@@ -39,7 +39,8 @@ RUN	mkdir -p /TTS/app/bin && \
 WORKDIR /TTS/app/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
 	     matplotlib/mpl-data/images unidic_lite/dicdir/unidic-mecab.pdf && \
-    find . -name tests -or -name testing -or -name test -exec rm -r {} + && \
+    find . -name test -exec rm -r {} + && \
+    find . -name tests -exec rm -r {} + && \
     cp -r /app/lib/python3.7/site-packages/gdown-*.dist-info .
 
 # Run program
