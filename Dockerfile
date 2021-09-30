@@ -28,13 +28,17 @@ RUN	mkdir -p /TTS/app/bin && \
 	mkdir -p /TTS/usr/local && \
 	mkdir -p /TTS/app/lib/python3.7 && \
 	mkdir -p /TTS/usr/lib && \
-	mkdir -p /TTS/etc && \
 	cp /app/bin/tts /app/bin/python3 /TTS/app/bin && \
 	cp -r /usr/local/lib /TTS/usr/local && \
 	cp -r /usr/lib/x86_64-linux-gnu /TTS/usr/lib && \
-	cp -r /etc/ld.so.* /TTS/etc && \
+	cp --parents -r /etc/ld.so.* /TTS && \
 	cp -r /lib /TTS && \
+	cp --parents -r /app/lib/python3.7/site-packages/librosa/ /TTS && \
+	find /app/lib/python3.7/site-packages -name __pycache__ -exec rm -r {} + && \
+	/app/bin/python3 -m compileall -b /app/lib/python3.7/site-packages && \
+	find /app/lib/python3.7/site-packages -name *.py -exec rm {} + && \
 	cp -r /app/lib/python3.7/site-packages /TTS/app/lib/python3.7
+	
 
 WORKDIR /TTS/app/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
