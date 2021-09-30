@@ -29,8 +29,7 @@ RUN	mkdir -p /TTS/app/bin && \
 	mkdir -p /TTS/app/lib/python3.7 && \
 	mkdir -p /TTS/usr/lib && \
 	mkdir -p /TTS/etc && \
-	cp /app/bin/tts /TTS/app/bin && \
-	cp /app/bin/python3 /TTS/app/bin/python3 && \
+	cp /app/bin/tts /app/bin/python3 /TTS/app/bin && \
 	cp -r /usr/local/lib /TTS/usr/local && \
 	cp -r /usr/lib/x86_64-linux-gnu /TTS/usr/lib && \
 	cp -r /etc/ld.so.* /TTS/etc && \
@@ -40,6 +39,7 @@ RUN	mkdir -p /TTS/app/bin && \
 WORKDIR /TTS/app/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
 	     matplotlib/mpl-data/images unidic_lite/dicdir/unidic-mecab.pdf && \
+    find . -name tests -or -name testing -or -name test -exec rm -r {} + && \
     cp -r /app/lib/python3.7/site-packages/gdown-*.dist-info .
 
 # Run program
