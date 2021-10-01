@@ -47,6 +47,9 @@ RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
     find . -name tests -exec rm -r {} + && \
     cp -r /app/lib/python3.7/site-packages/gdown-*.dist-info .
 
+WORKDIR /TTS/usr/local/lib/python3.7/site-packages
+RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
+
 # Run program
 FROM base
 #COPY --from=publish /app/publish .
