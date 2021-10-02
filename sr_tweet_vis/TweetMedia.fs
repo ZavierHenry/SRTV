@@ -119,13 +119,19 @@ module TweetMedia =
     let twitterTweetToQuotedTweet includes extendedEntities (tweet:Tweet) =
         let author = findUserById tweet.AuthorID includes
 
+        //let urls =
+        //    match tweet.Entities with
+        //    | null -> Seq.empty
+        //    | entities ->
+        //        match entities.Urls with
+        //        | null -> Seq.empty
+        //        | urls -> Seq.cast<TweetEntityUrl> urls
+        //    |> Seq.sortBy (fun url -> url.Start)
+
         let urls =
-            match tweet.Entities with
-            | null -> Seq.empty
-            | entities ->
-                match entities.Urls with
-                | null -> Seq.empty
-                | urls -> Seq.cast<TweetEntityUrl> urls
+            Option.ofObj tweet.Entities
+            |> Option.map (fun entities -> nullableSequenceToValue entities.Urls)
+            |> Option.defaultValue Seq.empty
             |> Seq.sortBy (fun url -> url.Start)
 
         let mockUrls =
@@ -146,7 +152,9 @@ module TweetMedia =
             tweet.Text, 
             [], 
             mockUrls,
-            Seq.isEmpty tweet.Attachments.PollIds |> not
+            Option.ofObj tweet.Attachments 
+            |> Option.map (fun x -> nullableSequenceToValue x.PollIds)
+            |> Option.exists (not << Seq.isEmpty)
         )
 
     type MockTweet(text, screenname, name, date, isVerified, isProtected, retweeter, repliedTo, quotedTweet, media, urls) =
@@ -164,7 +172,8 @@ module TweetMedia =
 
         new(tweet: Tweet, includes: Common.TwitterInclude, extendedEntities: Common.Entities.MediaEntity seq) =
 
-            let referencedTweets = match tweet.ReferencedTweets with | null -> Seq.empty | refs -> seq { yield! refs }
+            //let referencedTweets = match tweet.ReferencedTweets with | null -> Seq.empty | refs -> seq { yield! refs }
+            let referencedTweets = nullableSequenceToValue tweet.ReferencedTweets
 
             let originalTweet = 
                 tryFindTweetReferenceByType "retweeted" referencedTweets
@@ -190,49 +199,68 @@ module TweetMedia =
                 then tryFindUserById tweet.ID includes |> Option.map (fun user -> user.Name)
                 else None
 
-            let (media:TweetMedia seq) = 
-                match includes.Media with | null -> Seq.empty | media -> seq { yield! media }
-                |> Seq.filter (fun m -> Seq.contains m.MediaKey tweet.Attachments.MediaKeys) 
+            let (media:TweetMedia seq) =
+                //match includes.Media with | null -> Seq.empty | media -> seq { yield! media }
+                //|> Seq.filter (fun m -> Seq.contains m.MediaKey tweet.Attachments.MediaKeys)
+                nullableSequenceToValue includes.Media
 
             let photos = 
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Photo)
-                |> Seq.map (fun x -> Image <| tryNonBlankString x.AltText)
+                |> Seq.map (fun x -> 
+                    Option.ofObj x.AltText
+                    |> Option.map (tryNonBlankString >> Image)
+                    |> Option.defaultValue (Image None))
 
             let videos = 
                 let extendedVideoEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "video")
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.Video)
                 |> Seq.map (fun x -> extendedVideoEntities |> Seq.find (fun y -> string y.ID = Regex.Match(x.MediaKey, @"_(\d+)$").Groups.[1].Value))
-                |> Seq.map (fun x -> Video <| tryNonBlankString x.SourceUser.Name)
+                |> Seq.map (fun x ->
+                    Option.ofObj x.SourceUser
+                    |> Option.map (fun sourceUser -> Video <| tryNonBlankString sourceUser.Name)
+                    |> Option.defaultValue (Video None))
+                //|> Seq.map (fun x -> Video <| tryNonBlankString x.SourceUser.Name)
 
             let gifs = 
                 let extendedGifEntities = extendedEntities |> Seq.filter (fun x -> x.Type = "animated_gif")
                 media
                 |> Seq.filter (fun x -> x.Type = TweetMediaType.AnimatedGif)
                 |> Seq.map (fun x -> extendedGifEntities |> Seq.find (fun y -> x.PreviewImageUrl = y.MediaUrlHttps))
-                |> Seq.map (fun x -> Gif <| tryNonBlankString x.AltText)
+                |> Seq.map (fun x ->
+                    Option.ofObj x.AltText
+                    |> Option.map (tryNonBlankString >> Gif)
+                    |> Option.defaultValue (Gif None))
+                //|> Seq.map (fun x -> Gif <| tryNonBlankString x.AltText)
 
             let polls =
-                match includes.Polls with | null -> Seq.empty | polls -> seq { yield! polls }
+                //match includes.Polls with | null -> Seq.empty | polls -> seq { yield! polls }
+                nullableSequenceToValue includes.Polls
                 |> Seq.filter (fun poll -> Seq.contains poll.ID tweet.Attachments.PollIds)
                 |> Seq.map (fun poll -> Poll (poll.Options |> Seq.map (fun opt -> (opt.Label, opt.Votes)) |> Seq.toList, poll.EndDatetime))
                 
 
-            let urls = 
-                match tweet.Entities with 
-                | null -> Seq.empty 
-                | entities -> 
-                    match entities.Urls with 
-                    | null -> Seq.empty 
-                    | urls -> Seq.cast<TweetEntityUrl> urls
+            //let urls =
+            //    match tweet.Entities with 
+            //    | null -> Seq.empty 
+            //    | entities -> 
+            //        match entities.Urls with 
+            //        | null -> Seq.empty 
+            //        | urls -> Seq.cast<TweetEntityUrl> urls
+            //    |> Seq.sortBy (fun url -> url.Start)
+
+            let urls =
+                Option.ofObj tweet.Entities
+                |> Option.map (fun entities -> nullableSequenceToValue entities.Urls)
+                |> Option.defaultValue Seq.empty
                 |> Seq.sortBy (fun url -> url.Start)
 
             let cards = 
                 urls
-                |> Seq.filter (fun (url:TweetEntityUrl) -> Seq.isEmpty url.Images |> not)
+                |> Seq.filter (fun (url:TweetEntityUrl) -> nullableSequenceToValue url.Images |> Seq.isEmpty |> not)
                 |> Seq.map (fun (url:TweetEntityUrl) -> 
-                    let host = Uri(url.UnwoundUrl).Host
+                    let host = Uri(Option.ofObj url.UnwoundUrl |> Option.defaultValue "").Host
                     let host = Regex.Match(host, "(?:www\.)?(.*?)").Groups.[1].Value
                     Card (url.Url, url.Title, url.Description, host))
 

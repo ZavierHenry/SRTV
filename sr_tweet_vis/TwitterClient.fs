@@ -468,7 +468,8 @@ module Twitter =
                             && tweet.IncludeAltText = true
                             && tweet.IncludeEntities = true
                         )
-                        select (tweet.ID, match tweet.ExtendedEntities with | null -> [] | extendedEntities -> extendedEntities.MediaEntities |> Seq.toList)
+                        //select (tweet.ID, match tweet.ExtendedEntities with | null -> [] | extendedEntities -> extendedEntities.MediaEntities |> Seq.toList)
+                        select (tweet.ID, Option.ofObj tweet.ExtendedEntities |> Option.map (fun x -> nullableSequenceToValue x.MediaEntities |> Seq.toList) |> Option.defaultValue [])
                     }
 
                 this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
