@@ -10,6 +10,7 @@ open SRTV.TweetMedia
 open SRTV.TweetAudio
 open SRTV.TweetImage
 
+open SRTV.Twitter
 open SRTV.Twitter.TwitterClient
 open SRTV.Twitter.Patterns
 open SRTV.Twitter.Patterns.Mentions
@@ -66,13 +67,54 @@ type RenderRequest =
         }
 
 
-let handleRequests (client:Client) (queryResponse:LinqToTwitter.TweetQuery) (requests:RenderRequest seq) =
-    let tweets = nullableSequenceToValue queryResponse.Tweets
-    ""
+let render (client:Client) (tweet:LinqToTwitter.Tweet) includes map (request:RenderRequest) =
+    let mockTweet =
+        MockTweet(tweet, includes, Map.tryFind tweet.ID map |> Option.defaultValue Seq.empty)
+
+    let ref = request.requestDateTime
+
+    match request.renderOptions with
+    | Video version ->
+        async {
+            use tempfile = new TempFile()
+            do! Synthesizer().Synthesize(mockTweet, tempfile.Path, request.requestDateTime, request.renderOptions)
+            let srtvTweet = AudioTweet (tempfile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
+            return! client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
+        }
+    | Image (_, version) ->
+        let text = match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
+        let profilePicUrl = tryFindUserById tweet.AuthorID includes |> Option.map (fun user -> user.ProfileImageUrl) |> Option.defaultValue ""
+        
+        async {
+            let! image = toImage mockTweet profilePicUrl tweet.Source ref request.renderOptions
+            let srtvTweet = ImageTweet (image, "Hello! Your image is here and should be attached. There should also be alt text in the image. If the alt text is too big for the image, it will be tweeted in the replies. Thank you for using the SRTV bot", text)
+            return! client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
+        }
+
+    | Text version ->
+        let text = match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
+        let srtvTweet = TextTweet $"Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s{text}"
+        client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
+
+
+let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (request:RenderRequest) =
+    
+    printfn "Twitter error returned when trying to "
+    let replyID = uint64 request.requestTweetID
+
+    match error.Title with
+    | "Not Found Error" -> 
+        let srtvTweet = TextTweet "Sorry, this tweet cannot be found to be rendered. Perhaps the tweet is deleted or the account is set to private?"
+        client.ReplyAsync(replyID, srtvTweet)
+    | "Authorization Error" ->
+        let srtvTweet = TextTweet "Sorry, there is an authorization error when trying to render this tweet"
+        client.ReplyAsync(replyID, srtvTweet)
+    | _ ->
+        let srtvTweet = TextTweet "Sorry, there was an error from Twitter when trying to render this tweet"
+        client.ReplyAsync(replyID, srtvTweet)
+
 
         
-
-
 let rec handleMentions (client:Client) startDate (token: string option) = async {
         
     let! mentions = client.GetMentions(startDate)
@@ -97,12 +139,27 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
                 RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
             | _ -> RenderRequest.init ("", DateTime.UtcNow, "", Video Version.Regular)))
 
-    let! query =
+    let! responseQuery =
         requests
         |> ClientResult.map ( Seq.map (fun {renderTweetID = id} -> id) )
         |> ClientResult.bindAsync client.GetTweets
 
-        
+    let tweets = responseQuery |> ClientResult.map (fun resp -> nullableSequenceToValue resp.Tweets)
+    let errors = responseQuery |> ClientResult.map (fun resp -> nullableSequenceToValue resp.Errors)
+
+    let! extendedEntities =
+        tweets
+        |> ClientResult.map (fun tweet ->
+            tweet
+            |> Seq.filter (fun tweet -> 
+                Option.ofObj tweet.Attachments 
+                |> Option.map (fun attachments -> nullableSequenceToValue attachments.MediaKeys)
+                |> Option.exists (not << Seq.isEmpty))
+            |> Seq.map (fun tweet -> tweet.ID))
+        |> ClientResult.bindAsync client.getTweetMediaEntities
+
+    let extendedEntities = extendedEntities |> ClientResult.map Map
+
     //TODO: convert to SRTV tweet and send
 
     match mentions with

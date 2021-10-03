@@ -76,14 +76,6 @@ module Twitter =
                     renderMention @"(\s|^)render\s+(?:full\s+)?(\s|$|\?|\.)" response
                     |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
-        let (|AuthorizationError|_|) (response:TweetQuery) =
-            Some ()
-            |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Authorization Error" ) )
-
-        let (|NotFoundError|_|) (response:TweetQuery) =
-            Some ()
-            |> Option.filter ( fun _ -> response.Errors |> Seq.exists (fun error -> error.Title = "Not Found Error") )
-
         let (|PrivateTweet|_|) includes (tweet:Tweet) =
             tryFindUserById tweet.InReplyToUserID includes
             |> Option.filter (fun user -> user.Protected)
