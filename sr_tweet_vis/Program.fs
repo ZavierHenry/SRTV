@@ -67,7 +67,7 @@ type RenderRequest =
         }
 
 
-let render (client:Client) (tweet:LinqToTwitter.Tweet) includes map (request:RenderRequest) =
+let render (client:Client) tweet includes map (request:RenderRequest) =
     let mockTweet =
         MockTweet(tweet, includes, Map.tryFind tweet.ID map |> Option.defaultValue Seq.empty)
 
@@ -77,9 +77,11 @@ let render (client:Client) (tweet:LinqToTwitter.Tweet) includes map (request:Ren
     | Video version ->
         async {
             use tempfile = new TempFile()
-            do! Synthesizer().Synthesize(mockTweet, tempfile.Path, request.requestDateTime, request.renderOptions)
-            let srtvTweet = AudioTweet (tempfile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
-            return! client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
+            try
+                do! Synthesizer().Synthesize(mockTweet, tempfile.Path, request.requestDateTime, request.renderOptions)
+                let srtvTweet = AudioTweet (tempfile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
+                return! client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
+            with exn -> return OtherError ("Video could not be made", exn)
         }
     | Image (_, version) ->
         let text = match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
@@ -96,24 +98,43 @@ let render (client:Client) (tweet:LinqToTwitter.Tweet) includes map (request:Ren
         let srtvTweet = TextTweet $"Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s{text}"
         client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
 
+let handleTweet client tweet includes map request = async {
+    match! render client tweet includes map request with
+    | Success () -> return ()
+    | TwitterError (message, exn) ->
+        printfn "Error occurred when trying to render tweet ID %s: %s" tweet.ID message
+        printfn "Error received from Twitter %A" exn
+    | OtherError (message, exn) ->
+        printfn "Error occured when tring to render tweet ID %s: %s" tweet.ID message
+        printfn "Exception raised %A" exn 
+}
+
+
 
 let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (request:RenderRequest) =
     
     printfn "Twitter error returned when trying to "
     let replyID = uint64 request.requestTweetID
 
-    match error.Title with
-    | "Not Found Error" -> 
-        let srtvTweet = TextTweet "Sorry, this tweet cannot be found to be rendered. Perhaps the tweet is deleted or the account is set to private?"
-        client.ReplyAsync(replyID, srtvTweet)
-    | "Authorization Error" ->
-        let srtvTweet = TextTweet "Sorry, there is an authorization error when trying to render this tweet"
-        client.ReplyAsync(replyID, srtvTweet)
-    | _ ->
-        let srtvTweet = TextTweet "Sorry, there was an error from Twitter when trying to render this tweet"
-        client.ReplyAsync(replyID, srtvTweet)
+    async {
+        let srtvTweet = 
+            match error.Title with
+            | "Not Found Error" -> 
+                TextTweet "Sorry, this tweet cannot be found to be rendered. Perhaps the tweet is deleted or the account is set to private?"
+            | "Authorization Error" -> 
+                TextTweet "Sorry, there is an authorization error when trying to render this tweet"
+            | _ -> 
+                TextTweet "Sorry, there was an error from Twitter when trying to render this tweet"
 
-
+        match! client.ReplyAsync(replyID, srtvTweet) with
+        | Success ()        -> ()
+        | TwitterError (message, exn) ->
+            printfn "Twitter error when sending error about tweet %s: %s" error.ID message
+            printfn "Error received from Twitter %A" exn
+        | OtherError (message, exn) ->
+            printfn "Error occurred when sending error about tweet %s: %s" error.ID message
+            printfn "Exception raised: %A" exn
+    }
         
 let rec handleMentions (client:Client) startDate (token: string option) = async {
         
@@ -123,10 +144,8 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
         mentions
         |> ClientResult.map (fun mentions -> mentions.Tweets)
         |> ClientResult.map (Seq.filter (function
-            | VideoRenderMention _ 
-            | ImageRenderMention _ 
-            | TextRenderMention _ 
-            | GeneralRenderMention _ -> true
+            | VideoRenderMention _ | ImageRenderMention _ 
+            | TextRenderMention _ | GeneralRenderMention _ -> true
             | _ -> false ))
         |> ClientResult.map (Seq.map (function
             | VideoRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
@@ -144,13 +163,11 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
         |> ClientResult.map ( Seq.map (fun {renderTweetID = id} -> id) )
         |> ClientResult.bindAsync client.GetTweets
 
-    let tweets = responseQuery |> ClientResult.map (fun resp -> nullableSequenceToValue resp.Tweets)
-    let errors = responseQuery |> ClientResult.map (fun resp -> nullableSequenceToValue resp.Errors)
-
     let! extendedEntities =
-        tweets
-        |> ClientResult.map (fun tweet ->
-            tweet
+        responseQuery
+        |> ClientResult.map (fun resp ->
+            resp.Tweets
+            |> nullableSequenceToValue
             |> Seq.filter (fun tweet -> 
                 Option.ofObj tweet.Attachments 
                 |> Option.map (fun attachments -> nullableSequenceToValue attachments.MediaKeys)
@@ -158,9 +175,33 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
             |> Seq.map (fun tweet -> tweet.ID))
         |> ClientResult.bindAsync client.getTweetMediaEntities
 
-    let extendedEntities = extendedEntities |> ClientResult.map Map
+    let requestHandlers = 
+        extendedEntities
+        |> ClientResult.map (fun ee -> ee |> Seq.map (fun (key, value) -> (string key, Seq.ofList value) ) |> Map)
+        |> ClientResult.bind (fun ee -> responseQuery |> ClientResult.map (fun resp -> (resp, ee)))
+        |> ClientResult.bind (fun (resp, ee) -> requests |> ClientResult.map (fun requests -> (requests, resp, ee)))
+        |> ClientResult.map (fun (requests, resp, ee) ->
+            requests
+            |> Seq.map (fun request -> 
+                resp.Tweets
+                |> nullableSequenceToValue
+                |> Seq.tryFind (fun tweet -> request.renderTweetID = tweet.ID)
+                |> Option.map (fun tweet -> handleTweet client tweet resp.Includes ee request)
+                |> Option.orElseWith (fun () -> 
+                    resp.Errors
+                    |> nullableSequenceToValue
+                    |> Seq.tryFind (fun error -> request.renderTweetID = error.ID)
+                    |> Option.map (fun error -> handleError client error request))
+                |> Option.defaultWith (fun () -> async { return () } )))
 
-    //TODO: convert to SRTV tweet and send
+    match requestHandlers with
+    | Success handlers -> handlers |> Async.Parallel |> Async.Ignore |> Async.Start
+    | TwitterError (message, exn) ->
+        printfn "Twitter error occurred: %s" message
+        printfn "Error received from Twitter: %A" exn
+    | OtherError (message, exn) ->
+        printfn "Error occurred: %s" message
+        printfn "Exception raised: %A" exn
 
     match mentions with
     | Success mentions ->
@@ -224,6 +265,14 @@ let buildClient () =
 let main argv =
 
     match argv with
+    | [| "mentions" |] -> 
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..."}
+        | Some client -> handleMentions client DateTime.UtcNow None
+    | [| "mentions"; datetime |] -> 
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> handleMentions client (DateTime.Parse datetime) None
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
     | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
