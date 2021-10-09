@@ -11,6 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="assets\black_rect.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -47,6 +50,6 @@
     <PackageReference Update="FSharp.Core" Version="5.0.2" />
   </ItemGroup>
 
-  <ProjectExtensions><VisualStudio><UserProperties test_3tweets_4schema_1json__JsonSchema="https://json-schema.org/draft-04/schema" test_3tweets_4tweets_4basicprivatetweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4basicreply_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4basicverifiedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4gifnoalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4imagesalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4imagetweetnoalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4poll_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4quotedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4unverifiedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4videoattribution_1json__JsonSchema="..\schema.json" /></VisualStudio></ProjectExtensions>
+  <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 
 </Project>

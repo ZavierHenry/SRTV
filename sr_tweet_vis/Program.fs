@@ -20,6 +20,14 @@ open SRTV.Utilities
 
 open System.Reflection
 
+let buildAppSettings () =
+    let builder = ConfigurationBuilder()
+    builder
+        .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+        .AddJsonFile("appsettings.json")
+        .Build()
+
+
 let exampleMockTweet =
     MockTweet(
         "I love that the Harvey’s burger chain got its name because the John Harvey Motors car dealership was going out of business and a guy opening a burger shop got the dealership sign for cheap.  A thrifty Canadian icon.",
@@ -137,8 +145,12 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
     }
         
 let rec handleMentions (client:Client) startDate (token: string option) = async {
-        
-    let! mentions = client.GetMentions(startDate)
+    
+    let! mentions =
+        token
+        |> Option.map (fun token -> client.GetMentions(startDate, token))
+        |> Option.defaultWith (fun () -> client.GetMentions(startDate))
+
     let requests = 
         let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
         mentions
@@ -209,7 +221,10 @@ let rec handleMentions (client:Client) startDate (token: string option) = async 
         | null -> return ()
         | meta ->
             match meta.NextToken with
-            | "" | null -> return ()
+            | "" | null -> 
+                let appsettings = buildAppSettings()
+                appsettings.["startMentionDateTime"]
+                return ()
             | token -> handleMentions client startDate (Some token) |> Async.Start
     | TwitterError (message, exn) ->
         printfn "A Twitter query exception has occurred when trying to get mentions: %s" message
@@ -261,14 +276,20 @@ let buildClient () =
     |> Option.filter (function | null -> false | _ -> true)
     |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
 
+
+
 [<EntryPoint>]
 let main argv =
 
     match argv with
     | [| "mentions" |] -> 
+        let appsettings = buildAppSettings ()
+        let datetime = 
+            appsettings.GetValue<string>("startMentionDateTime", appsettings.GetValue("defaultStartMentionDateTime"))
+            |> DateTime.Parse
         match buildClient() with
         | None -> async { printfn "Client cannot be built..."}
-        | Some client -> handleMentions client DateTime.UtcNow None
+        | Some client -> handleMentions client datetime None
     | [| "mentions"; datetime |] -> 
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
