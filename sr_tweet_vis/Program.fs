@@ -158,7 +158,7 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
             | "Not Found Error" -> 
                 TextTweet "Sorry, this tweet cannot be found to be rendered. Perhaps the tweet is deleted or the account is set to private?"
             | "Authorization Error" -> 
-                TextTweet "Sorry, there is an authorization error when trying to render this tweet"
+                TextTweet "Sorry, there was an authorization error when trying to render this tweet"
             | _ -> 
                 TextTweet "Sorry, there was an error from Twitter when trying to render this tweet"
 
@@ -174,14 +174,14 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
         
 let rec handleMentions client appsettings = 
     
-    let rec handleMentions' (client:Client) (appsettings:AppSettings.Root) (token: string option) = async {
+    let rec handleMentions' (client:Client) (appsettings:AppSettings.Root) endDate (token: string option) = async {
 
         let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultQueryDateTime
     
         let! mentions =
             token
-            |> Option.map (fun token -> client.GetMentions(startDate, token))
-            |> Option.defaultWith (fun () -> client.GetMentions(startDate))
+            |> Option.map (fun token -> client.GetMentions(startDate, endDate, token))
+            |> Option.defaultWith (fun () -> client.GetMentions(startDate, endDate))
 
         let requests = 
             let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
@@ -256,7 +256,7 @@ let rec handleMentions client appsettings =
                 | "" | null -> 
                     let appsettings = buildAppSettings()
                     return ()
-                | token -> handleMentions' client appsettings (Some token) |> Async.Start
+                | token -> handleMentions' client appsettings endDate (Some token) |> Async.Start
         | TwitterError (message, exn) ->
             printfn "A Twitter query exception has occurred when trying to get mentions: %s" message
             printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
@@ -266,7 +266,7 @@ let rec handleMentions client appsettings =
 
     }
     
-    handleMentions' client appsettings None
+    handleMentions' client appsettings DateTime.UtcNow None
 
 let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
