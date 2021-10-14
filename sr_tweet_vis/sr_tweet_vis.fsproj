@@ -31,7 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Data" Version="4.1.1" />
+    <PackageReference Include="FSharp.Data" Version="4.2.3" />
+    <PackageReference Include="FSharp.Json" Version="0.4.1" />
     <PackageReference Include="Humanizer" Version="2.11.10" />
     <PackageReference Include="Humanizer.Core" Version="2.11.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="5.0.0" />
