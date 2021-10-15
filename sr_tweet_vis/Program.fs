@@ -35,11 +35,11 @@ type AppSettings = JsonProvider<schema, SampleIsList=true>
 let buildAppSettings () = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json") |> AppSettings.Load
 
 type AppSettings.Root with
-    static member enqueueTweetID (appsettings:AppSettings.Root) tweetID =
+    static member enqueueTweetID tweetID (appsettings:AppSettings.Root)  =
         let queuedTweets = Array.append appsettings.QueuedTweets [| tweetID |]
         AppSettings.Root(queuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
    
-    static member dequeueTweetID (appsettings:AppSettings.Root) tweetID =
+    static member dequeueTweetID tweetID (appsettings:AppSettings.Root)  =
         let queuedTweets = Array.except [tweetID] appsettings.QueuedTweets
         AppSettings.Root(queuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
 
@@ -47,11 +47,11 @@ type AppSettings.Root with
         let rateLimit = AppSettings.RateLimit(false, None)
         AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultQueryDateTime, rateLimit, appsettings.QueryDateTime)
 
-    static member addRateLimit (appsettings:AppSettings.Root) (currentDateTime:DateTime) =
-        let rateLimit = AppSettings.RateLimit(true, Some <| currentDateTime.AddMinutes 15.0)
+    static member setRateLimit (currentDateTime:DateTime) (appsettings:AppSettings.Root) =
+        let rateLimit = AppSettings.RateLimit(true, Some <| currentDateTime.AddMinutes 5.0)
         AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultQueryDateTime, rateLimit, appsettings.QueryDateTime)
 
-    static member setQueryDateTime (appsettings:AppSettings.Root) queryDateTime =
+    static member setQueryDateTime queryDateTime (appsettings:AppSettings.Root)  =
         AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, Some queryDateTime)
 
     static member saveAppSettings (appsettings:AppSettings.Root) =
@@ -174,7 +174,7 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
         
 let rec handleMentions client appsettings = 
     
-    let rec handleMentions' (client:Client) (appsettings:AppSettings.Root) endDate (token: string option) = async {
+    let rec handleMentions' (client:Client) (appsettings:AppSettings.Root) endDate (updatedAppsettings:AppSettings.Root) (token: string option) = async {
 
         let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultQueryDateTime
     
@@ -200,7 +200,7 @@ let rec handleMentions client appsettings =
                     RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Text (toVersion fullVersion))
                 | GeneralRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
                     RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
-                | _ -> RenderRequest.init ("", DateTime.UtcNow, "", Video Version.Regular)))
+                | _ -> RenderRequest.init ("", endDate, "", Video Version.Regular)))
 
         let! responseQuery =
             requests
@@ -254,19 +254,29 @@ let rec handleMentions client appsettings =
             | meta ->
                 match meta.NextToken with
                 | "" | null -> 
-                    let appsettings = buildAppSettings()
+                    updatedAppsettings
+                    |> AppSettings.Root.clearRateLimit
+                    |> AppSettings.Root.setQueryDateTime endDate
+                    |> AppSettings.Root.saveAppSettings
                     return ()
-                | token -> handleMentions' client appsettings endDate (Some token) |> Async.Start
+                | token -> handleMentions' client appsettings endDate updatedAppsettings (Some token) |> Async.Start
         | TwitterError (message, exn) ->
             printfn "A Twitter query exception has occurred when trying to get mentions: %s" message
             printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
+            match exn.StatusCode with
+            | Net.HttpStatusCode.TooManyRequests -> 
+                updatedAppsettings
+                |> AppSettings.Root.setRateLimit endDate
+                |> AppSettings.Root.saveAppSettings
+                return ()
+            | _ -> return ()
         | OtherError (message, exn) ->
-            printfn "A non-Twitter-query exception has occurred when trying to get mentions: %s" message
+            printfn "A non-Twitter query exception has occurred when trying to get mentions: %s" message
             printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
 
     }
     
-    handleMentions' client appsettings DateTime.UtcNow None
+    handleMentions' client appsettings DateTime.UtcNow appsettings None
 
 let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
