@@ -18,6 +18,7 @@ FROM build AS publish
 COPY sr_tweet_vis/ .
 RUN dotnet publish -c Release -o publish
 
+# Copy published app to base
 FROM base
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
@@ -39,7 +40,7 @@ RUN	mkdir -p /TTS/app/bin && \
 	find /app/lib/python3.7/site-packages -name *.py -exec rm {} + && \
 	cp -r /app/lib/python3.7/site-packages /TTS/app/lib/python3.7
 	
-
+# Delete unnessary packages
 WORKDIR /TTS/app/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
 	     matplotlib/mpl-data/images unidic_lite/dicdir/unidic-mecab.pdf && \
