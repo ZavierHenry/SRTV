@@ -74,8 +74,9 @@ module TweetImage =
 
         async {
             do! BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask |> Async.Ignore
+           
 
-            let launchOptions = LaunchOptions(Headless = true)
+            let launchOptions = LaunchOptions(Headless = true, Args = [| "--no-sandbox" |])
             //launchOptions.Headless <- true
 
             let! browser = Puppeteer.LaunchAsync(launchOptions) |> Async.AwaitTask

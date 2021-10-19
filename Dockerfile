@@ -10,18 +10,18 @@ RUN dotnet restore
 
 # Extract needed FFMPEG files and directories
 FROM jrottenberg/ffmpeg:scratch AS ffmpeg
-FROM base
-COPY --from=ffmpeg / /
+#FROM base
+#COPY --from=ffmpeg / /
 
 # Publish app
-FROM build AS publish
+FROM restore AS publish
 COPY sr_tweet_vis/ .
 RUN dotnet publish -c Release -o publish
 
 # Copy published app to base
-FROM base
-COPY --from=publish /app/publish .
-COPY --from=publish /app/assets/ /app/assets/
+#FROM base
+#COPY --from=publish /app/publish .
+#COPY --from=publish /app/assets/ /app/assets/
 
 # Extract needed TTS files and directories
 FROM synesthesiam/coqui-tts:latest AS tts
@@ -51,11 +51,13 @@ RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
 WORKDIR /TTS/usr/local/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
 
+
+
 # Run program
 FROM base
-#COPY --from=publish /app/publish .
-#COPY --from=publish /app/assets/ /app/assets/
-#COPY --from=ffmpeg / /
+COPY --from=publish /app/publish .
+COPY --from=publish /app/assets/ /app/assets/
+COPY --from=ffmpeg / /
 COPY --from=tts /TTS .
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
