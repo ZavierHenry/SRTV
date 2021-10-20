@@ -52,6 +52,14 @@ WORKDIR /TTS/usr/local/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
 
 
+FROM base AS puppeteer
+RUN apt-get update && apt-get -f install && apt-get -y install wget gnupg2 apt-utils
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-unstable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst \
+      --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 # Run program
 FROM base
@@ -59,9 +67,11 @@ COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
 COPY --from=ffmpeg / /
 COPY --from=tts /TTS .
+COPY --from=puppeteer / /
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 ENV PYTHONPATH="/app/lib/python3.7/site-packages"
+ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
 # ENTRYPOINT [ "/app/bin/tts", "-h" ]
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "synthesize", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]

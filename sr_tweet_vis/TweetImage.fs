@@ -13,6 +13,8 @@ module TweetImage =
     module Doc = FSharp.Data.HtmlDocument
     module Node = FSharp.Data.HtmlNode
 
+    let [<Literal>] ChromeExecutableKey = "CHROME_EXECUTABLE"
+
     let toAssocList = Seq.map (function | HtmlAttribute x -> x)
     let setText text = function
         | HtmlElement (tag, attrs, children) ->
@@ -73,10 +75,12 @@ module TweetImage =
             |> transformDOM (Node.hasId "tweetText") (setText text)
 
         async {
-            do! BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask |> Async.Ignore
-           
 
-            let launchOptions = LaunchOptions(Headless = true, Args = [| "--no-sandbox" |])
+            do! BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision) |> Async.AwaitTask |> Async.Ignore
+            let chromePath = tryFindEnvironmentVariable ChromeExecutableKey |> Option.defaultValue ""
+
+            let launchOptions = LaunchOptions(Headless = true, Args = [| "--no-sandbox" |], ExecutablePath = chromePath)
+
             //launchOptions.Headless <- true
 
             let! browser = Puppeteer.LaunchAsync(launchOptions) |> Async.AwaitTask
