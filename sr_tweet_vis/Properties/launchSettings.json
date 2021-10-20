@@ -14,6 +14,13 @@
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
         "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
       }
+    },
+    "image": {
+      "commandName": "Project",
+      "commandLineArgs": "\"image\"",
+      "environmentVariables": {
+        "CHROME_EXECUTABLE": "./.local-chromium/Win64-848005/chrome-win/chrome.exe"
+      }
     }
   }
 }
