@@ -62,7 +62,7 @@ type AppSettings.Root with
         AppSettings.Root(queuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
    
     static member dequeueTweetID tweetID (appsettings:AppSettings.Root)  =
-        let queuedTweets = Array.except [tweetID] appsettings.QueuedTweets
+        let queuedTweets = appsettings.QueuedTweets |> Array.filter (fun x -> x.RequestTweetId <> tweetID)
         AppSettings.Root(queuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
 
     static member clearRateLimit (appsettings:AppSettings.Root) =
@@ -172,23 +172,24 @@ let handleTweet client tweet includes map request = async {
     let! result = render client tweet includes map request
     logClientResultError (sprintf "trying to render tweet ID %s" tweet.ID) result
 
-    return match result with
-    | Success () -> Success <| Choice1Of2 ()
-    | TwitterError (message, exn) ->
-        match exn.StatusCode with
-        | Net.HttpStatusCode.TooManyRequests ->
-            let mockTweet = MockTweet(tweet, includes, Map.tryFind tweet.ID map |> Option.defaultValue Seq.empty)
-            let text =
-                match request.renderOptions with
-                | Video Version.Full | Image (_, Version.Full) | Text Version.Full ->
-                    mockTweet.ToFullSpeakText(request.requestDateTime)
-                | Video Version.Regular | Image (_, Version.Regular) | Text Version.Regular -> 
-                    mockTweet.ToSpeakText(request.requestDateTime)
-            AppSettings.QueuedTweet(request.requestTweetID, RenderOptions.toRenderType request.renderOptions, text, None) 
-            |> Choice2Of2 
-            |> Success
-        | _ -> TwitterError (message, exn)
-    | OtherError (message, exn) -> OtherError (message, exn)
+    return 
+        match result with
+        | Success () -> Success <| Choice1Of2 ()
+        | TwitterError (message, exn) ->
+            match exn.StatusCode with
+            | Net.HttpStatusCode.TooManyRequests ->
+                let mockTweet = MockTweet(tweet, includes, Map.tryFind tweet.ID map |> Option.defaultValue Seq.empty)
+                let text =
+                    match request.renderOptions with
+                    | Video Version.Full | Image (_, Version.Full) | Text Version.Full ->
+                        mockTweet.ToFullSpeakText(request.requestDateTime)
+                    | Video Version.Regular | Image (_, Version.Regular) | Text Version.Regular -> 
+                        mockTweet.ToSpeakText(request.requestDateTime)
+                AppSettings.QueuedTweet(request.requestTweetID, RenderOptions.toRenderType request.renderOptions, text, None) 
+                |> Choice2Of2 
+                |> Success
+            | _ -> TwitterError (message, exn)
+        | OtherError (message, exn) -> OtherError (message, exn)
 }
 
 
@@ -208,21 +209,19 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
     async {
         let! result = client.ReplyAsync(replyID, srtvTweet)
 
-        return match result with
-        | Success ()        -> Success <| Choice1Of2 ()
-        | TwitterError (message, exn) ->
-            match exn.StatusCode with
-            | Net.HttpStatusCode.TooManyRequests ->
-                AppSettings.QueuedTweet(request.requestTweetID, RenderOptions.toRenderType request.renderOptions, text, None) 
-                |> Choice2Of2 
-                |> Success
-            | _ -> TwitterError(message, exn)
-        | OtherError (message, exn) -> OtherError (message, exn)
+        return 
+            match result with
+            | Success ()        -> Success <| Choice1Of2 ()
+            | TwitterError (message, exn) ->
+                match exn.StatusCode with
+                | Net.HttpStatusCode.TooManyRequests ->
+                    AppSettings.QueuedTweet(request.requestTweetID, RenderOptions.toRenderType request.renderOptions, text, None) 
+                    |> Choice2Of2 
+                    |> Success
+                | _ -> TwitterError(message, exn)
+            | OtherError (message, exn) -> OtherError (message, exn)
     }
     
-
-        
-
 
 
 let handleMentions (client:Client) (appsettings:AppSettings.Root) =
@@ -297,6 +296,8 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
             | Success handlers -> Async.Parallel handlers
             | _ -> async { return Array.empty }
 
+
+
         match mentions with
         | Success mentions ->
             match mentions.Meta with
@@ -324,8 +325,13 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
 
     let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultQueryDateTime
     let endDate = DateTime.UtcNow
+    let rateDate = appsettings.RateLimit.NextQueryDateTime |> Option.filter (fun _ -> appsettings.RateLimit.Limited) |> Option.defaultValue endDate
 
-    handleMentions' client appsettings startDate endDate None
+    if rateDate <= endDate 
+    then 
+        handleMentions' client (AppSettings.Root.clearRateLimit appsettings) startDate endDate None
+    else async { printfn "App is rate limited until %A" rateDate }
+
 
 let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
