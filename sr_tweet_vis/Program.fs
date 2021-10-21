@@ -104,6 +104,15 @@ type RenderRequest =
             renderOptions = renderOptions
         }
 
+let logClientResultError desc = function
+    | Success _ -> ()
+    | TwitterError (message, exn) ->
+        printfn "Twitter error occurred when %s: %s" desc message
+        printfn "Error received from Twitter: %A" exn
+    | OtherError (message, exn) ->
+        printfn "Non-Twitter error occurred when %s: %s" desc message
+        printfn "Exception raised: %A" exn
+
 
 let render (client:Client) tweet includes map (request:RenderRequest) =
     let mockTweet =
@@ -137,14 +146,8 @@ let render (client:Client) tweet includes map (request:RenderRequest) =
         client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
 
 let handleTweet client tweet includes map request = async {
-    match! render client tweet includes map request with
-    | Success () -> return ()
-    | TwitterError (message, exn) ->
-        printfn "Error occurred when trying to render tweet ID %s: %s" tweet.ID message
-        printfn "Error received from Twitter %A" exn
-    | OtherError (message, exn) ->
-        printfn "Error occured when tring to render tweet ID %s: %s" tweet.ID message
-        printfn "Exception raised %A" exn 
+    let! result = render client tweet includes map request
+    logClientResultError (sprintf "trying to render tweet ID %s" tweet.ID) result
 }
 
 
@@ -162,14 +165,8 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
             | _ -> 
                 TextTweet "Sorry, there was an error from Twitter when trying to render this tweet"
 
-        match! client.ReplyAsync(replyID, srtvTweet) with
-        | Success ()        -> ()
-        | TwitterError (message, exn) ->
-            printfn "Twitter error when sending error about tweet %s: %s" error.ID message
-            printfn "Error received from Twitter %A" exn
-        | OtherError (message, exn) ->
-            printfn "Error occurred when sending error about tweet %s: %s" error.ID message
-            printfn "Exception raised: %A" exn
+        let! result = client.ReplyAsync(replyID, srtvTweet)
+        logClientResultError (sprintf "sending error about tweet %s" error.ID) result
     }
         
 let rec handleMentions client appsettings = 
@@ -183,29 +180,30 @@ let rec handleMentions client appsettings =
             |> Option.map (fun token -> client.GetMentions(startDate, endDate, token))
             |> Option.defaultWith (fun () -> client.GetMentions(startDate, endDate))
 
+        logClientResultError "getting mentions for the client" mentions
+
         let requests = 
             let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
             mentions
-            |> ClientResult.map (fun mentions -> mentions.Tweets)
-            |> ClientResult.map (Seq.filter (function
-                | VideoRenderMention _ | ImageRenderMention _ 
-                | TextRenderMention _ | GeneralRenderMention _ -> true
-                | _ -> false ))
-            |> ClientResult.map (Seq.map (function
-                | VideoRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
-                    RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
-                | ImageRenderMention (requestTweetID, requestDateTime, theme, fullVersion, renderTweetID) -> 
-                    RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Image (Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim, toVersion fullVersion))
-                | TextRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
-                    RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Text (toVersion fullVersion))
-                | GeneralRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
-                    RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
-                | _ -> RenderRequest.init ("", endDate, "", Video Version.Regular)))
+            |> ClientResult.map (fun mentions -> 
+                nullableSequenceToValue mentions.Tweets
+                |> Seq.choose (function
+                    | VideoRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                        Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+                    | ImageRenderMention (requestTweetID, requestDateTime, theme, fullVersion, renderTweetID) -> 
+                        Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Image (Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim, toVersion fullVersion)) 
+                    | TextRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                        Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Text (toVersion fullVersion))
+                    | GeneralRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
+                        Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+                    | _ -> None))
 
         let! responseQuery =
             requests
             |> ClientResult.map ( Seq.map (fun {renderTweetID = id} -> id) )
             |> ClientResult.bindAsync client.GetTweets
+
+        logClientResultError "getting requested renderable tweets" responseQuery
 
         let! extendedEntities =
             responseQuery
@@ -218,6 +216,8 @@ let rec handleMentions client appsettings =
                     |> Option.exists (not << Seq.isEmpty))
                 |> Seq.map (fun tweet -> tweet.ID))
             |> ClientResult.bindAsync client.getTweetMediaEntities
+
+        logClientResultError "getting extended entities for renderable tweets with media" extendedEntities
 
         let requestHandlers = 
             extendedEntities
@@ -237,6 +237,11 @@ let rec handleMentions client appsettings =
                         |> Seq.tryFind (fun error -> request.renderTweetID = error.ID)
                         |> Option.map (fun error -> handleError client error request))
                     |> Option.defaultWith (fun () -> async { return () } )))
+
+        let! renderResults = 
+            match requestHandlers with
+            | Success handlers -> Async.Parallel handlers
+            | _ -> async { return Array.empty }
 
         match requestHandlers with
         | Success handlers -> handlers |> Async.Parallel |> Async.Ignore |> Async.Start
@@ -261,18 +266,13 @@ let rec handleMentions client appsettings =
                     return ()
                 | token -> handleMentions' client appsettings endDate updatedAppsettings (Some token) |> Async.Start
         | TwitterError (message, exn) ->
-            printfn "A Twitter query exception has occurred when trying to get mentions: %s" message
-            printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
             match exn.StatusCode with
             | Net.HttpStatusCode.TooManyRequests -> 
                 updatedAppsettings
                 |> AppSettings.Root.setRateLimit endDate
                 |> AppSettings.Root.saveAppSettings
-                return ()
-            | _ -> return ()
-        | OtherError (message, exn) ->
-            printfn "A non-Twitter query exception has occurred when trying to get mentions: %s" message
-            printfn "Error: %A, Stack trace: %s" exn exn.StackTrace
+            | _ -> ()
+        | OtherError (message, exn) -> return ()
 
     }
     
