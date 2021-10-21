@@ -27,8 +27,30 @@ open System.Reflection
 [<Literal>]
 let private schema = 
     """[
-        { "queuedTweets": [ "a" ], "defaultQueryDateTime": "8/30/2021 12:00:00 AM", "rateLimit": { "limited": false } },
-        { "queuedTweets": [ "b" ], "defaultQueryDateTime": "8/30/2021 12:00:00 AM", "queryDateTime": "9/13/2021 3:45:00 PM", "rateLimit": { "limited": true, "nextQueryDateTime": "8/30/2021 12:00:00 AM" } }
+        { "queuedTweets": [ 
+                {  
+                    "requestTweetID": "a", 
+                    "renderType": "a",
+                    "text": "a"
+                } 
+            ], "defaultQueryDateTime": "8/30/2021 12:00:00 AM", "rateLimit": { "limited": false } 
+        },
+        { "queuedTweets": [ 
+                { 
+                    "requestTweetID": "a", 
+                    "renderType": "a",
+                    "text": "a",
+                    "imageInfo": {
+                        "source": "a",
+                        "profilePicture": "a",
+                        "date": "8/30/2021 12:00:00 AM",
+                        "verified": true,
+                        "protected": true,
+                        "name": "a",
+                        "screenName": "a"
+                    }
+                } 
+            ], "defaultQueryDateTime": "8/30/2021 12:00:00 AM", "queryDateTime": "9/13/2021 3:45:00 PM", "rateLimit": { "limited": true, "nextQueryDateTime": "8/30/2021 12:00:00 AM" } }
        ]"""
 
 type AppSettings = JsonProvider<schema, SampleIsList=true>
@@ -56,6 +78,7 @@ type AppSettings.Root with
 
     static member saveAppSettings (appsettings:AppSettings.Root) =
         File.WriteAllText("appsettings.json", appsettings.ToString())
+
 
 
 let exampleMockTweet =
@@ -148,34 +171,66 @@ let render (client:Client) tweet includes map (request:RenderRequest) =
 let handleTweet client tweet includes map request = async {
     let! result = render client tweet includes map request
     logClientResultError (sprintf "trying to render tweet ID %s" tweet.ID) result
+
+    return match result with
+    | Success () -> Success <| Choice1Of2 ()
+    | TwitterError (message, exn) ->
+        match exn.StatusCode with
+        | Net.HttpStatusCode.TooManyRequests ->
+            let mockTweet = MockTweet(tweet, includes, Map.tryFind tweet.ID map |> Option.defaultValue Seq.empty)
+            let text =
+                match request.renderOptions with
+                | Video Version.Full | Image (_, Version.Full) | Text Version.Full ->
+                    mockTweet.ToFullSpeakText(request.requestDateTime)
+                | Video Version.Regular | Image (_, Version.Regular) | Text Version.Regular -> 
+                    mockTweet.ToSpeakText(request.requestDateTime)
+            AppSettings.QueuedTweet(request.requestTweetID, RenderOptions.toRenderType request.renderOptions, text, None) 
+            |> Choice2Of2 
+            |> Success
+        | _ -> TwitterError (message, exn)
+    | OtherError (message, exn) -> OtherError (message, exn)
 }
 
 
 let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (request:RenderRequest) =
     
     let replyID = uint64 request.requestTweetID
+    let text = 
+        match error.Title with
+        | "Not Found Error" -> 
+             "Sorry, this tweet cannot be found to be rendered. Perhaps the tweet is deleted or the account is set to private?"
+        | "Authorization Error" -> 
+             "Sorry, there was an authorization error when trying to render this tweet"
+        | _ -> 
+            "Sorry, there was an error from Twitter when trying to render this tweet"
 
+    let srtvTweet = TextTweet text
     async {
-        let srtvTweet = 
-            match error.Title with
-            | "Not Found Error" -> 
-                TextTweet "Sorry, this tweet cannot be found to be rendered. Perhaps the tweet is deleted or the account is set to private?"
-            | "Authorization Error" -> 
-                TextTweet "Sorry, there was an authorization error when trying to render this tweet"
-            | _ -> 
-                TextTweet "Sorry, there was an error from Twitter when trying to render this tweet"
-
         let! result = client.ReplyAsync(replyID, srtvTweet)
-        logClientResultError (sprintf "sending error about tweet %s" error.ID) result
-    }
-        
-let rec handleMentions client appsettings = 
-    
-    let rec handleMentions' (client:Client) (appsettings:AppSettings.Root) endDate (updatedAppsettings:AppSettings.Root) (token: string option) = async {
 
-        let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultQueryDateTime
+        return match result with
+        | Success ()        -> Success <| Choice1Of2 ()
+        | TwitterError (message, exn) ->
+            match exn.StatusCode with
+            | Net.HttpStatusCode.TooManyRequests ->
+                AppSettings.QueuedTweet(request.requestTweetID, RenderOptions.toRenderType request.renderOptions, text, None) 
+                |> Choice2Of2 
+                |> Success
+            | _ -> TwitterError(message, exn)
+        | OtherError (message, exn) -> OtherError (message, exn)
+    }
     
+
+        
+
+
+
+let handleMentions (client:Client) (appsettings:AppSettings.Root) =
+
+    let rec handleMentions' (client:Client) appsettings startDate endDate (token: string option) = async {
+
         let! mentions =
+    
             token
             |> Option.map (fun token -> client.GetMentions(startDate, endDate, token))
             |> Option.defaultWith (fun () -> client.GetMentions(startDate, endDate))
@@ -226,7 +281,7 @@ let rec handleMentions client appsettings =
             |> ClientResult.bind (fun (resp, ee) -> requests |> ClientResult.map (fun requests -> (requests, resp, ee)))
             |> ClientResult.map (fun (requests, resp, ee) ->
                 requests
-                |> Seq.map (fun request -> 
+                |> Seq.choose (fun request -> 
                     resp.Tweets
                     |> nullableSequenceToValue
                     |> Seq.tryFind (fun tweet -> request.renderTweetID = tweet.ID)
@@ -235,22 +290,12 @@ let rec handleMentions client appsettings =
                         resp.Errors
                         |> nullableSequenceToValue
                         |> Seq.tryFind (fun error -> request.renderTweetID = error.ID)
-                        |> Option.map (fun error -> handleError client error request))
-                    |> Option.defaultWith (fun () -> async { return () } )))
+                        |> Option.map (fun error -> handleError client error request))))
 
-        let! renderResults = 
+        let! results =
             match requestHandlers with
             | Success handlers -> Async.Parallel handlers
             | _ -> async { return Array.empty }
-
-        match requestHandlers with
-        | Success handlers -> handlers |> Async.Parallel |> Async.Ignore |> Async.Start
-        | TwitterError (message, exn) ->
-            printfn "Twitter error occurred: %s" message
-            printfn "Error received from Twitter: %A" exn
-        | OtherError (message, exn) ->
-            printfn "Error occurred: %s" message
-            printfn "Exception raised: %A" exn
 
         match mentions with
         | Success mentions ->
@@ -259,24 +304,28 @@ let rec handleMentions client appsettings =
             | meta ->
                 match meta.NextToken with
                 | "" | null -> 
-                    updatedAppsettings
+                    appsettings
                     |> AppSettings.Root.clearRateLimit
                     |> AppSettings.Root.setQueryDateTime endDate
                     |> AppSettings.Root.saveAppSettings
                     return ()
-                | token -> handleMentions' client appsettings endDate updatedAppsettings (Some token) |> Async.Start
+                | token -> handleMentions' client appsettings startDate endDate (Some token) |> Async.Start
         | TwitterError (message, exn) ->
             match exn.StatusCode with
             | Net.HttpStatusCode.TooManyRequests -> 
-                updatedAppsettings
+                appsettings
                 |> AppSettings.Root.setRateLimit endDate
                 |> AppSettings.Root.saveAppSettings
-            | _ -> ()
+                return ()
+            | _ -> return ()
         | OtherError (message, exn) -> return ()
 
     }
-    
-    handleMentions' client appsettings DateTime.UtcNow appsettings None
+
+    let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultQueryDateTime
+    let endDate = DateTime.UtcNow
+
+    handleMentions' client appsettings startDate endDate None
 
 let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")

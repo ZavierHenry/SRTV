@@ -17,12 +17,18 @@ module Utilities =
             | "dark"    -> Some Theme.Dark
             | _         -> None
 
-    type Version = | Regular | Full
+    type Version = 
+        | Regular | Full
 
     type RenderOptions =
         | Video of version:Version
         | Image of theme:Theme * version:Version
         | Text of version:Version
+
+        static member toRenderType = function
+            | Video _ -> "video"
+            | Image (theme, _) -> $"{Theme.toAttributeValue theme} image"
+            | Text _ -> "text"
     
     type TempFile() =
         let path = Path.GetTempFileName()
