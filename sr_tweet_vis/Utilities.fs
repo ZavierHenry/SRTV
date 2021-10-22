@@ -4,6 +4,8 @@ module Utilities =
     open System
     open System.IO
 
+    open System.Text.RegularExpressions
+
     type Theme = 
         Light | Dim | Dark
         static member toAttributeValue = function
@@ -29,7 +31,16 @@ module Utilities =
             | Video _ -> "video"
             | Image (theme, _) -> $"{Theme.toAttributeValue theme} image"
             | Text _ -> "text"
-    
+
+        static member fromRenderType = function
+            | "video" -> Some <| Video Version.Regular
+            | "text" -> Some <| Text Version.Regular
+            | renderType when Regex.IsMatch(renderType, @"^\w+ image$") ->
+                let attr = Regex.Match(renderType, @"^(\w+) image$").Groups.[1].Value
+                Theme.fromAttributeValue attr |> Option.map (fun theme -> Image (theme, Version.Regular))
+            | _ -> None
+
+               
     type TempFile() =
         let path = Path.GetTempFileName()
         member this.Path = path

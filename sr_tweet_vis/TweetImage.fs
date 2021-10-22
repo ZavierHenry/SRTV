@@ -61,12 +61,8 @@ module TweetImage =
     }
 
 
-    let tweetInfoToImage (tweetInfo:ImageTweetInfo) renderOptions =
-        let theme =
-            match renderOptions with
-            | Image (theme, _) -> theme
-            | Text _ | Video _ -> Theme.Dim
-
+    let tweetInfoToImage (tweetInfo:ImageTweetInfo) theme =
+            
         //let text = 
         //    match renderOptions with
         //    | Image (_, Version.Full) | Text Version.Full | Video Version.Full ->
@@ -136,7 +132,7 @@ module TweetImage =
                     mockTweet.ToSpeakText(ref)
         }
 
-        tweetInfoToImage tweetInfo renderOptions
+        tweetInfoToImage tweetInfo (match renderOptions with | Image (theme, _) -> theme | Text _ | Video _ -> Theme.Dim)
 
 
         

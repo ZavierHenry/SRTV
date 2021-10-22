@@ -21,6 +21,7 @@ open SRTV.SRTVResponse
 open SRTV.Utilities
 
 open System.Reflection
+open System.Text.RegularExpressions
 
 
 
@@ -79,6 +80,26 @@ type AppSettings.Root with
     static member saveAppSettings (appsettings:AppSettings.Root) =
         File.WriteAllText("appsettings.json", appsettings.ToString())
 
+type RenderType =
+    | VideoRender
+    | ImageRender of Theme
+    | TextRender
+    | ErrorRender
+
+    static member serialize = function
+        | VideoRender -> "video"
+        | ImageRender theme -> $"{Theme.toAttributeValue theme} image"
+        | TextRender -> "text"
+        | ErrorRender -> "error"
+
+    static member deserialize = function
+        | "video" -> Some VideoRender
+        | "text" -> Some TextRender
+        | "error" -> Some ErrorRender
+        | renderType when Regex.IsMatch(renderType, $"^\w+ image$") ->
+            let theme = Regex.Match(renderType, $"^(\w+) image$").Groups.[1].Value
+            Theme.fromAttributeValue theme |> Option.map ImageRender
+        | _ -> None
 
 
 let exampleMockTweet =
@@ -167,6 +188,53 @@ let render (client:Client) tweet includes map (request:RenderRequest) =
         let text = match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
         let srtvTweet = TextTweet $"Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s{text}"
         client.ReplyAsync(uint64 request.requestTweetID, srtvTweet)
+
+
+let handleQueuedTweet (client:Client) (queuedTweet:AppSettings.QueuedTweet) =
+    match RenderType.deserialize queuedTweet.RenderType with
+    | Some VideoRender ->
+        async {
+            use tempfile = new TempFile()
+            try
+                do! Synthesizer().Synthesize(queuedTweet.Text, tempfile.Path)
+                let srtvTweet = AudioTweet (tempfile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
+                return! client.ReplyAsync(uint64 queuedTweet.RequestTweetId, srtvTweet)
+            with exn -> return OtherError ("Video could not be made", exn)
+        }
+    | Some (ImageRender theme) ->
+
+        queuedTweet.ImageInfo
+        |> Option.map (fun info ->
+            {
+                name = info.Name
+                screenName = info.ScreenName
+                profileUrl = info.ProfilePicture
+                locked = info.Protected
+                verified = info.Verified
+
+                source = info.Source
+                date = info.Date
+                text = queuedTweet.Text
+            })
+        |> Option.map (fun info ->
+            async { 
+                let! image = tweetInfoToImage info theme
+                let srtvTweet = ImageTweet (image, "Hello! Your image is here and should be attached. There should also be alt text in the image. If the alt text is too big for the image, it will be tweeted in the replies. Thank you for using the SRTV bot", info.text)
+                return! client.ReplyAsync(uint64 queuedTweet.RequestTweetId, srtvTweet)
+            })
+        |> Option.defaultWith (fun () -> async { return OtherError ("Queued tweet info was not available", Failure("Queued tweet info was not available"))})
+
+    | Some TextRender ->
+        let srtvTweet = TextTweet $"Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s{queuedTweet.Text}"
+        client.ReplyAsync(uint64 queuedTweet.RequestTweetId, srtvTweet)
+        
+    | Some ErrorRender ->
+        client.ReplyAsync(uint64 queuedTweet.RequestTweetId, TextTweet queuedTweet.Text)
+
+    | None -> async { return OtherError($"Could not deseralize render type {queuedTweet.RenderType}", Failure($"Could not deserialize render type"))}
+
+    
+
 
 let handleTweet client tweet includes map request = async {
     let! result = render client tweet includes map request
@@ -296,8 +364,7 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
             | Success handlers -> Async.Parallel handlers
             | _ -> async { return Array.empty }
 
-
-
+      
         match mentions with
         | Success mentions ->
             match mentions.Meta with
