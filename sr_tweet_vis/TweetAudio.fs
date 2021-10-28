@@ -170,7 +170,7 @@ module TweetAudio =
             return timestamps |> List.sortBy (fun (Silence (se, _)) -> se)
         }
 
-        member __.MakeVideo(audioFile :string, subtitleFile: string, imageFile: string, outFile:string) = async {
+        member __.MakeVideo(audioFile: string, subtitleFile: string, imageFile: string, outFile:string) = async {
             
             let! audioInfo = FFmpeg.GetMediaInfo(audioFile) |> Async.AwaitTask
             let audioStream = 
@@ -206,15 +206,13 @@ module TweetAudio =
         let engine = TTS()
         let ffmpeg = FFMPEG()
 
-        member __.Speak(words: string, filename: string) = async {
-            do! engine.Speak(words, filename)
-        }
+        member __.Speak(words: string, filename: string) = engine.Speak(words, filename)
 
         member this.Synthesize(speakText: string, outfile: string) = async {
             
             use tempAudioFile = new TempFile()
-
             do! this.Speak(speakText, tempAudioFile.Path)
+
             let! timestamps =
                 match captions.HasLineOverflow(speakText) with
                 | true ->
@@ -224,14 +222,15 @@ module TweetAudio =
                         do! this.Speak(captionText, tempCaptionsAudioFile.Path)
                         return! ffmpeg.SilenceDetect(tempCaptionsAudioFile.Path)
                     }
-                | false -> ffmpeg.SilenceDetect(tempAudioFile.Path)
+                | false -> 
+                    ffmpeg.SilenceDetect(tempAudioFile.Path)
 
             let subtitles = captions.ToCaptions(speakText, timestamps)
             use captionsFile = new TempFile()
-            do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
+            File.WriteAllText(captionsFile.Path, subtitles)
 
             let imageFile = Path.Join(Environment.CurrentDirectory, "assets", "black_rect.jpg")
-            do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
+            return! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
         }
 
         member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOptions) =

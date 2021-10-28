@@ -48,31 +48,40 @@ module TweetImage =
 
     type ImageTemplate = HtmlProvider<"assets/template.html">
 
-    let toImage (mockTweet:MockTweet) profileUrl source ref renderOptions =
-        let theme =
-            match renderOptions with
-            | Image (theme, _) -> theme
-            | Text _ | Video _ -> Theme.Dim
+    type ImageTweetInfo = {
+        name: string
+        screenName: string
+        profileUrl: string
+        verified: bool
+        locked: bool
 
-        let text = 
-            match renderOptions with
-            | Image (_, Version.Full) | Text Version.Full | Video Version.Full ->
-                mockTweet.ToFullSpeakText(ref)
-            | Image (_, Version.Regular) | Text Version.Regular | Video Version.Regular ->
-                mockTweet.ToSpeakText(ref)
+        source: string
+        date: System.DateTime
+        text: string
+    }
+
+
+    let tweetInfoToImage (tweetInfo:ImageTweetInfo) theme =
+            
+        //let text = 
+        //    match renderOptions with
+        //    | Image (_, Version.Full) | Text Version.Full | Video Version.Full ->
+        //        mockTweet.ToFullSpeakText(ref)
+        //    | Image (_, Version.Regular) | Text Version.Regular | Video Version.Regular ->
+        //        mockTweet.ToSpeakText(ref)
 
         let document =
             ImageTemplate.GetSample().Html
             |> transformDOM (Node.hasId "tweetContainer") (Theme.toAttributeValue theme |> setAttribute "theme")
-            |> transformDOM (Node.hasId "pfp") (setAttribute "src" profileUrl)
-            |> transformDOM (Node.hasId "username") (setText  $"@{mockTweet.ScreenName}")
-            |> transformDOM (Node.hasId "name") (setText mockTweet.Name)
-            |> transformDOM (Node.hasId "verified") (setAttribute "style" (if mockTweet.IsVerified then "" else "display:none;"))
-            |> transformDOM (Node.hasId "protected") (setAttribute "style" (if mockTweet.IsProtected then "" else "display:none;"))
-            |> transformDOM (Node.hasId "dateOutput") (setText <| mockTweet.Date.ToString(@"MMM d, yyyy"))
-            |> transformDOM (Node.hasId "timeOutput") (setText <| mockTweet.Date.ToString(@"h\:mm tt"))
-            |> transformDOM (Node.hasId "client") (setText source)
-            |> transformDOM (Node.hasId "tweetText") (setText text)
+            |> transformDOM (Node.hasId "pfp") (setAttribute "src" tweetInfo.profileUrl)
+            |> transformDOM (Node.hasId "username") (setText  $"@{tweetInfo.screenName}")
+            |> transformDOM (Node.hasId "name") (setText tweetInfo.name)
+            |> transformDOM (Node.hasId "verified") (setAttribute "style" (if tweetInfo.verified then "" else "display:none;"))
+            |> transformDOM (Node.hasId "protected") (setAttribute "style" (if tweetInfo.locked then "" else "display:none;"))
+            |> transformDOM (Node.hasId "dateOutput") (setText <| tweetInfo.date.ToString(@"MMM d, yyyy"))
+            |> transformDOM (Node.hasId "timeOutput") (setText <| tweetInfo.date.ToString(@"h\:mm tt"))
+            |> transformDOM (Node.hasId "client") (setText tweetInfo.source)
+            |> transformDOM (Node.hasId "tweetText") (setText tweetInfo.text)
 
         async {
 
@@ -104,3 +113,26 @@ module TweetImage =
 
             return! page.ScreenshotDataAsync(screenshotOptions) |> Async.AwaitTask
         }
+
+    let toImage (mockTweet:MockTweet) profileUrl source ref renderOptions =
+        let tweetInfo = {
+            name = mockTweet.Name
+            screenName = mockTweet.ScreenName
+            profileUrl = profileUrl
+            source = source
+            verified = mockTweet.IsVerified
+            locked = mockTweet.IsProtected
+
+            date = mockTweet.Date
+            text =
+                match renderOptions with
+                | Image (_, Version.Full) | Text Version.Full | Video Version.Full ->
+                    mockTweet.ToFullSpeakText(ref)
+                | Image (_, Version.Regular) | Text Version.Regular | Video Version.Regular ->
+                    mockTweet.ToSpeakText(ref)
+        }
+
+        tweetInfoToImage tweetInfo (match renderOptions with | Image (theme, _) -> theme | Text _ | Video _ -> Theme.Dim)
+
+
+        

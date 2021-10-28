@@ -11,6 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="assets\black_rect.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -28,7 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Data" Version="4.1.1" />
+    <PackageReference Include="FSharp.Data" Version="4.2.3" />
+    <PackageReference Include="FSharp.Json" Version="0.4.1" />
     <PackageReference Include="Humanizer" Version="2.11.10" />
     <PackageReference Include="Humanizer.Core" Version="2.11.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="5.0.0" />
@@ -47,6 +51,6 @@
     <PackageReference Update="FSharp.Core" Version="5.0.2" />
   </ItemGroup>
 
-  <ProjectExtensions><VisualStudio><UserProperties test_3tweets_4schema_1json__JsonSchema="https://json-schema.org/draft-04/schema" test_3tweets_4tweets_4basicprivatetweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4basicreply_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4basicverifiedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4gifnoalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4imagesalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4imagetweetnoalttext_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4poll_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4quotedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4unverifiedtweet_1json__JsonSchema="..\schema.json" test_3tweets_4tweets_4videoattribution_1json__JsonSchema="..\schema.json" /></VisualStudio></ProjectExtensions>
+  <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>
 
 </Project>

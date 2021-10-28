@@ -272,13 +272,14 @@ module Twitter =
                 this.makeTwitterCall failureMessage call
                 
 
-            member this.GetMentions(lastQueriedTime: DateTime, ?paginationToken:string) =
+            member this.GetMentions(startTime: DateTime, endTime: DateTime, ?paginationToken:string) =
                 let query () = query {
                     for tweet in context.Tweets do
                         where (
                             tweet.Type = TweetType.MentionsTimeline &&
                             tweet.ID = userID &&
-                            tweet.EndTime = lastQueriedTime &&
+                            tweet.StartTime = startTime &&
+                            tweet.EndTime = endTime &&
                             tweet.TweetFields = toParams tweetFields &&
                             tweet.UserFields = toParams userFields &&
                             tweet.Expansions = toParams expansions &&
@@ -288,7 +289,7 @@ module Twitter =
                         select tweet
                 }
 
-                this.makeTwitterSingleQuery $"Problem getting mentions after the last queried time {lastQueriedTime.ToLongTimeString()}" query
+                this.makeTwitterSingleQuery (sprintf "Problem getting mentions between %A and %A" startTime endTime) query
 
             member this.GetTweets(ids: string seq) =
                 let query() = query {
