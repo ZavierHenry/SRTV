@@ -12,7 +12,8 @@
       "commandLineArgs": "\"synthesize\" \"A hot dog is a sandwich Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post\" \"./long_synthesis.mp4\"",
       "environmentVariables": {
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
-        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
+        "TTS_MODEL_DIRECTORY": "C:\\TTS\\models\\vits\\vits"
       }
     },
     "short_synthesis": {
@@ -20,7 +21,8 @@
       "commandLineArgs": "\"synthesize\" \"What a beautiful day in the country\" \"./short_synthesis.mp4\"",
       "environmentVariables": {
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
-        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
+        "TTS_MODEL_DIRECTORY": "C:\\TTS\\models\\vits\\vits"
       }
     },
     "image": {

@@ -51,6 +51,12 @@ RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
 WORKDIR /TTS/usr/local/lib/python3.7/site-packages
 RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
 
+WORKDIR /TTS/tts/models/
+RUN	wget -O vits.zip "https://coqui.gateway.scarf.sh/v0.2.0/tts_models--en--ljspeech--vits.zip" && \
+	unzip vits.zip && \
+	rm -r __MACOSX vits.zip && \
+	mv tts_models--en--ljspeech--vits vits
+
 
 FROM base AS puppeteer
 RUN apt-get update && apt-get -f install && apt-get -y install wget gnupg2 apt-utils
@@ -70,6 +76,7 @@ COPY --from=tts /TTS .
 COPY --from=puppeteer / /
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/app/bin/tts"
+ENV TTS_MODEL_DIRECTORY="/tts/models/vits"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
