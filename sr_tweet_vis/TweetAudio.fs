@@ -91,14 +91,21 @@ module TweetAudio =
             |> String.concat "\n\n"
 
     type TTS() =
-        let [<Literal>] modelName = "tts_models/en/ljspeech/speedy-speech-wn"
-        let [<Literal>] EnvironmentVariable = "TTS_EXECUTABLE"
+
+        //let [<Literal>] ModelDirectoryEnvironmentVariable = "TTS_MODEL_DIRECTORY"
+        let [<Literal>] ModelName = "tts_models/en/ljspeech/vits"
+        let [<Literal>] ExecutableEnvironmentVariable = "TTS_EXECUTABLE"
 
         let filename = 
-            tryFindEnvironmentVariable EnvironmentVariable 
+            tryFindEnvironmentVariable ExecutableEnvironmentVariable 
             |> Option.orElse (tryFindExecutableNameOnPath "tts") 
-            |> Option.orElseWith(fun () -> failwithf "Cannot find TTS engine in either %s env variable or in PATH" EnvironmentVariable)
+            |> Option.orElseWith(fun () -> failwithf "Cannot find TTS engine in either %s env variable or in PATH" ExecutableEnvironmentVariable)
             |> Option.get
+
+        //let modelDirectory =
+        //    tryFindEnvironmentVariable ModelDirectoryEnvironmentVariable
+        //    |> Option.orElseWith (fun () -> failwithf "Cannot file TTS model in %s env variable" ModelDirectoryEnvironmentVariable)
+        //    |> Option.get
 
         member private __.buildCoquiProcess text outpath = 
             let startInfo =
@@ -111,8 +118,16 @@ module TweetAudio =
             startInfo.ArgumentList.Add("--text")
             startInfo.ArgumentList.Add(text)
 
+            //startInfo.ArgumentList.Add("--model_path")
+            //Path.Join(modelDirectory, "model_file.pth.tar") |> startInfo.ArgumentList.Add
+
             startInfo.ArgumentList.Add("--model_name")
-            startInfo.ArgumentList.Add(modelName)
+            startInfo.ArgumentList.Add(ModelName)
+
+            //startInfo.ArgumentList.Add("--config_path")
+            //let configFile = Path.Join(modelDirectory, "config.json")
+            //printfn "Config file: %s" configFile
+            //startInfo.ArgumentList.Add(configFile)
 
             startInfo.ArgumentList.Add("--out_path")
             startInfo.ArgumentList.Add(outpath)
@@ -170,7 +185,7 @@ module TweetAudio =
             return timestamps |> List.sortBy (fun (Silence (se, _)) -> se)
         }
 
-        member __.MakeVideo(audioFile: string, subtitleFile: string, imageFile: string, outFile:string) = async {
+        member __.MakeVideo(audioFile :string, subtitleFile: string, imageFile: string, outFile:string) = async {
             
             let! audioInfo = FFmpeg.GetMediaInfo(audioFile) |> Async.AwaitTask
             let audioStream = 
@@ -206,13 +221,15 @@ module TweetAudio =
         let engine = TTS()
         let ffmpeg = FFMPEG()
 
-        member __.Speak(words: string, filename: string) = engine.Speak(words, filename)
+        member __.Speak(words: string, filename: string) = async {
+            do! engine.Speak(words, filename)
+        }
 
         member this.Synthesize(speakText: string, outfile: string) = async {
             
             use tempAudioFile = new TempFile()
-            do! this.Speak(speakText, tempAudioFile.Path)
 
+            do! this.Speak(speakText, tempAudioFile.Path)
             let! timestamps =
                 match captions.HasLineOverflow(speakText) with
                 | true ->
@@ -222,15 +239,14 @@ module TweetAudio =
                         do! this.Speak(captionText, tempCaptionsAudioFile.Path)
                         return! ffmpeg.SilenceDetect(tempCaptionsAudioFile.Path)
                     }
-                | false -> 
-                    ffmpeg.SilenceDetect(tempAudioFile.Path)
+                | false -> ffmpeg.SilenceDetect(tempAudioFile.Path)
 
             let subtitles = captions.ToCaptions(speakText, timestamps)
             use captionsFile = new TempFile()
-            File.WriteAllText(captionsFile.Path, subtitles)
+            do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
 
             let imageFile = Path.Join(Environment.CurrentDirectory, "assets", "black_rect.jpg")
-            return! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
+            do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
         }
 
         member this.Synthesize(mockTweet: MockTweet, outfile: string, ref: DateTime, renderOptions: RenderOptions) =
