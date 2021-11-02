@@ -18,11 +18,10 @@
     },
     "short_synthesis": {
       "commandName": "Project",
-      "commandLineArgs": "\"synthesize\" \"What a beautiful day in the country\" \"./short_synthesis.mp4\"",
+      "commandLineArgs": "\"synthesize\" \"This is some sample text to synthesize triangular flag on post triangular flag on post triangular flag on post\" \"./short_synthesis.mp4\"",
       "environmentVariables": {
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
-        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
-        "TTS_MODEL_DIRECTORY": "C:\\TTS\\models\\vits\\vits"
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
       }
     },
     "image": {

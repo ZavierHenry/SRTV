@@ -91,9 +91,9 @@ module TweetAudio =
             |> String.concat "\n\n"
 
     type TTS() =
-        let [<Literal>] modelName = "tts_models/en/ljspeech/speedy-speech-wn"
 
-        let [<Literal>] ModelDirectoryEnvironmentVariable = "TTS_MODEL_DIRECTORY"
+        //let [<Literal>] ModelDirectoryEnvironmentVariable = "TTS_MODEL_DIRECTORY"
+        let [<Literal>] ModelName = "tts_models/en/ljspeech/vits"
         let [<Literal>] ExecutableEnvironmentVariable = "TTS_EXECUTABLE"
 
         let filename = 
@@ -102,12 +102,10 @@ module TweetAudio =
             |> Option.orElseWith(fun () -> failwithf "Cannot find TTS engine in either %s env variable or in PATH" ExecutableEnvironmentVariable)
             |> Option.get
 
-        let modelDirectory =
-            tryFindEnvironmentVariable ModelDirectoryEnvironmentVariable
-            |> Option.orElseWith (fun () -> failwithf "Cannot file TTS model in %s env variable" ModelDirectoryEnvironmentVariable)
-            |> Option.get
-
-
+        //let modelDirectory =
+        //    tryFindEnvironmentVariable ModelDirectoryEnvironmentVariable
+        //    |> Option.orElseWith (fun () -> failwithf "Cannot file TTS model in %s env variable" ModelDirectoryEnvironmentVariable)
+        //    |> Option.get
 
         member private __.buildCoquiProcess text outpath = 
             let startInfo =
@@ -120,14 +118,16 @@ module TweetAudio =
             startInfo.ArgumentList.Add("--text")
             startInfo.ArgumentList.Add(text)
 
-            startInfo.ArgumentList.Add("--model_path")
-            Path.Join(modelDirectory, "model_file.pth.tar") |> startInfo.ArgumentList.Add
+            //startInfo.ArgumentList.Add("--model_path")
+            //Path.Join(modelDirectory, "model_file.pth.tar") |> startInfo.ArgumentList.Add
 
-            //startInfo.ArgumentList.Add("--model_name")
-            //startInfo.ArgumentList.Add(modelName)
+            startInfo.ArgumentList.Add("--model_name")
+            startInfo.ArgumentList.Add(ModelName)
 
-            startInfo.ArgumentList.Add("--config_path")
-            Path.Join(modelDirectory, "config.json") |> startInfo.ArgumentList.Add
+            //startInfo.ArgumentList.Add("--config_path")
+            //let configFile = Path.Join(modelDirectory, "config.json")
+            //printfn "Config file: %s" configFile
+            //startInfo.ArgumentList.Add(configFile)
 
             startInfo.ArgumentList.Add("--out_path")
             startInfo.ArgumentList.Add(outpath)
