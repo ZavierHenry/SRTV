@@ -9,7 +9,7 @@ COPY sr_tweet_vis/sr_tweet_vis.fsproj .
 RUN dotnet restore
 
 # Extract needed FFMPEG files and directories
-FROM jrottenberg/ffmpeg:scratch AS ffmpeg
+FROM jrottenberg/ffmpeg:4.1-scratch AS ffmpeg
 #FROM base
 #COPY --from=ffmpeg / /
 
