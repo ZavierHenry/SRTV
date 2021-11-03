@@ -53,6 +53,7 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 
 FROM python:3.7-buster AS tts
 RUN	apt update -y && apt -y install libsndfile1 && \
+	python -m pip install --upgrade pip && \
 	pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
 
 # Delete unnessary packages
