@@ -52,8 +52,9 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 	#cp -r /app/lib/python3.7/site-packages /TTS/app/lib/python3.7
 
 FROM python:3.7-buster AS tts
-RUN	apt update -y && apt -y install libsndfile1 && pip install TTS
-	
+RUN	apt update -y && apt -y install libsndfile1 && \
+	pip install "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
+
 # Delete unnessary packages
 #WORKDIR /TTS/app/lib/python3.7/site-packages
 #RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
@@ -61,13 +62,13 @@ RUN	apt update -y && apt -y install libsndfile1 && pip install TTS
     #find . -name test -exec rm -r {} + && \
     #find . -name tests -exec rm -r {} + && \
     #cp -r /app/lib/python3.7/site-packages/gdown-*.dist-info .
-
+#
 #WORKDIR /TTS/tts/models
 #RUN	wget -O vits.zip "https://coqui.gateway.scarf.sh/v0.2.0/tts_models--en--ljspeech--vits.zip" && \
 	#unzip vits.zip && \
 	#rm -r __MACOSX vits.zip && \
 	#mv tts_models--en--ljspeech--vits vits
-
+#
 #WORKDIR /TTS/usr/local/lib/python3.7/site-packages
 #RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
 
@@ -76,6 +77,7 @@ FROM base
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
 COPY --from=ffmpeg / /
+# COPY --from=tts /TTS /
 COPY --from=tts / /
 COPY --from=puppeteer / /
 
@@ -85,7 +87,7 @@ RUN /sbin/ldconfig
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/usr/local/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
-# ENV PYTHONPATH="/app/lib/python3.7/site-packages"
+ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
 # ENV TTS_MODEL_DIRECTORY="/tts/models/vits"
 # ENTRYPOINT [ "/app/bin/tts", "-h" ]
