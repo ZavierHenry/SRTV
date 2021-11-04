@@ -51,10 +51,19 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 	#find /app/lib/python3.7/site-packages -name *.py -exec rm {} + && \
 	#cp -r /app/lib/python3.7/site-packages /TTS/app/lib/python3.7
 
-FROM python:3.7-buster AS tts
-RUN	apt update -y && apt -y install libsndfile1 && \
-	python -m pip install --upgrade pip && \
-	pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
+FROM python:3.7-buster AS tts-builder
+WORKDIR /app
+ENV PATH="/venv/bin:$PATH"
+
+RUN python -m venv /venv
+
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
+
+FROM python:3.7-slim-buster as tts
+RUN	apt update -y && apt -y install --no-install-recommends libsndfile1 && \
+	rm -rf /var/lib/apt/lists/*
+COPY --from=tts-builder /venv /venv
 
 # Delete unnessary packages
 #WORKDIR /TTS/app/lib/python3.7/site-packages
@@ -85,8 +94,9 @@ COPY --from=puppeteer / /
 # Update cache to have soundfile
 RUN /sbin/ldconfig
 
+ENV PATH="/venv/bin:$PATH"
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
-ENV TTS_EXECUTABLE="/usr/local/bin/tts"
+ENV TTS_EXECUTABLE="/venv/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
