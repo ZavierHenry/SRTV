@@ -530,22 +530,26 @@ let getTweet id (client:Client) =
     }
    
 let buildClient () =
-    let builder = ConfigurationBuilder()
+    let builder = ConfigurationBuilder().AddEnvironmentVariables()
     Some ()
     |> Option.filter (fun _ -> isDevelopmentEnvironment())
     |> Option.map (fun _ -> AppDomain.CurrentDomain.FriendlyName |> AssemblyName |> Assembly.Load)
     |> Option.filter (function | null -> false | _ -> true)
-    |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
+    |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true))
+    |> Option.orElse (Some builder)
+    |> Option.map (fun builder -> builder.Build() |> Client)
 
 
 [<EntryPoint>]
 let main argv =
 
     match argv with
-    //| [| "mentions" |] -> 
-    //    match buildClient() with
-    //    | None -> async { printfn "Client cannot be built..." }
-    //    | Some client -> handleMentions client
+    | [| "mentions" |] -> 
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client ->
+            let appsettings = AppSettings.Load("appsettings.json")
+            handleMentions client appsettings
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
     | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
