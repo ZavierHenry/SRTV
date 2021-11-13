@@ -151,7 +151,6 @@ module Regex =
             else
 
                 let matches = validURL.Matches(text)
-                printfn "Placeholder"
 
                 validURL.Matches(text)
                 |> Seq.cast<Match>
