@@ -25,7 +25,7 @@
     },
     "image": {
       "commandName": "Project",
-      "commandLineArgs": "\"image\"",
+      "commandLineArgs": "\"image\" \"dark\" \"--tweet_id\" \"1374096283720413187\"",
       "environmentVariables": {
         "CHROME_EXECUTABLE": "./.local-chromium/Win64-848005/chrome-win/chrome.exe"
       }

@@ -346,7 +346,7 @@ module Twitter =
                     | Some processingInfo ->
                         let rec processState (info:MediaProcessingInfo) =
                             match info.State with
-                            | "succeeded" -> ()
+                            | "succeeded" | null -> ()
                             | "in_progress" | "pending" ->
                                  Threading.Thread.Sleep(1000 * processingInfo.CheckAfterSeconds)
                                  let newInfo = query {

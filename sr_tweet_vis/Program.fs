@@ -113,37 +113,11 @@ type RenderType =
         | Image (theme, _) -> ImageRender theme
         | Text _ -> TextRender
 
-
-let exampleMockTweet =
-    MockTweet(
-        "I love that the Harvey’s burger chain got its name because the John Harvey Motors car dealership was going out of business and a guy opening a burger shop got the dealership sign for cheap.  A thrifty Canadian icon.",
-        "anne_theriault",
-        "Anne Thériault",
-        DateTime.Parse("2021-05-07T16:31:38.000Z").ToUniversalTime(),
-        true,
-        false,
-        None,
-        [],
-        None,
-        [],
-        []
-)
-
 let synthesize text outfile =
     Synthesizer().Synthesize(text, outfile)
 
 let speak text filename =
     Synthesizer().Speak(text, filename)
-
-
-let toImage'(output:string) =
-    let source = "Twitter for iPhone"
-    let profileUrl = "https://pbs.twimg.com/profile_images/1011409104441630720/ksmEpPII_normal.jpg"
-
-    async {
-        let! bytes = toImage exampleMockTweet profileUrl source DateTime.UtcNow <| Image (Theme.Dim, Version.Regular)
-        return File.WriteAllBytes(output, bytes)
-    }
 
 type RenderRequest = 
     {
@@ -504,6 +478,12 @@ let isDevelopmentEnvironment () =
     let environmentVariable = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT")
     String.IsNullOrEmpty(environmentVariable) || environmentVariable.ToLower() = "development"
 
+let fetchTweet (client:Client) tweetID = async {
+    let! resp = Seq.singleton tweetID |> client.GetTweets
+    let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
+    return resp |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+}
+
 let sendTweet text (client:Client) =
     let tweet = TextTweet text
     async {
@@ -516,7 +496,6 @@ let sendTweet text (client:Client) =
             printfn "Non-Twitter error message: %s" message
             printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
     }
-
     
 let getTweet id (client:Client) =
     async {
@@ -558,21 +537,18 @@ let main argv =
             let appsettings = Path.Join(Environment.CurrentDirectory, "appsettings.json") |> AppSettings.Load
             handleMentions client appsettings
 
-    #if (DEBUG)
-    | [| "synthesize"; "-f"; "--tweet_id"; tweetID |] | [| "synthesize"; "--tweet_id"; tweetID |] ->
+    | [| "synthesize"; "-f"; "--tweet_id"; tweetID |] 
+    | [| "synthesize"; "--tweet_id"; tweetID |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client -> async {
-            let! resp = Seq.singleton tweetID |> client.GetTweets
-            let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
-            
+            let! result = fetchTweet client tweetID
             let! result = 
-                resp
-                |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+                result
                 |> ClientResult.bindAsync (fun (resp, ee) -> async {
                     let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
                     use tempFile = new TempFile()
-                    let text = if argv.Length = 4 then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                    let text = if Array.contains "-f" argv then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
                     do! synthesize text tempFile.Path
                     let srtvTweet = AudioTweet (tempFile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
                     return! client.TweetAsync srtvTweet
@@ -580,6 +556,31 @@ let main argv =
 
             match result with
             | Success _ -> printfn "Sending tweet was successful..."
+            | TwitterError (message, exn) ->
+                printfn "Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+            | OtherError (message, exn) ->
+                printfn "Non-Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        }
+
+    | [| "synthesize"; "-f"; "--tweet_id"; tweetID; "--outfile"; outfile |] 
+    | [| "synthesize"; "--tweet_id"; tweetID; "--outfile"; outfile |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> async {
+            let! result = fetchTweet client tweetID
+            let! result = 
+                result
+                |> ClientResult.bindAsync (fun (resp, ee) -> async {
+                    let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
+                    let text = if Array.contains "-f" argv then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                    do! synthesize text outfile
+                    return Success ()
+                })
+
+            match result with
+            | Success _ -> printfn "Tweet was successfully saved to %s..." outfile
             | TwitterError (message, exn) ->
                 printfn "Twitter error message: %s" message
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
@@ -597,19 +598,15 @@ let main argv =
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client -> async {
-            let! resp = Seq.singleton tweetID |> client.GetTweets
-            let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
-            
+            let! result = fetchTweet client tweetID
             let! result = 
-                resp
-                |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+                result
                 |> ClientResult.bindAsync (fun (resp, ee) -> async {
                     let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
-                    use tempFile = new TempFile()
-                    let text = if argv.Length = 5 then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                    let text = if Array.contains "-f" argv then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
                     let profileUrl = findUserById resp.Tweets.[0].AuthorID resp.Includes |> fun x -> x.ProfileImageUrl
                     let theme = Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim
-                    let! image = toImage mockTweet profileUrl resp.Tweets.[0].Source DateTime.UtcNow <| Image (theme, if argv.Length = 5 then Version.Full else Version.Regular)
+                    let! image = toImage mockTweet profileUrl resp.Tweets.[0].Source DateTime.UtcNow <| Image (theme, if Array.contains "-f" argv then Version.Full else Version.Regular)
                     let srtvTweet = ImageTweet (image, "Hello! Your image is here and should be attached. There should also be alt text in the image. If the alt text is too big for the image, it will be tweeted in the replies. Thank you for using the SRTV bot", text)
                     return! client.TweetAsync srtvTweet
                 })
@@ -623,8 +620,32 @@ let main argv =
                 printfn "Non-Twitter error message: %s" message
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
         }
-    | [| "image"; outfile |] -> toImage' outfile
-    | [| "image"|] -> toImage' <| Path.Join (Environment.CurrentDirectory, "sampleImage.jpg")
+    | [| "image"; theme; "-f"; "--tweet_id"; tweetID; "--outfile"; outfile |] 
+    | [| "image"; theme; "--tweet_id"; tweetID; "--outfile"; outfile |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> async {
+            let! result = fetchTweet client tweetID
+            let! result = 
+                result
+                |> ClientResult.bindAsync (fun (resp, ee) -> async {
+                    let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
+                    let profileUrl = findUserById resp.Tweets.[0].AuthorID resp.Includes |> fun x -> x.ProfileImageUrl
+                    let theme = Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim
+                    let! image = toImage mockTweet profileUrl resp.Tweets.[0].Source DateTime.UtcNow <| Image (theme, if Array.contains "-f" argv then Version.Full else Version.Regular)
+                    File.WriteAllBytes(outfile, image)
+                    return Success ()
+                })
+
+            match result with
+            | Success _ -> printfn "Tweet was successfully saved to %s..." outfile
+            | TwitterError (message, exn) ->
+                printfn "Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+            | OtherError (message, exn) ->
+                printfn "Non-Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        }
     | [| "sendTweet"; text |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
@@ -637,16 +658,13 @@ let main argv =
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client -> async {
-            let! resp = Seq.singleton tweetID |> client.GetTweets
-            let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
-            
+            let! result = fetchTweet client tweetID
             let! result = 
-                resp
-                |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+                result
                 |> ClientResult.bindAsync (fun (resp, ee) -> async {
                     let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
                     let text = 
-                        if argv.Length = 4 then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                        if Array.contains "-f" argv then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
                         |> sprintf "Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s"
                     let srtvTweet = TextTweet text
                     return! client.TweetAsync srtvTweet
@@ -661,9 +679,56 @@ let main argv =
                 printfn "Non-Twitter error message: %s" message
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
         }
-    #endif
+    | [| "text"; "-f"; "--tweet_id"; tweetID; "--outfile"; outfile |] 
+    | [| "text"; "--tweet_id"; tweetID; "--outfile"; outfile |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> async {
+            let! result = fetchTweet client tweetID
+            let result = 
+                result
+                |> ClientResult.map (fun (resp, ee) ->
+                    let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
+                    let text = if Array.contains "-f" argv then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                    File.WriteAllText(outfile, text))
 
-    | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
+            match result with
+            | Success _ -> printfn "Sending tweet was successful..."
+            | TwitterError (message, exn) ->
+                printfn "Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+            | OtherError (message, exn) ->
+                printfn "Non-Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        }
+    | [| "help"|] ->
+        printfn 
+            """
+                Demo options:
+
+                mentions - Read appsettings.json and render requests in the authenticated account's mentions
+                
+                synthesize [-f] --tweet_id <tweet_id> [--outfile <outfile>] 
+                    - fetches <tweet_id> and renders into a video, uses outfile to save to local file, otherwise the result will be tweeted. Use [-f] switch to render full version of a tweet
+                
+                synthesize <text> [outfile] - renders <text> to a local file. Can specify the filename with [outfile]
+                
+                speak <text> [outfile] - renders <text> to a local audio file. Can specify the filename with [outfile]
+                
+                image <theme> [-f] --tweet_id <tweet_id> [--outfile <outfile>]
+                    - fetches <tweet_id> and renders into an image with theme <theme> (dark, light, or dim). Other parameters function the same as in the synthesize option
+                
+                sendTweet <text> - sends text as a tweet
+                
+                getTweet <tweet_id> - fetches tweet and prints the ID, text, and image alt text
+                
+                text [-f] --tweet_id <tweet_id> [--outfile <outfile>]
+                    - renders <tweet_id> as text. Other parameters function the same as in the synthesize option
+                
+                help - Shows this help screen
+            """
+        async { return () }
+    | ps -> async { printfn "Program cannot understand parameters: %s. Type in --help to list options" <| String.concat " | " ps }
     |> Async.RunSynchronously
     printfn "End of program..."
     0
