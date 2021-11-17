@@ -496,7 +496,6 @@ let sendTweet text (client:Client) =
             printfn "Non-Twitter error message: %s" message
             printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
     }
-
     
 let getTweet id (client:Client) =
     async {
@@ -702,8 +701,34 @@ let main argv =
                 printfn "Non-Twitter error message: %s" message
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
         }
+    | [| "help"|] ->
+        printfn 
+            """
+                Demo options:
 
-    | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
+                mentions - Read appsettings.json and render requests in the authenticated account's mentions
+                
+                synthesize [-f] --tweet_id <tweet_id> [--outfile <outfile>] 
+                    - fetches <tweet_id> and renders into a video, uses outfile to save to local file, otherwise the result will be tweeted. Use [-f] switch to render full version of a tweet
+                
+                synthesize <text> [outfile] - renders <text> to a local file. Can specify the filename with [outfile]
+                
+                speak <text> [outfile] - renders <text> to a local audio file. Can specify the filename with [outfile]
+                
+                image <theme> [-f] --tweet_id <tweet_id> [--outfile <outfile>]
+                    - fetches <tweet_id> and renders into an image with theme <theme> (dark, light, or dim). Other parameters function the same as in the synthesize option
+                
+                sendTweet <text> - sends text as a tweet
+                
+                getTweet <tweet_id> - fetches tweet and prints the ID, text, and image alt text
+                
+                text [-f] --tweet_id <tweet_id> [--outfile <outfile>]
+                    - renders <tweet_id> as text. Other parameters function the same as in the synthesize option
+                
+                help - Shows this help screen
+            """
+        async { return () }
+    | ps -> async { printfn "Program cannot understand parameters: %s. Type in --help to list options" <| String.concat " | " ps }
     |> Async.RunSynchronously
     printfn "End of program..."
     0
