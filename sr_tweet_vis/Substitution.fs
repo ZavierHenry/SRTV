@@ -23,7 +23,7 @@ module Substitution =
                 ("&", "and")
             ]
 
-        let removal = ['-'; '('; ')']
+        let removal = ['-'; '('; ')' ; '“' ; '”']
 
     module Emojis =
         open FSharp.Data
@@ -131,6 +131,7 @@ module Substitution =
             Regex.Replace(text, bindRegex $@"{wholeNumberPattern}(?:(?<=1)st|(?<=2)nd|(?<=3)rd|(?<=[04-9])th)", MatchEvaluator(evaluator))
 
         let processAmericanPhoneNumbers text =
+
             let evaluator (m:Match) =
                 let number = 
                     Regex.Replace(m.Groups.["number"].Value, @"[\- .]", "")
@@ -172,7 +173,7 @@ module Substitution =
             let (length, value) = Option.defaultValue (1, text.[ .. 0]) (Emojis.parseForEmoji text)
             processEmojis' (value :: acc) text.[ length .. ]
 
-    let private processEmojis = processEmojis' []
+    let private processEmojis =  processEmojis' []
     let private processNumbers = 
         Numbers.processPhoneNumbers >>
         Numbers.processAbbreviations >>

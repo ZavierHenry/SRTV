@@ -31,15 +31,17 @@ let private schema =
         { "queuedTweets": [ 
                 {  
                     "requestTweetID": "a", 
+                    "requestScreenName": "a",
                     "renderType": "a",
                     "text": "a",
                     "renderTweetID": "a"
                 } 
-            ], "defaultQueryDateTime": "8/30/2021 12:00:00 AM", "rateLimit": { "limited": false } 
+            ], "defaultStartMentionDateTime": "8/30/2021 12:00:00 AM", "rateLimit": { "limited": false } 
         },
         { "queuedTweets": [ 
                 { 
                     "requestTweetID": "a", 
+                    "requestScreenName" : "a",
                     "renderType": "a",
                     "text": "a",
                     "renderTweetID": "a",
@@ -53,7 +55,7 @@ let private schema =
                         "screenName": "a"
                     }
                 } 
-            ], "defaultQueryDateTime": "8/30/2021 12:00:00 AM", "queryDateTime": "9/13/2021 3:45:00 PM", "rateLimit": { "limited": true, "nextQueryDateTime": "8/30/2021 12:00:00 AM" } }
+            ], "defaultStartMentionDateTime": "8/30/2021 12:00:00 AM", "queryDateTime": "9/13/2021 3:45:00 PM", "rateLimit": { "limited": true, "nextQueryDateTime": "8/30/2021 12:00:00 AM" } }
        ]"""
 
 type AppSettings = JsonProvider<schema, SampleIsList=true>
@@ -65,22 +67,22 @@ type AppSettings.Root with
             appsettings.QueuedTweets
             |> Array.filter (fun x -> x.RequestTweetId <> queuedTweet.RequestTweetId)
             |> Array.append [| queuedTweet |]
-        AppSettings.Root(queuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
+        AppSettings.Root(queuedTweets, appsettings.DefaultStartMentionDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
    
     static member dequeueTweet tweetID (appsettings:AppSettings.Root)  =
         let queuedTweets = appsettings.QueuedTweets |> Array.filter (fun x -> x.RequestTweetId <> tweetID)
-        AppSettings.Root(queuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
+        AppSettings.Root(queuedTweets, appsettings.DefaultStartMentionDateTime, appsettings.RateLimit, appsettings.QueryDateTime)
 
     static member clearRateLimit (appsettings:AppSettings.Root) =
         let rateLimit = AppSettings.RateLimit(false, None)
-        AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultQueryDateTime, rateLimit, appsettings.QueryDateTime)
+        AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultStartMentionDateTime, rateLimit, appsettings.QueryDateTime)
 
     static member setRateLimit (currentDateTime:DateTime) (appsettings:AppSettings.Root) =
         let rateLimit = AppSettings.RateLimit(true, Some <| currentDateTime.AddMinutes 5.0)
-        AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultQueryDateTime, rateLimit, appsettings.QueryDateTime)
+        AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultStartMentionDateTime, rateLimit, appsettings.QueryDateTime)
 
     static member setQueryDateTime queryDateTime (appsettings:AppSettings.Root)  =
-        AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultQueryDateTime, appsettings.RateLimit, Some queryDateTime)
+        AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultStartMentionDateTime, appsettings.RateLimit, Some queryDateTime)
 
     static member saveAppSettings (appsettings:AppSettings.Root) =
         File.WriteAllText("appsettings.json", appsettings.ToString())
@@ -146,13 +148,15 @@ let toImage'(output:string) =
 type RenderRequest = 
     {
         requestTweetID: string
+        requestScreenName: string
         requestDateTime: DateTime
         renderTweetID: string
         renderOptions: RenderOptions
     }
-    static member init (requestTweetID: string, requestDateTime: DateTime, renderTweetID: string, renderOptions: RenderOptions) =
+    static member init (requestTweetID: string, requestScreenName: string, requestDateTime: DateTime, renderTweetID: string, renderOptions: RenderOptions) =
         {
             requestTweetID = requestTweetID
+            requestScreenName = requestScreenName
             requestDateTime = requestDateTime
             renderTweetID = renderTweetID
             renderOptions = renderOptions
@@ -168,22 +172,23 @@ let logClientResultError desc = function
         printfn "Exception raised: %A" exn
         
 
-let private renderVideo (client:Client) text (tweetID:string) = async {
+let private renderVideo (client:Client) text (tweetID:string) (tweetScreenName:string) = async {
     use tempfile = new TempFile()
     try
         do! Synthesizer().Synthesize(text, tempfile.Path)
         let srtvTweet = AudioTweet (tempfile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
-        return! client.ReplyAsync(uint64 tweetID, srtvTweet)
+        return! client.ReplyAsync(uint64 tweetID, tweetScreenName, srtvTweet)
     with exn -> return OtherError("Video could not be made", exn)
 }
 
-let private renderImage (client:Client) info theme (tweetID: string) = async {
+let private renderImage (client:Client) info theme (tweetID: string) (tweetScreenName:string) = async {
     let! image = tweetInfoToImage info theme
     let srtvTweet = ImageTweet (image, "Hello! Your image is here and should be attached. There should also be alt text in the image. If the alt text is too big for the image, it will be tweeted in the replies. Thank you for using the SRTV bot", info.text)
-    return! client.ReplyAsync(uint64 tweetID, srtvTweet)
+    return! client.ReplyAsync(uint64 tweetID, tweetScreenName, srtvTweet)
 }
 
-let private renderText (client:Client) text (tweetID: string) = client.ReplyAsync(uint64 tweetID, TextTweet text)
+let private renderText (client:Client) text (tweetID: string) (tweetScreenName: string) = 
+    client.ReplyAsync(uint64 tweetID, tweetScreenName, TextTweet text)
 
 let render (client:Client) tweet includes map (request:RenderRequest) =
     let mockTweet =
@@ -193,8 +198,8 @@ let render (client:Client) tweet includes map (request:RenderRequest) =
 
     match request.renderOptions with
     | Video version ->
-        let text = match version with | Version.Full -> mockTweet.ToSpeakText(ref) | Version.Regular -> mockTweet.ToFullSpeakText(ref)
-        renderVideo client text request.requestTweetID
+        let text = match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
+        renderVideo client text request.requestTweetID request.requestScreenName
     | Image (theme, version) ->
         let text = match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
         let info = {
@@ -211,22 +216,22 @@ let render (client:Client) tweet includes map (request:RenderRequest) =
             source = tweet.Source |> Option.ofObj |> Option.defaultValue ""
             date = mockTweet.Date
         }
-        renderImage client info theme request.requestTweetID
+        renderImage client info theme request.requestTweetID request.requestScreenName
 
     | Text version ->
         let text = 
             match version with | Version.Regular -> mockTweet.ToSpeakText(ref) | Version.Full -> mockTweet.ToFullSpeakText(ref)
             |> sprintf "Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s"
-        renderText client text request.requestTweetID
+        renderText client text request.requestTweetID request.requestScreenName
 
 
 
-let rec handleException (client:Client) (renderTweetID: string) (requestTweetID: string) = function
+let rec handleException (client:Client) (renderTweetID: string) (requestTweetID: string) (requestScreenName: string) = function
     | Success value -> async { return Success value }
     | OtherError (message, exn) ->
         async {
             let text = "Sorry, there was an error when trying to render your tweet"
-            let! result = client.ReplyAsync(uint64 requestTweetID, TextTweet text)
+            let! result = client.ReplyAsync(uint64 requestTweetID, requestScreenName, TextTweet text)
             logClientResultError (sprintf "when trying to render tweet ID %s from tweet ID %s" renderTweetID requestTweetID) result
 
             return 
@@ -238,20 +243,20 @@ let rec handleException (client:Client) (renderTweetID: string) (requestTweetID:
                     | Net.HttpStatusCode.ServiceUnavailable
                     | Net.HttpStatusCode.InternalServerError 
                     | Net.HttpStatusCode.BadGateway ->
-                        AppSettings.QueuedTweet(requestTweetID, RenderType.serialize TextRender, text, renderTweetID, None)
+                        AppSettings.QueuedTweet(requestTweetID, requestScreenName, RenderType.serialize TextRender, text, renderTweetID, None)
                         |> Choice2Of2
                         |> Success
                     | _ -> TwitterError (message, exn)
                 | OtherError (message, exn) -> OtherError (message, exn)
         }
-    | TwitterError (message, exn) -> handleException client renderTweetID requestTweetID <| OtherError (message, exn)
+    | TwitterError (message, exn) -> handleException client renderTweetID requestTweetID requestScreenName <| OtherError (message, exn)
 
 
 let handleQueuedTweet (client:Client) (queuedTweet:AppSettings.QueuedTweet) = async {
 
     let! result = 
         match RenderType.deserialize queuedTweet.RenderType with
-        | Some VideoRender -> renderVideo client queuedTweet.Text queuedTweet.RequestTweetId
+        | Some VideoRender -> renderVideo client queuedTweet.Text queuedTweet.RequestTweetId queuedTweet.RequestScreenName
         | Some (ImageRender theme) ->
             queuedTweet.ImageInfo
             |> Option.map (fun info ->
@@ -266,10 +271,10 @@ let handleQueuedTweet (client:Client) (queuedTweet:AppSettings.QueuedTweet) = as
                     date = info.Date
                     text = queuedTweet.Text
                 })
-            |> Option.map (fun info -> renderImage client info theme queuedTweet.RequestTweetId)
+            |> Option.map (fun info -> renderImage client info theme queuedTweet.RequestTweetId queuedTweet.RequestScreenName)
             |> Option.defaultWith (fun () -> async { return OtherError ("Queued tweet info was not available", Failure("Queued tweet info was not available"))})
 
-        | Some TextRender | Some ErrorRender -> renderText client queuedTweet.Text queuedTweet.RequestTweetId
+        | Some TextRender | Some ErrorRender -> renderText client queuedTweet.Text queuedTweet.RequestTweetId queuedTweet.RequestScreenName
         | None -> async { return OtherError("Error sending tweet", Failure($"Could not deserialize render type {queuedTweet.RenderType}")) }
 
     logClientResultError (sprintf "trying to render tweet ID %s" queuedTweet.RenderTweetId) result
@@ -285,7 +290,7 @@ let handleQueuedTweet (client:Client) (queuedTweet:AppSettings.QueuedTweet) = as
             | Net.HttpStatusCode.BadGateway -> Success <| Choice2Of2 queuedTweet
             | _ -> TwitterError (message, exn)
         | OtherError (message, exn) -> OtherError (message, exn)
-        |> handleException client queuedTweet.RenderTweetId queuedTweet.RequestTweetId
+        |> handleException client queuedTweet.RenderTweetId queuedTweet.RequestTweetId queuedTweet.RequestScreenName
 }
 
 let handleTweet client tweet includes map request = async {
@@ -311,12 +316,12 @@ let handleTweet client tweet includes map request = async {
                         (info, match version with | Version.Full -> mockTweet.ToFullSpeakText(ref) | Version.Regular -> mockTweet.ToSpeakText(ref))
                     | Video Version.Full | Text Version.Full -> (None, mockTweet.ToFullSpeakText(ref))
                     | Video Version.Regular | Text Version.Regular -> (None, mockTweet.ToSpeakText(ref))
-                AppSettings.QueuedTweet(request.requestTweetID, RenderType.fromRenderOption request.renderOptions |> RenderType.serialize, text, request.renderTweetID, info) 
+                AppSettings.QueuedTweet(request.requestTweetID, request.requestScreenName, RenderType.fromRenderOption request.renderOptions |> RenderType.serialize, text, request.renderTweetID, info) 
                 |> Choice2Of2 
                 |> Success
             | _ -> TwitterError (message, exn)
         | OtherError (message, exn) -> OtherError (message, exn)
-        |> handleException client request.renderTweetID request.requestTweetID
+        |> handleException client request.renderTweetID request.requestTweetID request.requestScreenName
 }
 
 
@@ -332,7 +337,7 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
             "Sorry, there was an error from Twitter when trying to render this tweet"
 
     async {
-        let! result = renderText client text request.requestTweetID
+        let! result = renderText client text request.requestTweetID request.requestScreenName
         logClientResultError (sprintf "when trying to render tweet ID %s" error.ID) result
 
         return!
@@ -344,12 +349,12 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
                 | Net.HttpStatusCode.InternalServerError
                 | Net.HttpStatusCode.ServiceUnavailable
                 | Net.HttpStatusCode.BadGateway ->
-                    AppSettings.QueuedTweet(request.requestTweetID, RenderType.serialize ErrorRender, text, error.ID, None) 
+                    AppSettings.QueuedTweet(request.requestTweetID, request.requestScreenName, RenderType.serialize ErrorRender, text, error.ID, None) 
                     |> Choice2Of2 
                     |> Success
                 | _ -> TwitterError(message, exn)
             | OtherError (message, exn) -> OtherError (message, exn)
-            |> handleException client request.renderTweetID request.requestTweetID
+            |> handleException client request.renderTweetID request.requestTweetID request.requestScreenName
     }
 
 let handleMentions (client:Client) (appsettings:AppSettings.Root) =
@@ -380,20 +385,22 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
 
             logClientResultError "getting mentions for the client" mentions
 
+            //let mentions = mentions |> ClientResult.map (fun mentions -> mentions.Head)
+
             let requests = 
                 let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
                 mentions
                 |> ClientResult.map (fun mentions -> 
                     nullableSequenceToValue mentions.Tweets
                     |> Seq.choose (function
-                        | VideoRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
-                            Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
-                        | ImageRenderMention (requestTweetID, requestDateTime, theme, fullVersion, renderTweetID) -> 
-                            Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Image (Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim, toVersion fullVersion)) 
-                        | TextRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
-                            Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Text (toVersion fullVersion))
-                        | GeneralRenderMention (requestTweetID, requestDateTime, fullVersion, renderTweetID) ->
-                            Some <| RenderRequest.init (requestTweetID, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+                        | VideoRenderMention mentions.Includes (requestTweetID, requestScreenName, requestDateTime, fullVersion, renderTweetID) ->
+                            Some <| RenderRequest.init (requestTweetID, requestScreenName, requestDateTime, renderTweetID, Video (toVersion fullVersion))
+                        | ImageRenderMention mentions.Includes (requestTweetID, requestScreenName, requestDateTime, theme, fullVersion, renderTweetID) -> 
+                            Some <| RenderRequest.init (requestTweetID, requestScreenName, requestDateTime, renderTweetID, Image (Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim, toVersion fullVersion)) 
+                        | TextRenderMention mentions.Includes (requestTweetID, requestScreenName, requestDateTime, fullVersion, renderTweetID) ->
+                            Some <| RenderRequest.init (requestTweetID, requestScreenName, requestDateTime, renderTweetID, Text (toVersion fullVersion))
+                        | GeneralRenderMention mentions.Includes (requestTweetID, requestScreenName, requestDateTime, fullVersion, renderTweetID) ->
+                            Some <| RenderRequest.init (requestTweetID, requestScreenName, requestDateTime, renderTweetID, Video (toVersion fullVersion))
                         | _ -> None))
 
             let! responseQuery = requests |> ClientResult.map ( Seq.map (fun x -> x.renderTweetID) ) |> ClientResult.bindAsync client.GetTweets
@@ -405,10 +412,6 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
                 |> ClientResult.map (fun resp ->
                     resp.Tweets
                     |> nullableSequenceToValue
-                    |> Seq.filter (fun tweet -> 
-                        Option.ofObj tweet.Attachments 
-                        |> Option.map (fun attachments -> nullableSequenceToValue attachments.MediaKeys)
-                        |> Option.exists (not << Seq.isEmpty))
                     |> Seq.map (fun tweet -> tweet.ID))
                 |> ClientResult.bindAsync client.getTweetMediaEntities
 
@@ -434,7 +437,8 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
 
             let appsettings =
                 match requestHandlers with
-                | TwitterError _ | OtherError _ -> AppSettings.Root.setRateLimit endDate appsettings
+                | TwitterError _ -> AppSettings.Root.setRateLimit endDate appsettings
+                | OtherError _ -> AppSettings.Root.setRateLimit (endDate.AddMinutes(-4.2)) appsettings
                 | Success _                     -> appsettings
 
             match appsettings.RateLimit.Limited with
@@ -486,7 +490,7 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
                 | OtherError _ -> AppSettings.Root.saveAppSettings appsettings; return ()
     }
 
-    let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultQueryDateTime
+    let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultStartMentionDateTime
     let endDate = DateTime.UtcNow
     let rateDate = appsettings.RateLimit.NextQueryDateTime |> Option.filter (fun _ -> appsettings.RateLimit.Limited) |> Option.defaultValue endDate
 
@@ -520,7 +524,10 @@ let getTweet id (client:Client) =
         | Success tweetQuery ->
             printfn "Querying tweets was successful"
             printfn "Tweet ID is %s" tweetQuery.Tweets.[0].ID
-            printfn "Tweet alt text is %s" tweetQuery.Includes.Media.[0].AltText
+            printfn "Tweet text is %s" tweetQuery.Tweets.[0].Text
+
+            let media = nullableSequenceToValue tweetQuery.Includes.Media
+            printfn "Tweet alt text is %s" (Seq.tryHead media |> Option.map (fun x -> x.AltText) |> Option.defaultValue "")
         | TwitterError (message, exn) ->
             printfn "Twitter error message: %s" message
             printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
@@ -530,28 +537,94 @@ let getTweet id (client:Client) =
     }
    
 let buildClient () =
-    let builder = ConfigurationBuilder()
+    let builder = ConfigurationBuilder().AddEnvironmentVariables()
     Some ()
     |> Option.filter (fun _ -> isDevelopmentEnvironment())
     |> Option.map (fun _ -> AppDomain.CurrentDomain.FriendlyName |> AssemblyName |> Assembly.Load)
     |> Option.filter (function | null -> false | _ -> true)
-    |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true).Build() |> Client)
+    |> Option.map (fun assembly -> builder.AddUserSecrets(assembly, true, true))
+    |> Option.orElse (Some builder)
+    |> Option.map (fun builder -> builder.Build() |> Client)
 
 
 [<EntryPoint>]
 let main argv =
 
     match argv with
-    //| [| "mentions" |] -> 
-    //    match buildClient() with
-    //    | None -> async { printfn "Client cannot be built..." }
-    //    | Some client -> handleMentions client
+    | [| "mentions" |] -> 
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client ->
+            let appsettings = Path.Join(Environment.CurrentDirectory, "appsettings.json") |> AppSettings.Load
+            handleMentions client appsettings
+
+    #if (DEBUG)
+    | [| "synthesize"; "-f"; "--tweet_id"; tweetID |] | [| "synthesize"; "--tweet_id"; tweetID |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> async {
+            let! resp = Seq.singleton tweetID |> client.GetTweets
+            let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
+            
+            let! result = 
+                resp
+                |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+                |> ClientResult.bindAsync (fun (resp, ee) -> async {
+                    let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
+                    use tempFile = new TempFile()
+                    let text = if argv.Length = 4 then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                    do! synthesize text tempFile.Path
+                    let srtvTweet = AudioTweet (tempFile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
+                    return! client.TweetAsync srtvTweet
+                })
+
+            match result with
+            | Success _ -> printfn "Sending tweet was successful..."
+            | TwitterError (message, exn) ->
+                printfn "Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+            | OtherError (message, exn) ->
+                printfn "Non-Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        }
+           
     | [| "synthesize"; text; outfile |] -> synthesize text outfile
     | [| "synthesize"; text |] -> synthesize text <| Path.Join (Environment.CurrentDirectory, "synthesis.mp4")
     | [| "speak"; text; outfile |] -> speak text outfile
     | [| "speak"; text |] -> speak text <| Path.Join (Environment.CurrentDirectory, "speakText.wav")
+    | [| "image"; theme; "-f"; "--tweet_id"; tweetID |] 
+    | [| "image"; theme; "--tweet_id"; tweetID |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> async {
+            let! resp = Seq.singleton tweetID |> client.GetTweets
+            let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
+            
+            let! result = 
+                resp
+                |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+                |> ClientResult.bindAsync (fun (resp, ee) -> async {
+                    let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
+                    use tempFile = new TempFile()
+                    let text = if argv.Length = 5 then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                    let profileUrl = findUserById resp.Tweets.[0].AuthorID resp.Includes |> fun x -> x.ProfileImageUrl
+                    let theme = Theme.fromAttributeValue theme |> Option.defaultValue Theme.Dim
+                    let! image = toImage mockTweet profileUrl resp.Tweets.[0].Source DateTime.UtcNow <| Image (theme, if argv.Length = 5 then Version.Full else Version.Regular)
+                    let srtvTweet = ImageTweet (image, "Hello! Your image is here and should be attached. There should also be alt text in the image. If the alt text is too big for the image, it will be tweeted in the replies. Thank you for using the SRTV bot", text)
+                    return! client.TweetAsync srtvTweet
+                })
+
+            match result with
+            | Success _ -> printfn "Sending tweet was successful..."
+            | TwitterError (message, exn) ->
+                printfn "Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+            | OtherError (message, exn) ->
+                printfn "Non-Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        }
     | [| "image"; outfile |] -> toImage' outfile
-    | [| "image" |] -> toImage' <| Path.Join (Environment.CurrentDirectory, "sampleImage.jpg")
+    | [| "image"|] -> toImage' <| Path.Join (Environment.CurrentDirectory, "sampleImage.jpg")
     | [| "sendTweet"; text |] ->
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
@@ -560,6 +633,36 @@ let main argv =
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client -> getTweet id client
+    | [| "text"; "-f"; "--tweet_id"; tweetID |] | [| "text"; "--tweet_id"; tweetID |] ->
+        match buildClient() with
+        | None -> async { printfn "Client cannot be built..." }
+        | Some client -> async {
+            let! resp = Seq.singleton tweetID |> client.GetTweets
+            let! extendedEntities = Seq.singleton tweetID |> client.getTweetMediaEntities
+            
+            let! result = 
+                resp
+                |> ClientResult.bind (fun resp -> extendedEntities |> ClientResult.map (fun ee -> (resp, ee)))
+                |> ClientResult.bindAsync (fun (resp, ee) -> async {
+                    let mockTweet = MockTweet(resp.Tweets.[0], resp.Includes, ee |> Seq.head |> snd)
+                    let text = 
+                        if argv.Length = 4 then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
+                        |> sprintf "Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s"
+                    let srtvTweet = TextTweet text
+                    return! client.TweetAsync srtvTweet
+                })
+
+            match result with
+            | Success _ -> printfn "Sending tweet was successful..."
+            | TwitterError (message, exn) ->
+                printfn "Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+            | OtherError (message, exn) ->
+                printfn "Non-Twitter error message: %s" message
+                printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+        }
+    #endif
+
     | ps -> async { printfn "Program cannot understand parameters: %s" <| String.concat " | " ps }
     |> Async.RunSynchronously
     printfn "End of program..."

@@ -9,11 +9,10 @@
     },
     "synthesis": {
       "commandName": "Project",
-      "commandLineArgs": "\"synthesize\" \"A hot dog is a sandwich Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post Triangular flag on post\" \"./long_synthesis.mp4\"",
+      "commandLineArgs": "\"synthesize\" \"--tweet_id\" \"1396614549147725824\"",
       "environmentVariables": {
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
-        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
-        "TTS_MODEL_DIRECTORY": "C:\\TTS\\models\\vits\\vits"
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
       }
     },
     "short_synthesis": {
@@ -39,6 +38,23 @@
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe"
       },
       "sqlDebugging": true
+    },
+    "getTweet": {
+      "commandName": "Project",
+      "commandLineArgs": "\"getTweet\" \"1457929351811502085\"",
+      "environmentVariables": {
+        "NETCORE_ENVIRONMENT": "development"
+      }
+    },
+    "mentions": {
+      "commandName": "Project",
+      "commandLineArgs": "\"mentions\"",
+      "environmentVariables": {
+        "Key": "Value",
+        "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
+        "CHROME_EXECUTABLE": "./.local-chromium/Win64-848005/chrome-win/chrome.exe"
+      }
     }
   }
 }

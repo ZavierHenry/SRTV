@@ -203,6 +203,11 @@ module TweetMedia =
                 //match includes.Media with | null -> Seq.empty | media -> seq { yield! media }
                 //|> Seq.filter (fun m -> Seq.contains m.MediaKey tweet.Attachments.MediaKeys)
                 nullableSequenceToValue includes.Media
+                |> Seq.filter (fun m -> 
+                    Option.ofObj tweet.Attachments
+                    |> Option.map (fun attachments -> nullableSequenceToValue attachments.MediaKeys)
+                    |> Option.defaultValue Seq.empty
+                    |> Seq.contains (Option.ofObj m.MediaKey |> Option.defaultValue ""))
 
             let photos = 
                 media
@@ -275,7 +280,7 @@ module TweetMedia =
                         |> Option.exists (fun ref -> 
                             Regex.Match(url.ExpandedUrl, @"^https://twitter\.com/\w+/status/(?<id>\d+)$").Groups.["id"].Value = ref.ID) ->
                         Url (url.Url, url.DisplayUrl, QuoteTweet)
-                    | url when Regex.IsMatch(url.ExpandedUrl, @"^https://twitter\.com/\w+/status/\d+/(photo|video))") ->
+                    | url when Regex.IsMatch(url.ExpandedUrl, @"^https://twitter\.com/\w+/status/\d+/(photo|video)") ->
                         Url (url.Url, url.DisplayUrl, Media)
                     | url -> Url (url.Url, url.DisplayUrl, Regular) )
 
@@ -289,13 +294,7 @@ module TweetMedia =
                 retweeter,
                 repliedTo,
                 quotedTweet,
-                seq {
-                    yield! photos
-                    yield! videos
-                    yield! gifs
-                    yield! cards
-                    yield! polls
-                },
+                Seq.concat <| seq { photos; videos; gifs; cards; polls },
                 mockUrls
             )
 

@@ -100,6 +100,5 @@ ENV TTS_EXECUTABLE="/venv/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
-# ENV TTS_MODEL_DIRECTORY="/tts/models/vits"
-# ENTRYPOINT [ "/app/bin/tts", "-h" ]
+# ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "mentions"]
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "synthesize", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
