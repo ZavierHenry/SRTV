@@ -210,6 +210,7 @@ module TweetAudio =
                     .SetPixelFormat(PixelFormat.yuv420p)
                     .SetAudioBitrate(bitrate)
                     .SetOutput(outFile)
+                    .SetOutputFormat(Format.mp4)
                     .SetOverwriteOutput(true)
 
             do! conversion.Start() |> Async.AwaitTask |> Async.Ignore

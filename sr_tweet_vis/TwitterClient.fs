@@ -46,7 +46,7 @@ module Twitter =
             let renderMention pattern response = 
                 let renderableMatch = 
                     Some response 
-                    |> Option.map (matchTextPattern $@"(\s|^)render\s+(?:(?<full>full)\s+)?(%s{pattern})(\s|$|\?|\.)")
+                    |> Option.map (matchTextPattern $@"(\s|^)render(?:\s+(?<full>full)\s+)?(%s{pattern})(\s|$|\?|\.)")
                     |> Option.filter (fun m -> m.Success)
 
                 match renderableMatch with
@@ -56,25 +56,30 @@ module Twitter =
                     |> Option.orElse (renderableMatch |> Option.bind (fun m -> tryFindQuoteTweet response |> Option.map (fun ref -> (m, ref)) ))
                 | None -> None
 
-            let (|VideoRenderMention|_|) response = 
-                renderMention "video|sound|audio" response
-                |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
+            let (|VideoRenderMention|_|) includes (response:Tweet) = 
+                let screenName = tryFindUserById response.AuthorID includes |> Option.map (fun user -> user.Username) |> Option.defaultValue ""
+                renderMention "\s+(?:video|sound|audio)" response
+                |> Option.map (fun (m, ref) -> 
+                    (response.ID, screenName, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
-            let (|TextRenderMention|_|) response = 
-                renderMention "text" response
-                |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
+            let (|TextRenderMention|_|) includes (response:Tweet) = 
+                let screenName = tryFindUserById response.AuthorID includes |> Option.map (fun user -> user.Username) |> Option.defaultValue ""
+                renderMention "\s+text" response
+                |> Option.map (fun (m, ref) -> (response.ID, screenName, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
-            let (|ImageRenderMention|_|) response = 
-                renderMention @"((?<theme>light|dim|dark)\s+)?image" response
-                |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["theme"].Value, m.Groups.["full"].Success, ref.ID))
+            let (|ImageRenderMention|_|) includes (response:Tweet) = 
+                let screenName = tryFindUserById response.AuthorID includes |> Option.map (fun user -> user.Username) |> Option.defaultValue ""
+                renderMention @"\s+((?<theme>light|dim|dark)\s+)?image" response
+                |> Option.map (fun (m, ref) -> (response.ID, screenName, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["theme"].Value, m.Groups.["full"].Success, ref.ID))
 
-            let (|GeneralRenderMention|_|) = function
-                | VideoRenderMention _ -> None
-                | TextRenderMention _ -> None
-                | ImageRenderMention _ -> None
+            let (|GeneralRenderMention|_|) includes = function
+                | VideoRenderMention includes _ -> None
+                | TextRenderMention includes _ -> None
+                | ImageRenderMention includes _ -> None
                 | response ->
-                    renderMention @"(\s|^)render\s+(?:full\s+)?(\s|$|\?|\.)" response
-                    |> Option.map (fun (m, ref) -> (response.ID, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
+                    let screenName = tryFindUserById response.AuthorID includes |> Option.map (fun user -> user.Username) |> Option.defaultValue ""
+                    renderMention "" response
+                    |> Option.map (fun (m, ref) -> (response.ID, screenName, response.CreatedAt.GetValueOrDefault(currentTime()), m.Groups.["full"].Success, ref.ID))
 
         let (|PrivateTweet|_|) includes (tweet:Tweet) =
             tryFindUserById tweet.InReplyToUserID includes
@@ -189,7 +194,7 @@ module Twitter =
             let auth = new SingleUserAuthorizer()
             //let userID = Environment.GetEnvironmentVariable("user_id")
 
-            let userID = config.GetValue("TwitterAccount:UserID")
+            let userID = config.GetValue("TWITTER_USER_ID", config.GetValue("TwitterAccount:UserID"))
 
             let toParams = String.concat ","
 
@@ -232,10 +237,10 @@ module Twitter =
             }
 
             do
-                credentialStore.AccessToken <- config.GetValue("TwitterAccount:AccessToken")
-                credentialStore.AccessTokenSecret <- config.GetValue("TwitterAccount:AccessTokenSecret")
-                credentialStore.ConsumerKey <- config.GetValue("TwitterAccount:ConsumerKey")
-                credentialStore.ConsumerSecret <- config.GetValue("TwitterAccount:ConsumerSecretKey")
+                credentialStore.AccessToken <- config.GetValue("TWITTER_ACCESS_TOKEN", config.GetValue("TwitterAccount:AccessToken"))
+                credentialStore.AccessTokenSecret <- config.GetValue("TWITTER_ACCESS_TOKEN_SECRET", config.GetValue("TwitterAccount:AccessTokenSecret"))
+                credentialStore.ConsumerKey <- config.GetValue("TWITTER_CONSUMER_KEY", config.GetValue("TwitterAccount:ConsumerKey"))
+                credentialStore.ConsumerSecret <- config.GetValue("TWITTER_CONSUMER_SECRET", config.GetValue("TwitterAccount:ConsumerSecretKey"))
                 auth.CredentialStore <- credentialStore
 
             let context = new TwitterContext(auth)
@@ -248,22 +253,17 @@ module Twitter =
                 | :? TwitterQueryException as exn -> return TwitterError (failureMessage, exn)
                 | exn   -> return OtherError (failureMessage, exn)
             }
-
-            member this.makeTwitterListQuery<'a> failure (thunkQuery:unit ->Linq.IQueryable<'a>) =
+            
+            member this.makeTwitterListQuery<'a> failure (thunkQuery:unit -> Linq.IQueryable<'a>) =
                 let call() = async {
-                    let query = query {
-                        for q in thunkQuery () do
-                            select q
-                    }
-                    let! queryList = query.ToListAsync() |> Async.AwaitTask
-                    return Seq.toList queryList
+                    return thunkQuery() |> Seq.cast<'a> |> Seq.toList
                 }
                 this.makeTwitterCall failure call
 
             member this.makeTwitterSingleQuery<'a> failureMessage (thunkQuery:unit -> Linq.IQueryable<'a>) =
                 let call() = async {
                     let query = query {
-                        for q in thunkQuery () do 
+                        for q in thunkQuery () do
                             select q
                             headOrDefault
                     }
@@ -278,13 +278,13 @@ module Twitter =
                         where (
                             tweet.Type = TweetType.MentionsTimeline &&
                             tweet.ID = userID &&
-                            tweet.StartTime = startTime &&
-                            tweet.EndTime = endTime &&
+                            tweet.StartTime >= startTime &&
+                            tweet.EndTime <= endTime &&
                             tweet.TweetFields = toParams tweetFields &&
                             tweet.UserFields = toParams userFields &&
                             tweet.Expansions = toParams expansions &&
                             tweet.PollFields = toParams pollFields &&
-                            Option.forall (fun token -> token = tweet.PaginationToken) paginationToken
+                            Option.forall (fun token -> match tweet.PaginationToken with | null -> false | paginationToken -> token = paginationToken) paginationToken
                             )
                         select tweet
                 }
@@ -292,11 +292,12 @@ module Twitter =
                 this.makeTwitterSingleQuery (sprintf "Problem getting mentions between %A and %A" startTime endTime) query
 
             member this.GetTweets(ids: string seq) =
+                let ids = String.concat "," ids
                 let query() = query {
                     for tweet in context.Tweets do
                         where (
                             tweet.Type = TweetType.Lookup &&
-                            tweet.Ids = String.concat "," ids &&
+                            tweet.Ids = ids &&
                             tweet.TweetFields = toParams tweetFields &&
                             tweet.UserFields = toParams userFields &&
                             tweet.Expansions = toParams expansions &&
@@ -306,7 +307,7 @@ module Twitter =
                         select tweet
                 }
 
-                this.makeTwitterSingleQuery $"Problem getting tweets with ids {ids}" query 
+                this.makeTwitterSingleQuery (sprintf "Problem getting tweets with ids %s" ids) query 
 
             member this.GetUserByScreenName(screenName:string) =
                 let query () = query {
@@ -338,13 +339,32 @@ module Twitter =
                 this.uploadMediaAsync mime mediaCategory image
 
             member private this.uploadMediaAsync mime mediaCategory media : AsyncClientResult<uint64> = async {
-                let twitterCall() = context.UploadMediaAsync(media, mime, mediaCategory) |> Async.AwaitTask
-                let! result = this.makeTwitterCall $"""Error uploading {Regex.Match(mediaCategory, @"^tweet_(\w+)").Groups.[1]} to Twitter""" twitterCall
-                return ClientResult.map (fun (media:Media) -> media.MediaID) result
+                let twitterCall () = async {
+                    let! media = context.UploadMediaAsync(media, mime, mediaCategory) |> Async.AwaitTask
+                    match Option.ofObj media.ProcessingInfo with
+                    | None -> ()
+                    | Some processingInfo ->
+                        let rec processState (info:MediaProcessingInfo) =
+                            match info.State with
+                            | "succeeded" -> ()
+                            | "in_progress" | "pending" ->
+                                 Threading.Thread.Sleep(1000 * processingInfo.CheckAfterSeconds)
+                                 let newInfo = query {
+                                    for m in context.Media do
+                                        where (m.Type = Nullable(MediaType.Status) && m.MediaID = media.MediaID && match media.ProcessingInfo with | null -> false | _ -> true)
+                                        select m.ProcessingInfo
+                                        headOrDefault
+                                 }
+                                 processState newInfo
+                            | "failed" | _ -> failwith "Media failed to upload to twitter"
+                        processState processingInfo
+                    return media.MediaID
+                }
+                return! this.makeTwitterCall $"""Error uploading {Regex.Match(mediaCategory, @"^tweet_(\w+)").Groups.[1]} to Twitter""" twitterCall
             }
 
             member private this.uploadImageAltText text mediaID = async {
-                let twitterCall() = context.CreateMediaMetadataAsync(mediaID, text) |> Async.AwaitTask
+                let twitterCall () = context.CreateMediaMetadataAsync(mediaID, text) |> Async.AwaitTask
                 return! this.makeTwitterCall "Error uploading image alt text to Twitter" twitterCall
             }
 
@@ -352,27 +372,28 @@ module Twitter =
                 let twitterCall() = 
                     match mediaID with
                         | None -> context.TweetAsync(text, TweetMode.Extended)
-                        | Some mediaID -> context.TweetAsync(text, [mediaID], TweetMode.Extended)
+                        | Some mediaID -> context.TweetAsync(text, [| mediaID |], TweetMode.Extended)
                     |> Async.AwaitTask
                 this.makeTwitterCall "Problem sending a tweet" twitterCall
 
-            member this.sendReplyAsync(replyID: uint64, text: string, ?mediaID: uint64) =
+            member this.sendReplyAsync(replyID: uint64, screenName: string, text: string, ?mediaID: uint64) =
                 let twitterCall() = 
+                    let text = sprintf "@%s %s" screenName text
                     match mediaID with
                         | None -> context.ReplyAsync(replyID, text)
-                        | Some mediaID -> context.ReplyAsync(replyID, text, [mediaID], TweetMode.Extended)
+                        | Some mediaID -> context.ReplyAsync(replyID, text, [| mediaID |])
                     |> Async.AwaitTask
                 this.makeTwitterCall $"Problem sending a reply to ID {replyID}" twitterCall
 
-            member this.handleReplyAsync(originalTweetID: uint64, text: string list, ?mediaID: uint64) = async {
+            member this.handleReplyAsync(originalTweetID: uint64, screenName: string, text: string list, ?mediaID: uint64) = async {
                 match (text, mediaID) with
                     | ([], _)        -> return Success ()
                     | (t :: rest, Some mediaID) ->
-                        let! result = this.sendReplyAsync(originalTweetID, t, mediaID)
-                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
+                        let! result = this.sendReplyAsync(originalTweetID, screenName, t, mediaID)
+                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, status.User.ScreenName, rest)) result
                     | (t :: rest, None) ->
-                        let! result = this.sendReplyAsync(originalTweetID, t)
-                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
+                        let! result = this.sendReplyAsync(originalTweetID, screenName, t)
+                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, status.User.ScreenName, rest)) result
             }
 
             member this.handleTweetAsync(text: string list, ?mediaID: uint64) = async {
@@ -380,15 +401,19 @@ module Twitter =
                 | []        -> return Success ()
                 | t :: rest ->
                     let! result = match mediaID with | Some mediaID -> this.sendTweetAsync(t, mediaID) | None -> this.sendTweetAsync(t)
-                    return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, rest)) result
+                    return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.ID, status.User.ScreenName, rest)) result
             }
 
-            member this.ReplyAsync(originalTweetID: uint64, tweet: SRTVTweet) = async {
+            member this.ReplyAsync(originalTweetID: uint64, screenName: string, tweet: SRTVTweet) = async {
                 match tweet with
                 | AudioTweet (audio, text) ->
                     let! mediaID = this.uploadAudioAsync audio
                     let splitText = Text.splitTwitterText text
-                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) mediaID
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, screenName, splitText, mediaID)) mediaID
+                | ImageTweet (image, text, altText) when Text.textLength altText > 1000 ->
+                    let! mediaID = this.uploadImageAsync image
+                    let splitText = sprintf "%s %s" text altText |> Text.splitTwitterText
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, screenName, splitText, mediaID)) mediaID
                 | ImageTweet (image, text, altText) ->
                     let! mediaID = this.uploadImageAsync image
                     let boundFunction mediaID = async { 
@@ -397,10 +422,10 @@ module Twitter =
                     }
                     let! result = ClientResult.bindAsync boundFunction mediaID
                     let splitText = Text.splitTwitterText text
-                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) result
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, screenName, splitText, mediaID)) result
                 | TextTweet text ->
                     let splitText = Text.splitTwitterText text
-                    return! this.handleReplyAsync(originalTweetID, splitText)       
+                    return! this.handleReplyAsync(originalTweetID, screenName, splitText)       
             }
 
             member this.TweetAsync(tweet: SRTVTweet) = async {
@@ -408,6 +433,10 @@ module Twitter =
                 | AudioTweet (audio, text) ->
                     let! mediaID = this.uploadAudioAsync audio
                     let splitText = Text.splitTwitterText text
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleTweetAsync(splitText, mediaID)) mediaID
+                | ImageTweet (image, text, altText) when Text.textLength altText > 1000 ->
+                    let! mediaID = this.uploadImageAsync image
+                    let splitText = sprintf "%s %s" text altText |> Text.splitTwitterText
                     return! ClientResult.bindAsync (fun mediaID -> this.handleTweetAsync(splitText, mediaID)) mediaID
                 | ImageTweet (image, text, altText) ->
                     let! mediaID = this.uploadImageAsync image
@@ -455,16 +484,28 @@ module Twitter =
 
                 let query () = query {
                     for tweet in context.Status do
-                        where (tweet.Type = StatusType.Mentions
+                        where (tweet.Type = StatusType.Lookup
                             && tweet.TweetIDs = ids
                             && tweet.TrimUser = true
                             && tweet.IncludeAltText = true
                             && tweet.IncludeEntities = true
                         )
                         //select (tweet.ID, match tweet.ExtendedEntities with | null -> [] | extendedEntities -> extendedEntities.MediaEntities |> Seq.toList)
-                        select (tweet.ID, Option.ofObj tweet.ExtendedEntities |> Option.map (fun x -> nullableSequenceToValue x.MediaEntities |> Seq.toList) |> Option.defaultValue [])
+                        let extendedEntities = 
+                            Option.ofObj tweet.ExtendedEntities
+                            |> Option.map (fun x -> nullableSequenceToValue x.MediaEntities)
+                            |> Option.defaultValue Seq.empty
+
+                        let quotedEntities = 
+                            Option.ofObj tweet.QuotedStatus
+                            |> Option.bind (fun quotedStatus -> Option.ofObj quotedStatus.ExtendedEntities)
+                            |> Option.map (fun x -> nullableSequenceToValue x.MediaEntities)
+                            |> Option.defaultValue Seq.empty
+                        
+                        select (tweet.StatusID, Seq.append extendedEntities quotedEntities |> Seq.toList)
                     }
 
-                this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {tweetIDs}" query
+                this.makeTwitterListQuery $"Problem trying to retrieve extended entities for {ids}" query
+                
 
 
