@@ -251,6 +251,11 @@ module Twitter =
                     return Success result
                 with
                 | :? TwitterQueryException as exn -> return TwitterError (failureMessage, exn)
+                | :? AggregateException as exn ->
+                    return exn.InnerExceptions
+                    |> Seq.tryFind (function | :? TwitterQueryException -> true | _ -> false)
+                    |> Option.map (fun exn -> TwitterError (failureMessage, exn :?> TwitterQueryException))
+                    |> Option.defaultValue (OtherError (failureMessage, exn))
                 | exn   -> return OtherError (failureMessage, exn)
             }
             
