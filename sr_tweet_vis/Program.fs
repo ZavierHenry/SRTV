@@ -674,9 +674,11 @@ let main argv =
             | Success _ -> printfn "Sending tweet was successful..."
             | TwitterError (message, exn) ->
                 printfn "Twitter error message: %s" message
+                printfn "Exception message: %s" exn.Details
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
             | OtherError (message, exn) ->
                 printfn "Non-Twitter error message: %s" message
+                printfn "Exception message: %s" exn.Message
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
         }
     | [| "text"; "-f"; "--tweet_id"; tweetID; "--outfile"; outfile |] 
@@ -696,9 +698,12 @@ let main argv =
             | Success _ -> printfn "Sending tweet was successful..."
             | TwitterError (message, exn) ->
                 printfn "Twitter error message: %s" message
+                printfn "Exception message: %s" exn.ReasonPhrase
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
+
             | OtherError (message, exn) ->
                 printfn "Non-Twitter error message: %s" message
+                printfn "Exception message: %s" exn.Message
                 printfn "Error: %O, Stack trace: %s" exn exn.StackTrace
         }
     | [| "help"|] ->

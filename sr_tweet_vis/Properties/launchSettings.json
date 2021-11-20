@@ -55,6 +55,13 @@
         "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
         "CHROME_EXECUTABLE": "./.local-chromium/Win64-848005/chrome-win/chrome.exe"
       }
+    },
+    "text": {
+      "commandName": "Project",
+      "commandLineArgs": "\"text\" \"--tweet_id\" 1461270132530069512",
+      "environmentVariables": {
+        "NETCORE_ENVIRONMENT": "development"
+      }
     }
   }
 }

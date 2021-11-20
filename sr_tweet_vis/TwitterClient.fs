@@ -376,8 +376,8 @@ module Twitter =
             member this.sendTweetAsync(text: string, ?mediaID: uint64) =
                 let twitterCall() = 
                     match mediaID with
-                        | None -> context.TweetAsync(text, TweetMode.Extended)
-                        | Some mediaID -> context.TweetAsync(text, [| mediaID |], TweetMode.Extended)
+                        | None -> context.TweetAsync(text, 0.0m, 0.0m, "0", false, false)
+                        | Some mediaID -> context.TweetAsync(text, 0.0m, 0.0m, "0", false, false, [| mediaID |])
                     |> Async.AwaitTask
                 this.makeTwitterCall "Problem sending a tweet" twitterCall
 
@@ -385,8 +385,8 @@ module Twitter =
                 let twitterCall() = 
                     let text = sprintf "@%s %s" screenName text
                     match mediaID with
-                        | None -> context.ReplyAsync(replyID, text)
-                        | Some mediaID -> context.ReplyAsync(replyID, text, [| mediaID |])
+                        | None -> context.ReplyAsync(replyID, text, trimUser = false)
+                        | Some mediaID -> context.ReplyAsync(replyID, text, mediaIds = [| mediaID |], trimUser = false)
                     |> Async.AwaitTask
                 this.makeTwitterCall $"Problem sending a reply to ID {replyID}" twitterCall
 

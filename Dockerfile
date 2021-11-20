@@ -61,7 +61,7 @@ RUN python -m pip install --upgrade pip && \
     pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
 
 FROM python:3.7-slim-buster as tts
-RUN	apt update -y && apt -y install --no-install-recommends libsndfile1 && \
+RUN	apt-get update -y && apt-get -y install --no-install-recommends libsndfile1 && \
 	rm -rf /var/lib/apt/lists/*
 COPY --from=tts-builder /venv /venv
 
