@@ -109,7 +109,7 @@ If you are noticing a completely different output from a certain screen reader t
 
 ## Demoing/Debugging
 
-There are demo/debug options avaiable to show to output of the SRTV bot. Those options will be found in DEVELOPMENT.md
+There are demo/debug options avaiable to show to output of the SRTV bot. Those options will be found in [the development file](DEVELOPMENT.md).
 
 ## Contributions
 
