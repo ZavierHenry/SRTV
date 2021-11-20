@@ -107,9 +107,13 @@ For SRTV, the following screen readers were used in testing what tweet output sh
 
 If you are noticing a completely different output from a certain screen reader than the SRTV output, feel free to open an issue about it, especially for JAWS or VoiceOver.
 
+## Building SRTV
+
+Instructions on how to build the SRTV application can be found in the [development file](DEVELOPMENT.md).
+
 ## Demoing/Debugging
 
-There are demo/debug options avaiable to show to output of the SRTV bot. Those options will be found in [the development file](DEVELOPMENT.md).
+There are demo/debug options avaiable to show to output of the SRTV bot. Those options will also be found in [the development file](DEVELOPMENT.md).
 
 ## Contributions
 
