@@ -23,6 +23,8 @@ open SRTV.Utilities
 open System.Reflection
 open System.Text.RegularExpressions
 
+open StackExchange.Redis
+
 
 
 [<Literal>]
@@ -61,6 +63,20 @@ let private schema =
 type AppSettings = JsonProvider<schema, SampleIsList=true>
 let buildAppSettings () = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json") |> AppSettings.Load
 
+let loadAppSettings (connection:ConnectionMultiplexer) =
+    let key = RedisKey("appsettings")
+    let value = connection.GetDatabase().StringGet(key)
+
+    if not value.IsNullOrEmpty
+    then value.ToString() |> AppSettings.Parse
+    else buildAppSettings ()
+
+let storeAppSettings (connection:ConnectionMultiplexer) appsettings =
+    let key = RedisKey("appsettings")
+    let value = appsettings.ToString() |> RedisValue
+    if connection.GetDatabase().StringSet(key, value) |> not
+    then printf "The appsettings value %A was not set in the Redis database" value
+
 type AppSettings.Root with
     static member enqueueTweet (queuedTweet: AppSettings.QueuedTweet) (appsettings:AppSettings.Root)  =
         let queuedTweets =
@@ -84,8 +100,10 @@ type AppSettings.Root with
     static member setQueryDateTime queryDateTime (appsettings:AppSettings.Root)  =
         AppSettings.Root(appsettings.QueuedTweets, appsettings.DefaultStartMentionDateTime, appsettings.RateLimit, Some queryDateTime)
 
-    static member saveAppSettings (appsettings:AppSettings.Root) =
+    static member saveAppSettings connection (appsettings:AppSettings.Root) =
         File.WriteAllText("appsettings.json", appsettings.ToString())
+        storeAppSettings connection appsettings
+        
 
 type RenderType =
     | VideoRender
@@ -331,9 +349,9 @@ let handleError (client:Client) (error:LinqToTwitter.Common.TwitterError) (reque
             |> handleException client request.renderTweetID request.requestTweetID request.requestScreenName
     }
 
-let handleMentions (client:Client) (appsettings:AppSettings.Root) =
+let handleMentions (client:Client) connection (appsettings:AppSettings.Root) =
 
-    let rec handleMentions' (client:Client) (appsettings:AppSettings.Root) startDate endDate token = async {
+    let rec handleMentions' (client:Client) connection (appsettings:AppSettings.Root) startDate endDate token = async {
 
         let! queuedResults = appsettings.QueuedTweets |> Seq.map (handleQueuedTweet client) |> Async.Parallel
 
@@ -347,7 +365,7 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
 
         match appsettings.RateLimit.Limited with
         | true -> 
-            AppSettings.Root.saveAppSettings appsettings
+            AppSettings.Root.saveAppSettings connection appsettings
             printfn "App is rate limited until %A" <| Option.get appsettings.RateLimit.NextQueryDateTime
             return ()
         | false ->
@@ -417,7 +435,7 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
 
             match appsettings.RateLimit.Limited with
             | true ->
-                AppSettings.Root.saveAppSettings appsettings
+                AppSettings.Root.saveAppSettings connection appsettings
                 printfn "App is rate limited until %A" <| Option.get appsettings.RateLimit.NextQueryDateTime
                 return ()
             | false ->
@@ -444,11 +462,11 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
                             appsettings
                             |> AppSettings.Root.clearRateLimit
                             |> AppSettings.Root.setQueryDateTime endDate
-                            |> AppSettings.Root.saveAppSettings
+                            |> AppSettings.Root.saveAppSettings connection
                             return ()
                         | token -> 
                             let updatedStartDate = mentions.Tweets |> Seq.find (fun x -> x.ID = meta.NewestID) |> fun x -> x.CreatedAt.Value
-                            handleMentions' client (AppSettings.Root.setQueryDateTime updatedStartDate appsettings) startDate endDate (Some token) 
+                            handleMentions' client connection (AppSettings.Root.setQueryDateTime updatedStartDate appsettings) startDate endDate (Some token) 
                             |> Async.Start
                 | TwitterError (_, exn) ->
                     match exn.StatusCode with
@@ -458,10 +476,10 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
                     | Net.HttpStatusCode.ServiceUnavailable -> 
                         appsettings
                         |> AppSettings.Root.setRateLimit endDate
-                        |> AppSettings.Root.saveAppSettings
+                        |> AppSettings.Root.saveAppSettings connection
                     | _ -> ()
                     return ()
-                | OtherError _ -> AppSettings.Root.saveAppSettings appsettings; return ()
+                | OtherError _ -> AppSettings.Root.saveAppSettings connection appsettings; return ()
     }
 
     let startDate = appsettings.QueryDateTime |> Option.defaultValue appsettings.DefaultStartMentionDateTime
@@ -470,7 +488,7 @@ let handleMentions (client:Client) (appsettings:AppSettings.Root) =
 
     if rateDate <= endDate 
     then 
-        handleMentions' client (AppSettings.Root.clearRateLimit appsettings) startDate endDate None
+        handleMentions' client connection (AppSettings.Root.clearRateLimit appsettings) startDate endDate None
     else async { printfn "App is rate limited until %A" rateDate }
 
 
@@ -525,6 +543,7 @@ let buildClient () =
     |> Option.orElse (Some builder)
     |> Option.map (fun builder -> builder.Build() |> Client)
 
+    
 
 [<EntryPoint>]
 let main argv =
@@ -534,8 +553,12 @@ let main argv =
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client ->
-            let appsettings = Path.Join(Environment.CurrentDirectory, "appsettings.json") |> AppSettings.Load
-            handleMentions client appsettings
+            match tryFindEnvironmentVariable "REDIS_URL" with
+            | None -> async { printfn "No Redis URL set to connect with database..." }
+            | Some url ->
+                use connection = ConnectionMultiplexer.Connect url
+                let appsettings = loadAppSettings connection
+                handleMentions client connection appsettings
 
     | [| "synthesize"; "-f"; "--tweet_id"; tweetID |] 
     | [| "synthesize"; "--tweet_id"; tweetID |] ->
