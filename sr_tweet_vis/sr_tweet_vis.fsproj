@@ -11,7 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="prod.sql" />
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -40,7 +39,6 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
     <PackageReference Include="Npgsql" Version="6.0.1" />
     <PackageReference Include="PuppeteerSharp" Version="5.0.0" />
-    <PackageReference Include="StackExchange.Redis" Version="2.2.88" />
     <PackageReference Include="System.Text.Encodings.Web" Version="5.0.1" />
     <PackageReference Include="Xabe.FFmpeg" Version="5.0.2" />
     <PackageReference Include="YamlDotNet" Version="11.2.1" />

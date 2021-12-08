@@ -23,9 +23,7 @@ open SRTV.Utilities
 open System.Reflection
 open System.Text.RegularExpressions
 
-open StackExchange.Redis
-
-
+open Npgsql
 
 [<Literal>]
 let private schema = 
@@ -60,22 +58,129 @@ let private schema =
             ], "defaultStartMentionDateTime": "8/30/2021 12:00:00 AM", "queryDateTime": "9/13/2021 3:45:00 PM", "rateLimit": { "limited": true, "nextQueryDateTime": "8/30/2021 12:00:00 AM" } }
        ]"""
 
+let private imageColumns = seq {
+    "image_info_source"
+    "image_info_profile_picture_url"
+    "image_info_datetime"
+    "image_info_verified"
+    "image_info_protected"
+    "image_info_name"
+    "image_info_screen_name"
+}
+
+let private requestRenderColumns = seq {
+    "request_tweet_id"
+    "request_screen_name"
+    "render_type"
+    "render_tweet_id"
+    "text_"
+}
+
+let toInsertQuery tableName columns =
+    sprintf "INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (request_tweet_id) DO UPDATE SET text_ = @text_, render_type = @render_type"
+    <| tableName
+    <| String.concat "," columns
+    <| String.concat "," (Seq.map (sprintf "@%s") columns)
+
+
 type AppSettings = JsonProvider<schema, SampleIsList=true>
 let buildAppSettings () = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json") |> AppSettings.Load
 
-let loadAppSettings (connection:ConnectionMultiplexer) =
-    let key = RedisKey("appsettings")
-    let value = connection.GetDatabase().StringGet(key)
+let loadAppSettingsFromDatabase (connection:NpgsqlConnection) =
+    use queryingCommand = new NpgsqlCommand("SELECT default_query_datetime, query_datetime, next_limited_query_datetime FROM querying WHERE id = 1", connection)
+    use queryingReader = queryingCommand.ExecuteReader()
+    
+    use queuedCommand = new NpgsqlCommand(Seq.append requestRenderColumns imageColumns |> String.concat "," |> sprintf "SELECT %s FROM queued_tweets", connection)
+    use queuedReader = queuedCommand.ExecuteReader()
 
-    if not value.IsNullOrEmpty
-    then value.ToString() |> AppSettings.Parse
-    else buildAppSettings ()
+    let mutable queuedTweets = [| |]
+    while queuedReader.Read() do
+        let requestTweetID = queuedReader.GetString(queuedReader.GetOrdinal("request_tweet_id"))
+        let requestScreenName = queuedReader.GetString(queuedReader.GetOrdinal("request_screen_name"))
+        let renderType = queuedReader.GetString(queuedReader.GetOrdinal("render_type"))
+        let renderTweetID = queuedReader.GetString(queuedReader.GetOrdinal("render_tweet_id"))
+        let text = queuedReader.GetString(queuedReader.GetOrdinal("text_"))
 
-let storeAppSettings (connection:ConnectionMultiplexer) appsettings =
-    let key = RedisKey("appsettings")
-    let value = appsettings.ToString() |> RedisValue
-    if connection.GetDatabase().StringSet(key, value) |> not
-    then printf "The appsettings value %A was not set in the Redis database" value
+        let imageInfoSource = queuedReader.GetString(queuedReader.GetOrdinal("image_info_source"))
+        let imageInfoProfilePicUrl = queuedReader.GetString(queuedReader.GetOrdinal("image_info_profile_picture_url"))
+        let imageInfoDateTime = queuedReader.GetDateTime(queuedReader.GetOrdinal("image_info_datetime"))
+        let imageInfoVerified = queuedReader.GetBoolean(queuedReader.GetOrdinal("image_info_verified"))
+        let imageInfoProtected = queuedReader.GetBoolean(queuedReader.GetOrdinal("image_info_protected"))
+        let imageInfoName = queuedReader.GetString(queuedReader.GetOrdinal("image_info_name"))
+        let imageInfoScreenName = queuedReader.GetString(queuedReader.GetOrdinal("image_info_screen_name"))
+
+        let imageInfo =
+            match imageInfoScreenName with
+            | null | "" -> None
+            | screenName -> Some <| AppSettings.ImageInfo(imageInfoSource, imageInfoProfilePicUrl, imageInfoDateTime, imageInfoVerified, imageInfoProtected, imageInfoName, imageInfoScreenName)
+
+        let queuedTweet = AppSettings.QueuedTweet(requestTweetID, requestScreenName, renderType, text, renderTweetID, imageInfo)
+        queuedTweets <- queuedTweet |> Array.singleton |> Array.append queuedTweets
+
+    queryingReader.Read() |> ignore
+    let defaultQueryDateTime = queryingReader.GetDateTime(queryingReader.GetOrdinal("default_query_datetime"))
+    let queryDatetime = queryingReader.GetDateTime(queryingReader.GetOrdinal("query_datetime"))
+    let nextLimitedQueryDatetime = queryingReader.GetDateTime(queryingReader.GetOrdinal("next_limited_query_datetime"))
+
+    let rateLimit = 
+        match nextLimitedQueryDatetime with
+        | dt when dt < defaultQueryDateTime -> AppSettings.RateLimit(false, None)
+        | dt -> AppSettings.RateLimit(true, Some dt)
+
+    AppSettings.Root(queuedTweets, defaultQueryDateTime, rateLimit, Some queryDatetime |> Option.filter (fun qdt -> qdt >= defaultQueryDateTime))
+
+let storeAppSettingsInDatabase (connection:NpgsqlConnection) (appsettings:AppSettings.Root) =
+    
+    use transaction = connection.BeginTransaction()
+    let updateRateLimit = 
+        if appsettings.RateLimit.Limited
+        then ", next_limited_query_datetime = @next_limited_query_datetime"
+        else ""
+    use queryingCommand = new NpgsqlCommand(sprintf "UPDATE querying SET query_datetime = @query_datetime%s WHERE id = @id" updateRateLimit, connection, transaction)
+    queryingCommand.Parameters.AddWithValue("@id", 1) |> ignore
+    queryingCommand.Parameters.AddWithValue("@query_datetime", appsettings.QueryDateTime) |> ignore
+    
+    appsettings.RateLimit.NextQueryDateTime
+    |> Option.iter (fun queryDateTime -> queryingCommand.Parameters.AddWithValue("@next_limited_query_datetime", queryDateTime) |> ignore)
+
+    queryingCommand.ExecuteNonQuery() |> ignore
+
+    for queuedTweet in appsettings.QueuedTweets do
+
+        let query = toInsertQuery "queued_tweets" <| seq { yield! requestRenderColumns; yield! (if queuedTweet.ImageInfo.IsSome then imageColumns else Seq.empty) }
+        use queuedCommand = new NpgsqlCommand(query, connection, transaction)
+        queuedCommand.Parameters.AddWithValue("@request_tweet_id", queuedTweet.RequestTweetId) |> ignore
+        queuedCommand.Parameters.AddWithValue("@request_screen_name", queuedTweet.RequestScreenName) |> ignore
+        queuedCommand.Parameters.AddWithValue("@render_type", queuedTweet.RenderType) |> ignore
+        queuedCommand.Parameters.AddWithValue("@render_tweet_id", queuedTweet.RenderTweetId) |> ignore
+        queuedCommand.Parameters.AddWithValue("@text_", queuedTweet.Text) |> ignore
+
+        queuedTweet.ImageInfo
+        |> Option.iter (fun imageInfo ->
+            queuedCommand.Parameters.AddWithValue("@image_info_source", imageInfo.Source) |> ignore
+            queuedCommand.Parameters.AddWithValue("@image_info_profile_picture_url", imageInfo.ProfilePicture) |> ignore
+            queuedCommand.Parameters.AddWithValue("@image_info_datetime", imageInfo.Date) |> ignore
+            queuedCommand.Parameters.AddWithValue("@image_info_verified", imageInfo.Verified) |> ignore
+            queuedCommand.Parameters.AddWithValue("@image_info_protected", imageInfo.Protected) |> ignore
+            queuedCommand.Parameters.AddWithValue("@image_info_name", imageInfo.Name) |> ignore
+            queuedCommand.Parameters.AddWithValue("@image_info_screen_name", imageInfo.ScreenName) |> ignore)
+
+        try
+            queuedCommand.ExecuteNonQuery() |> ignore
+        with exn -> printfn "Error occured when trying to execute query %A" exn
+
+    try
+        transaction.Commit()
+    with exn -> printfn "Error occurred when trying to save to database %A" exn
+
+       
+let clearQueuedTweetFromDatabase connection (requestID:string) =
+    use cmd = new NpgsqlCommand("DELETE FROM queued_tweets WHERE request_tweet_id=@request_tweet_id", connection)
+    cmd.Parameters.AddWithValue("request_tweet_id", requestID) |> ignore
+    try
+        cmd.Prepare()
+        cmd.ExecuteNonQuery() |> ignore
+    with exn -> printfn "Error occurred when trying to save to database %A" exn
 
 type AppSettings.Root with
     static member enqueueTweet (queuedTweet: AppSettings.QueuedTweet) (appsettings:AppSettings.Root)  =
@@ -102,7 +207,7 @@ type AppSettings.Root with
 
     static member saveAppSettings connection (appsettings:AppSettings.Root) =
         File.WriteAllText("appsettings.json", appsettings.ToString())
-        storeAppSettings connection appsettings
+        storeAppSettingsInDatabase connection appsettings
         
 
 type RenderType =
@@ -357,7 +462,10 @@ let handleMentions (client:Client) connection (appsettings:AppSettings.Root) =
 
         let appsettings =
             Array.fold ( fun state -> function 
-                | Success (Choice1Of2 requestID) -> AppSettings.Root.dequeueTweet requestID state
+                | Success (Choice1Of2 requestID) -> 
+                    let settings = AppSettings.Root.dequeueTweet requestID state
+                    clearQueuedTweetFromDatabase connection requestID
+                    settings
                 | Success (Choice2Of2 queuedTweet) -> 
                     AppSettings.Root.enqueueTweet queuedTweet state
                     |> AppSettings.Root.setRateLimit endDate
@@ -376,8 +484,6 @@ let handleMentions (client:Client) connection (appsettings:AppSettings.Root) =
                 |> Option.defaultWith (fun () -> client.GetMentions(startDate, endDate))
 
             logClientResultError "getting mentions for the client" mentions
-
-            //let mentions = mentions |> ClientResult.map (fun mentions -> mentions.Head)
 
             let requests = 
                 let toVersion fullVersion = if fullVersion then Version.Full else Version.Regular
@@ -553,12 +659,13 @@ let main argv =
         match buildClient() with
         | None -> async { printfn "Client cannot be built..." }
         | Some client ->
-            match tryFindEnvironmentVariable "REDIS_URL" with
-            | None -> async { printfn "No Redis URL set to connect with database..." }
+            match tryFindEnvironmentVariable "DATABASE_URL" with
+            | None -> async { printfn "No PostgreSQL database URL set to connect with database..." }
             | Some url ->
-                use connection = ConnectionMultiplexer.Connect url
-                let appsettings = loadAppSettings connection
-                handleMentions client connection appsettings
+                use conn = new NpgsqlConnection(url)
+                conn.Open()
+                let appsettings = loadAppSettingsFromDatabase conn
+                handleMentions client conn appsettings
 
     | [| "synthesize"; "-f"; "--tweet_id"; tweetID |] 
     | [| "synthesize"; "--tweet_id"; tweetID |] ->
