@@ -58,7 +58,7 @@ ENV PATH="/venv/bin:$PATH"
 RUN python -m venv /venv
 
 RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
+    pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html apscheduler==3.0.0
 
 FROM python:3.7-slim-buster as tts
 RUN	apt-get update -y && apt-get -y install --no-install-recommends libsndfile1 && \
@@ -91,6 +91,10 @@ COPY --from=ffmpeg / /
 COPY --from=tts / /
 COPY --from=puppeteer / /
 
+# Add Procfile to project
+COPY clock.py clock.py
+COPY start.sh start.sh
+
 # Update cache to have soundfile
 RUN /sbin/ldconfig
 
@@ -100,5 +104,9 @@ ENV TTS_EXECUTABLE="/venv/bin/tts"
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
+
+ENTRYPOINT [ "./start.sh" ]
+
+
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "mentions"]
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "synthesize", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
