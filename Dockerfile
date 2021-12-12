@@ -93,7 +93,6 @@ COPY --from=puppeteer / /
 
 # Add Procfile to project
 COPY clock.py clock.py
-COPY start.sh start.sh
 
 # Update cache to have soundfile
 RUN /sbin/ldconfig
@@ -105,7 +104,7 @@ ENV LD_LIBRARY_PATH="/usr/local/lib"
 ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
 
-ENTRYPOINT [ "./start.sh" ]
+ENTRYPOINT [ "python", "clock.py" ]
 
 
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "mentions"]
