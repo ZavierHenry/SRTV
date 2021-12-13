@@ -97,6 +97,8 @@ COPY clock.py clock.py
 # Update cache to have soundfile
 RUN /sbin/ldconfig
 
+RUN /venv/bin/tts --text "Random" --out_path "example.wav" && rm example.wav
+
 ENV PATH="/venv/bin:$PATH"
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
 ENV TTS_EXECUTABLE="/venv/bin/tts"
