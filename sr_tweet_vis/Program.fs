@@ -87,8 +87,6 @@ type AppSettings = JsonProvider<schema, SampleIsList=true>
 let buildAppSettings () = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json") |> AppSettings.Load
 
 let loadAppSettingsFromDatabase (connection:NpgsqlConnection) =
-    use queryingCommand = new NpgsqlCommand("SELECT default_query_datetime, query_datetime, next_limited_query_datetime FROM querying WHERE id = 1", connection)
-    use queryingReader = queryingCommand.ExecuteReader()
     
     use queuedCommand = new NpgsqlCommand(Seq.append requestRenderColumns imageColumns |> String.concat "," |> sprintf "SELECT %s FROM queued_tweets", connection)
     use queuedReader = queuedCommand.ExecuteReader()
@@ -101,33 +99,40 @@ let loadAppSettingsFromDatabase (connection:NpgsqlConnection) =
         let renderTweetID = queuedReader.GetString(queuedReader.GetOrdinal("render_tweet_id"))
         let text = queuedReader.GetString(queuedReader.GetOrdinal("text_"))
 
-        let imageInfoSource = queuedReader.GetString(queuedReader.GetOrdinal("image_info_source"))
-        let imageInfoProfilePicUrl = queuedReader.GetString(queuedReader.GetOrdinal("image_info_profile_picture_url"))
-        let imageInfoDateTime = queuedReader.GetDateTime(queuedReader.GetOrdinal("image_info_datetime"))
-        let imageInfoVerified = queuedReader.GetBoolean(queuedReader.GetOrdinal("image_info_verified"))
-        let imageInfoProtected = queuedReader.GetBoolean(queuedReader.GetOrdinal("image_info_protected"))
-        let imageInfoName = queuedReader.GetString(queuedReader.GetOrdinal("image_info_name"))
-        let imageInfoScreenName = queuedReader.GetString(queuedReader.GetOrdinal("image_info_screen_name"))
-
         let imageInfo =
-            match imageInfoScreenName with
-            | null | "" -> None
-            | screenName -> Some <| AppSettings.ImageInfo(imageInfoSource, imageInfoProfilePicUrl, imageInfoDateTime, imageInfoVerified, imageInfoProtected, imageInfoName, imageInfoScreenName)
+            Some ()
+            |> Option.filter (fun _ -> queuedReader.GetOrdinal("image_info_screen_name") |> queuedReader.IsDBNull)
+            |> Option.map (fun _ ->
+                let imageInfoSource = queuedReader.GetString(queuedReader.GetOrdinal("image_info_source"))
+                let imageInfoProfilePicUrl = queuedReader.GetString(queuedReader.GetOrdinal("image_info_profile_picture_url"))
+                let imageInfoDateTime = queuedReader.GetDateTime(queuedReader.GetOrdinal("image_info_datetime"))
+                let imageInfoVerified = queuedReader.GetBoolean(queuedReader.GetOrdinal("image_info_verified"))
+                let imageInfoProtected = queuedReader.GetBoolean(queuedReader.GetOrdinal("image_info_protected"))
+                let imageInfoName = queuedReader.GetString(queuedReader.GetOrdinal("image_info_name"))
+                let imageInfoScreenName = queuedReader.GetString(queuedReader.GetOrdinal("image_info_screen_name"))
+                AppSettings.ImageInfo(imageInfoSource, imageInfoProfilePicUrl, imageInfoDateTime, imageInfoVerified, imageInfoProtected, imageInfoName, imageInfoScreenName))
 
         let queuedTweet = AppSettings.QueuedTweet(requestTweetID, requestScreenName, renderType, text, renderTweetID, imageInfo)
         queuedTweets <- queuedTweet |> Array.singleton |> Array.append queuedTweets
 
+    queuedReader.Close()
+
+    use queryingCommand = new NpgsqlCommand("SELECT default_query_datetime, query_datetime, next_limited_query_datetime FROM querying WHERE id = 1", connection)
+    use queryingReader = queryingCommand.ExecuteReader()
+
     queryingReader.Read() |> ignore
     let defaultQueryDateTime = queryingReader.GetDateTime(queryingReader.GetOrdinal("default_query_datetime"))
-    let queryDatetime = queryingReader.GetDateTime(queryingReader.GetOrdinal("query_datetime"))
-    let nextLimitedQueryDatetime = queryingReader.GetDateTime(queryingReader.GetOrdinal("next_limited_query_datetime"))
+    let queryDatetime = 
+        let index = queryingReader.GetOrdinal("query_datetime") 
+        if queryingReader.IsDBNull(index) then None else queryingReader.GetDateTime(index) |> Some
+    let nextLimitedQueryDatetime = 
+        let index = queryingReader.GetOrdinal("next_limited_query_datetime")
+        if queryingReader.IsDBNull(index) then None else queryingReader.GetDateTime(index) |> Some
 
-    let rateLimit = 
-        match nextLimitedQueryDatetime with
-        | dt when dt < defaultQueryDateTime -> AppSettings.RateLimit(false, None)
-        | dt -> AppSettings.RateLimit(true, Some dt)
+    let rateLimit = AppSettings.RateLimit(nextLimitedQueryDatetime.IsSome, nextLimitedQueryDatetime)
+    queryingReader.Close()
 
-    AppSettings.Root(queuedTweets, defaultQueryDateTime, rateLimit, Some queryDatetime |> Option.filter (fun qdt -> qdt >= defaultQueryDateTime))
+    AppSettings.Root(queuedTweets, defaultQueryDateTime, rateLimit, queryDatetime)
 
 let storeAppSettingsInDatabase (connection:NpgsqlConnection) (appsettings:AppSettings.Root) =
     
@@ -137,11 +142,15 @@ let storeAppSettingsInDatabase (connection:NpgsqlConnection) (appsettings:AppSet
         then ", next_limited_query_datetime = @next_limited_query_datetime"
         else ""
     use queryingCommand = new NpgsqlCommand(sprintf "UPDATE querying SET query_datetime = @query_datetime%s WHERE id = @id" updateRateLimit, connection, transaction)
-    queryingCommand.Parameters.AddWithValue("@id", 1) |> ignore
-    queryingCommand.Parameters.AddWithValue("@query_datetime", appsettings.QueryDateTime) |> ignore
+    queryingCommand.Parameters.AddWithValue("id", 1) |> ignore
+
+    match appsettings.QueryDateTime with
+    | None -> queryingCommand.Parameters.AddWithValue("query_datetime", DBNull.Value)
+    | Some qdt -> queryingCommand.Parameters.AddWithValue("query_datetime", qdt)
+    |> ignore
     
     appsettings.RateLimit.NextQueryDateTime
-    |> Option.iter (fun queryDateTime -> queryingCommand.Parameters.AddWithValue("@next_limited_query_datetime", queryDateTime) |> ignore)
+    |> Option.iter (fun queryDateTime -> queryingCommand.Parameters.AddWithValue("next_limited_query_datetime", queryDateTime) |> ignore)
 
     queryingCommand.ExecuteNonQuery() |> ignore
 
@@ -149,21 +158,21 @@ let storeAppSettingsInDatabase (connection:NpgsqlConnection) (appsettings:AppSet
 
         let query = toInsertQuery "queued_tweets" <| seq { yield! requestRenderColumns; yield! (if queuedTweet.ImageInfo.IsSome then imageColumns else Seq.empty) }
         use queuedCommand = new NpgsqlCommand(query, connection, transaction)
-        queuedCommand.Parameters.AddWithValue("@request_tweet_id", queuedTweet.RequestTweetId) |> ignore
-        queuedCommand.Parameters.AddWithValue("@request_screen_name", queuedTweet.RequestScreenName) |> ignore
-        queuedCommand.Parameters.AddWithValue("@render_type", queuedTweet.RenderType) |> ignore
-        queuedCommand.Parameters.AddWithValue("@render_tweet_id", queuedTweet.RenderTweetId) |> ignore
-        queuedCommand.Parameters.AddWithValue("@text_", queuedTweet.Text) |> ignore
+        queuedCommand.Parameters.AddWithValue("request_tweet_id", queuedTweet.RequestTweetId) |> ignore
+        queuedCommand.Parameters.AddWithValue("request_screen_name", queuedTweet.RequestScreenName) |> ignore
+        queuedCommand.Parameters.AddWithValue("render_type", queuedTweet.RenderType) |> ignore
+        queuedCommand.Parameters.AddWithValue("render_tweet_id", queuedTweet.RenderTweetId) |> ignore
+        queuedCommand.Parameters.AddWithValue("text_", queuedTweet.Text) |> ignore
 
         queuedTweet.ImageInfo
         |> Option.iter (fun imageInfo ->
-            queuedCommand.Parameters.AddWithValue("@image_info_source", imageInfo.Source) |> ignore
-            queuedCommand.Parameters.AddWithValue("@image_info_profile_picture_url", imageInfo.ProfilePicture) |> ignore
-            queuedCommand.Parameters.AddWithValue("@image_info_datetime", imageInfo.Date) |> ignore
-            queuedCommand.Parameters.AddWithValue("@image_info_verified", imageInfo.Verified) |> ignore
-            queuedCommand.Parameters.AddWithValue("@image_info_protected", imageInfo.Protected) |> ignore
-            queuedCommand.Parameters.AddWithValue("@image_info_name", imageInfo.Name) |> ignore
-            queuedCommand.Parameters.AddWithValue("@image_info_screen_name", imageInfo.ScreenName) |> ignore)
+            queuedCommand.Parameters.AddWithValue("image_info_source", imageInfo.Source) |> ignore
+            queuedCommand.Parameters.AddWithValue("image_info_profile_picture_url", imageInfo.ProfilePicture) |> ignore
+            queuedCommand.Parameters.AddWithValue("image_info_datetime", imageInfo.Date) |> ignore
+            queuedCommand.Parameters.AddWithValue("image_info_verified", imageInfo.Verified) |> ignore
+            queuedCommand.Parameters.AddWithValue("image_info_protected", imageInfo.Protected) |> ignore
+            queuedCommand.Parameters.AddWithValue("image_info_name", imageInfo.Name) |> ignore
+            queuedCommand.Parameters.AddWithValue("image_info_screen_name", imageInfo.ScreenName) |> ignore)
 
         try
             queuedCommand.ExecuteNonQuery() |> ignore
@@ -662,10 +671,25 @@ let main argv =
             match tryFindEnvironmentVariable "DATABASE_URL" with
             | None -> async { printfn "No PostgreSQL database URL set to connect with database..." }
             | Some url ->
-                use conn = new NpgsqlConnection(url)
-                conn.Open()
-                let appsettings = loadAppSettingsFromDatabase conn
-                handleMentions client conn appsettings
+                let uri = Uri(url)
+                let userInfo = uri.UserInfo.Split(":")
+                let connString = 
+                    NpgsqlConnectionStringBuilder(
+                        Host = uri.Host,
+                        Port = uri.Port,
+                        Username = userInfo.[0],
+                        Password = userInfo.[1],
+                        Database = uri.AbsolutePath.TrimStart('/'),
+                        SslMode = SslMode.Require,
+                        TrustServerCertificate = true
+                    ).ToString()
+
+                async {
+                    use conn = new NpgsqlConnection(connString)
+                    conn.Open()
+                    let appsettings = loadAppSettingsFromDatabase conn
+                    do! handleMentions client conn appsettings
+                }
 
     | [| "synthesize"; "-f"; "--tweet_id"; tweetID |] 
     | [| "synthesize"; "--tweet_id"; tweetID |] ->
