@@ -381,24 +381,23 @@ module Twitter =
                     |> Async.AwaitTask
                 this.makeTwitterCall "Problem sending a tweet" twitterCall
 
-            member this.sendReplyAsync(replyID: uint64, screenName: string, text: string, ?mediaID: uint64) =
+            member this.sendReplyAsync(replyID: uint64, text: string, ?mediaID: uint64) =
                 let twitterCall() = 
-                    let text = sprintf "@%s %s" screenName text
                     match mediaID with
-                        | None -> context.ReplyAsync(replyID, text)
-                        | Some mediaID -> context.ReplyAsync(replyID, text, [| mediaID |])
+                        | None -> context.ReplyAsync(replyID, text, autoPopulateReplyMetadata = true)
+                        | Some mediaID -> context.ReplyAsync(replyID, text, mediaIds = [| mediaID |], autoPopulateReplyMetadata = true)
                     |> Async.AwaitTask
                 this.makeTwitterCall $"Problem sending a reply to ID {replyID}" twitterCall
 
-            member this.handleReplyAsync(originalTweetID: uint64, screenName: string, text: string list, ?mediaID: uint64) = async {
+            member this.handleReplyAsync(originalTweetID: uint64, text: string list, ?mediaID: uint64) = async {
                 match (text, mediaID) with
                     | ([], _)        -> return Success ()
                     | (t :: rest, Some mediaID) ->
-                        let! result = this.sendReplyAsync(originalTweetID, screenName, t, mediaID)
-                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.StatusID, status.User.ScreenNameResponse, rest)) result
+                        let! result = this.sendReplyAsync(originalTweetID, t, mediaID)
+                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.StatusID, rest)) result
                     | (t :: rest, None) ->
-                        let! result = this.sendReplyAsync(originalTweetID, screenName, t)
-                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.StatusID, status.User.ScreenNameResponse, rest)) result
+                        let! result = this.sendReplyAsync(originalTweetID, t)
+                        return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.StatusID, rest)) result
             }
 
             member this.handleTweetAsync(text: string list, ?mediaID: uint64) = async {
@@ -406,19 +405,19 @@ module Twitter =
                 | []        -> return Success ()
                 | t :: rest ->
                     let! result = match mediaID with | Some mediaID -> this.sendTweetAsync(t, mediaID) | None -> this.sendTweetAsync(t)
-                    return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.StatusID, status.User.ScreenNameResponse, rest)) result
+                    return! ClientResult.bindAsync (fun (status:Status) -> this.handleReplyAsync(status.StatusID, rest)) result
             }
 
-            member this.ReplyAsync(originalTweetID: uint64, screenName: string, tweet: SRTVTweet) = async {
+            member this.ReplyAsync(originalTweetID: uint64, tweet: SRTVTweet) = async {
                 match tweet with
                 | AudioTweet (audio, text) ->
                     let! mediaID = this.uploadAudioAsync audio
                     let splitText = Text.splitTwitterText text
-                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, screenName, splitText, mediaID)) mediaID
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) mediaID
                 | ImageTweet (image, text, altText) when Text.textLength altText > 1000 ->
                     let! mediaID = this.uploadImageAsync image
                     let splitText = sprintf "%s %s" text altText |> Text.splitTwitterText
-                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, screenName, splitText, mediaID)) mediaID
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) mediaID
                 | ImageTweet (image, text, altText) ->
                     let! mediaID = this.uploadImageAsync image
                     let boundFunction mediaID = async { 
@@ -427,10 +426,10 @@ module Twitter =
                     }
                     let! result = ClientResult.bindAsync boundFunction mediaID
                     let splitText = Text.splitTwitterText text
-                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, screenName, splitText, mediaID)) result
+                    return! ClientResult.bindAsync (fun mediaID -> this.handleReplyAsync(originalTweetID, splitText, mediaID)) result
                 | TextTweet text ->
                     let splitText = Text.splitTwitterText text
-                    return! this.handleReplyAsync(originalTweetID, screenName, splitText)       
+                    return! this.handleReplyAsync(originalTweetID, splitText)       
             }
 
             member this.TweetAsync(tweet: SRTVTweet) = async {
