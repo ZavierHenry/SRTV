@@ -151,18 +151,18 @@ let private renderVideo (client:Client) text (tweetID:string) (tweetScreenName:s
     try
         do! Synthesizer().Synthesize(text, tempfile.Path)
         let srtvTweet = AudioTweet (tempfile.Path, "Hello! Your video is here and should be attached. Thank you for using the SRTV bot")
-        return! client.ReplyAsync(uint64 tweetID, tweetScreenName, srtvTweet)
+        return! client.ReplyAsync(uint64 tweetID, srtvTweet)
     with exn -> return OtherError("Video could not be made", exn)
 }
 
 let private renderImage (client:Client) info theme (tweetID: string) (tweetScreenName:string) = async {
     let! image = tweetInfoToImage info theme
     let srtvTweet = ImageTweet (image, "Hello! Your image is here and should be attached. There should also be alt text in the image. If the alt text is too big for the image, it will be tweeted in the replies. Thank you for using the SRTV bot", info.text)
-    return! client.ReplyAsync(uint64 tweetID, tweetScreenName, srtvTweet)
+    return! client.ReplyAsync(uint64 tweetID, srtvTweet)
 }
 
 let private renderText (client:Client) text (tweetID: string) (tweetScreenName: string) = 
-    client.ReplyAsync(uint64 tweetID, tweetScreenName, TextTweet text)
+    client.ReplyAsync(uint64 tweetID, TextTweet text)
 
 let render (client:Client) tweet includes map (request:RenderRequest) =
     let mockTweet =
@@ -205,7 +205,7 @@ let rec handleException (client:Client) (renderTweetID: string) (requestTweetID:
     | OtherError (message, exn) ->
         async {
             let text = "Sorry, there was an error when trying to render your tweet"
-            let! result = client.ReplyAsync(uint64 requestTweetID, requestScreenName, TextTweet text)
+            let! result = client.ReplyAsync(uint64 requestTweetID, TextTweet text)
             logClientResultError (sprintf "when trying to render tweet ID %s from tweet ID %s" renderTweetID requestTweetID) result
 
             return 
@@ -666,8 +666,7 @@ let main argv =
                     let text = 
                         if Array.contains "-f" argv then mockTweet.ToFullSpeakText() else mockTweet.ToSpeakText()
                         |> sprintf "Hello! Your text is here and should be below. There will be multiple tweets if the text is too many characters. Thank you for using the SRTV bot.\n\n\n%s"
-                    let srtvTweet = TextTweet text
-                    return! client.TweetAsync srtvTweet
+                    return! client.ReplyAsync(uint64 tweetID, TextTweet text)
                 })
 
             match result with
