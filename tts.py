@@ -28,7 +28,7 @@ def inference(text, output_filename):
     )
 
     audio_after = mb_melgan.inference(mel_after)[0, :, 0]
-    sf.write(output_filename, audio_after, samplerate, "PCM_16")
+    sf.write(output_filename, audio_after, samplerate, "PCM_16", format="WAV")
    
 
 if __name__ == "__main__":
