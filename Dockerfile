@@ -32,63 +32,22 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Extract needed TTS files and directories
-#FROM synesthesiam/coqui-tts:latest AS tts
-#RUN	mkdir -p /TTS/app/bin && \
-	#mkdir -p /TTS/usr/local && \
-	#mkdir -p /TTS/app/lib/python3.7 && \
-	#mkdir -p /TTS/usr/lib && \
-     #mkdir -p /TTS/usr/bin && \
-	#cp /app/bin/tts /app/bin/python3 /TTS/app/bin && \
-	#cp -r /usr/local/lib /TTS/usr/local && \
-	#cp -r /usr/local/bin /TTS/usr/local && \
-	#cp -r /usr/lib/x86_64-linux-gnu /TTS/usr/lib && \
-	#cp --parents -r /etc/ld.so.* /TTS && \
-	#cp -r /lib /TTS && \
-	#cp --parents -r /app/lib/python3.7/site-packages/librosa/ /TTS && \
-	#find /app/lib/python3.7/site-packages -name __pycache__ -exec rm -r {} + && \
-	#/app/bin/python3 -m compileall -b /app/lib/python3.7/site-packages && \
-	#find /app/lib/python3.7/site-packages -name *.py -exec rm {} + && \
-	#cp -r /app/lib/python3.7/site-packages /TTS/app/lib/python3.7
 
-FROM python:3.7-buster AS tts-builder
+
+FROM python:3.7-buster AS tts
 WORKDIR /app
-ENV PATH="/venv/bin:$PATH"
-
-RUN python -m venv /venv
-
-RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html apscheduler==3.0.0
-
-FROM python:3.7-slim-buster as tts
-RUN	apt-get update -y && apt-get -y install --no-install-recommends libsndfile1 && \
+COPY /requirements.txt .
+RUN	pip install --no-cache-dir -r requirements.txt && \
+	apt-get update -y && apt-get -y install --no-install-recommends libsndfile1 && \
 	rm -rf /var/lib/apt/lists/*
-COPY --from=tts-builder /venv /venv
-
-# Delete unnessary packages
-#WORKDIR /TTS/app/lib/python3.7/site-packages
-#RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
-	     #matplotlib/mpl-data/images unidic_lite/dicdir/unidic-mecab.pdf && \
-    #find . -name test -exec rm -r {} + && \
-    #find . -name tests -exec rm -r {} + && \
-    #cp -r /app/lib/python3.7/site-packages/gdown-*.dist-info .
-#
-#WORKDIR /TTS/tts/models
-#RUN	wget -O vits.zip "https://coqui.gateway.scarf.sh/v0.2.0/tts_models--en--ljspeech--vits.zip" && \
-	#unzip vits.zip && \
-	#rm -r __MACOSX vits.zip && \
-	#mv tts_models--en--ljspeech--vits vits
-#
-#WORKDIR /TTS/usr/local/lib/python3.7/site-packages
-#RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
 
 # Run program
 FROM base
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
 COPY --from=ffmpeg / /
-# COPY --from=tts /TTS /
 COPY --from=tts / /
+COPY /tts.py /
 COPY --from=puppeteer / /
 
 # Add Procfile to project
@@ -97,13 +56,12 @@ COPY clock.py clock.py
 # Update cache to have soundfile
 RUN /sbin/ldconfig
 
-RUN /venv/bin/tts --text "Random" --out_path "example.wav" --model_name tts_models/en/ljspeech/vits && rm example.wav
-
-ENV PATH="/venv/bin:$PATH"
+# ENV PATH="/venv/bin:$PATH"
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
-ENV TTS_EXECUTABLE="/venv/bin/tts"
-ENV LD_LIBRARY_PATH="/usr/local/lib"
-ENV PYTHONPATH="/app/lib/python3.7/site-packages"
+# ENV TTS_EXECUTABLE="/venv/bin/tts"
+ENV TTS_PATH="/tts.py"
+#ENV LD_LIBRARY_PATH="/usr/local/lib"
+#ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
 
 ENTRYPOINT [ "python", "clock.py" ]
