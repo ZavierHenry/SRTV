@@ -9,10 +9,11 @@
     },
     "synthesis": {
       "commandName": "Project",
-      "commandLineArgs": "\"synthesize\" \"--tweet_id\" \"1396614549147725824\"",
+      "commandLineArgs": "\"synthesize\" \"--tweet_id\" \"1482849178703310851\"",
       "environmentVariables": {
         "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
-        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe"
+        "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
+        "TTS_PATH": "C:\\TTS\\tts.py"
       }
     },
     "short_synthesis": {

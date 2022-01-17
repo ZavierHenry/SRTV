@@ -51,54 +51,30 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 	#find /app/lib/python3.7/site-packages -name *.py -exec rm {} + && \
 	#cp -r /app/lib/python3.7/site-packages /TTS/app/lib/python3.7
 
-FROM python:3.7-buster AS tts-builder
+FROM python:3.7-buster AS tts
 WORKDIR /app
-ENV PATH="/venv/bin:$PATH"
-
-RUN python -m venv /venv
-
-RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir --compile "torch==1.8.0+cpu" TTS -f https://download.pytorch.org/whl/torch_stable.html
-
-FROM python:3.7-slim-buster as tts
-RUN	apt-get update -y && apt-get -y install --no-install-recommends libsndfile1 && \
+COPY /requirements.txt .
+RUN	pip install --no-cache-dir -r requirements.txt && \
+	apt-get update -y && apt-get -y install --no-install-recommends libsndfile1 && \
 	rm -rf /var/lib/apt/lists/*
-COPY --from=tts-builder /venv /venv
-
-# Delete unnessary packages
-#WORKDIR /TTS/app/lib/python3.7/site-packages
-#RUN rm -r pip wheel setuptools tests werkzeug *.dist-info Cython \
-	     #matplotlib/mpl-data/images unidic_lite/dicdir/unidic-mecab.pdf && \
-    #find . -name test -exec rm -r {} + && \
-    #find . -name tests -exec rm -r {} + && \
-    #cp -r /app/lib/python3.7/site-packages/gdown-*.dist-info .
-#
-#WORKDIR /TTS/tts/models
-#RUN	wget -O vits.zip "https://coqui.gateway.scarf.sh/v0.2.0/tts_models--en--ljspeech--vits.zip" && \
-	#unzip vits.zip && \
-	#rm -r __MACOSX vits.zip && \
-	#mv tts_models--en--ljspeech--vits vits
-#
-#WORKDIR /TTS/usr/local/lib/python3.7/site-packages
-#RUN rm -r pip wheel setuptools *.dist-info ../lib2to3 ../ensurepip
 
 # Run program
 FROM base
 COPY --from=publish /app/publish .
 COPY --from=publish /app/assets/ /app/assets/
 COPY --from=ffmpeg / /
-# COPY --from=tts /TTS /
 COPY --from=tts / /
+COPY /tts.py /
 COPY --from=puppeteer / /
 
-# Update cache to have soundfile
 RUN /sbin/ldconfig
 
-ENV PATH="/venv/bin:$PATH"
+# ENV PATH="/venv/bin:$PATH"
 ENV FFMPEG_EXECUTABLE="/bin/ffmpeg"
-ENV TTS_EXECUTABLE="/venv/bin/tts"
-ENV LD_LIBRARY_PATH="/usr/local/lib"
-ENV PYTHONPATH="/app/lib/python3.7/site-packages"
+# ENV TTS_EXECUTABLE="/venv/bin/tts"
+ENV TTS_PATH="/tts.py"
+#ENV LD_LIBRARY_PATH="/usr/local/lib"
+#ENV PYTHONPATH="/app/lib/python3.7/site-packages"
 ENV CHROME_EXECUTABLE="/usr/bin/google-chrome"
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "mentions"]
 # ENTRYPOINT ["dotnet", "sr_tweet_vis.dll", "synthesize", "This is the chosen spoken text to test the docker version of the text to speech. This speech also has a longer line than I would use to test this in order the see if detecting silence needs to be refined to preserve synchronization"]
