@@ -91,59 +91,41 @@ module TweetAudio =
             |> String.concat "\n\n"
 
     type TTS() =
+        let [<Literal>] TTSFileEnvironmentVariable = "TTS_PATH"
 
-        //let [<Literal>] ModelDirectoryEnvironmentVariable = "TTS_MODEL_DIRECTORY"
-        let [<Literal>] ModelName = "tts_models/en/ljspeech/vits"
-        let [<Literal>] ExecutableEnvironmentVariable = "TTS_EXECUTABLE"
+        member private __.buildTTSProcess text outpath = 
+            let ttsFilename = 
+                tryFindEnvironmentVariable TTSFileEnvironmentVariable
+                |> Option.orElseWith (fun () -> failwithf "TTS executable environment variable %s not set" TTSFileEnvironmentVariable)
+                |> Option.get
 
-        let filename = 
-            tryFindEnvironmentVariable ExecutableEnvironmentVariable 
-            |> Option.orElse (tryFindExecutableNameOnPath "tts") 
-            |> Option.orElseWith(fun () -> failwithf "Cannot find TTS engine in either %s env variable or in PATH" ExecutableEnvironmentVariable)
-            |> Option.get
-
-        //let modelDirectory =
-        //    tryFindEnvironmentVariable ModelDirectoryEnvironmentVariable
-        //    |> Option.orElseWith (fun () -> failwithf "Cannot file TTS model in %s env variable" ModelDirectoryEnvironmentVariable)
-        //    |> Option.get
-
-        member private __.buildCoquiProcess text outpath = 
             let startInfo =
                 ProcessStartInfo(
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    FileName = filename
+                    FileName = "python",
+                    RedirectStandardError = true
                 )
 
-            startInfo.ArgumentList.Add("--text")
+            startInfo.ArgumentList.Add(ttsFilename)
             startInfo.ArgumentList.Add(text)
-
-            //startInfo.ArgumentList.Add("--model_path")
-            //Path.Join(modelDirectory, "model_file.pth.tar") |> startInfo.ArgumentList.Add
-
-            startInfo.ArgumentList.Add("--model_name")
-            startInfo.ArgumentList.Add(ModelName)
-
-            //startInfo.ArgumentList.Add("--config_path")
-            //let configFile = Path.Join(modelDirectory, "config.json")
-            //printfn "Config file: %s" configFile
-            //startInfo.ArgumentList.Add(configFile)
-
-            startInfo.ArgumentList.Add("--out_path")
             startInfo.ArgumentList.Add(outpath)
 
             new Process(StartInfo = startInfo)
 
         member this.Speak(text: string, outpath: string) = async {
-            use proc = this.buildCoquiProcess text outpath
+            use proc = this.buildTTSProcess text outpath
             proc.Start() |> ignore
             do! proc.WaitForExitAsync() |> Async.AwaitTask
+            if proc.ExitCode <> 0
+            then proc.StandardError.ReadToEndAsync() |> Async.AwaitTask |> Async.RunSynchronously |> printf "Error in process: %s"
+            proc |> ignore
         }
 
     type FFMPEG() =
         
         let threshold = -40
-        let duration = 0.4
+        let duration = 0.3
         let bitrate = 192000L
 
         let [<Literal>] EnvironmentVariable = "FFMPEG_EXECUTABLE"
