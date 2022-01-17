@@ -10,7 +10,7 @@ module Substitution =
     let whitespaceBoundaryStart = $@"(?<=\s|\n|^|{punctuation})"
     let whitespaceBoundaryEnd = $@"(?=\s|$|{punctuation})"
 
-    let private normalize text = Regex.Replace(text, "\s{2,}", " ")
+    let private normalize (text:string) = Regex.Replace(text.Trim(), "\s{2,}", " ")
 
     module Punctuation =
         let simpleReplacement =
