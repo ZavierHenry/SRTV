@@ -52,8 +52,8 @@
       "commandLineArgs": "\"mentions\"",
       "environmentVariables": {
         "Key": "Value",
-        "TTS_EXECUTABLE": "C:\\TTS\\Scripts\\tts.exe",
         "FFMPEG_EXECUTABLE": "C:\\FFMPEG\\bin\\ffmpeg.exe",
+        "TTS_PATH": "C:\\TTS\\tts.py",
         "CHROME_EXECUTABLE": "./.local-chromium/Win64-848005/chrome-win/chrome.exe"
       }
     },
