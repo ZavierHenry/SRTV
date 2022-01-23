@@ -115,11 +115,9 @@ module TweetAudio =
 
         member this.Speak(text: string, outpath: string) = async {
             use proc = this.buildTTSProcess text outpath
-            proc.Start() |> ignore
-            do! proc.WaitForExitAsync() |> Async.AwaitTask
-            if proc.ExitCode <> 0
-            then proc.StandardError.ReadToEndAsync() |> Async.AwaitTask |> Async.RunSynchronously |> printf "Error in process: %s"
-            proc |> ignore
+            if not <| proc.Start() then printf "TTS process did not start"
+            proc.WaitForExit()
+            if proc.ExitCode <> 0 then proc.StandardError.ReadToEnd() |> printf "Error in process: %s"
         }
 
     type FFMPEG() =
@@ -226,7 +224,7 @@ module TweetAudio =
 
             let subtitles = captions.ToCaptions(speakText, timestamps)
             use captionsFile = new TempFile()
-            do! File.WriteAllTextAsync(captionsFile.Path, subtitles) |> Async.AwaitTask
+            File.WriteAllText(captionsFile.Path, subtitles)
 
             let imageFile = Path.Join(Environment.CurrentDirectory, "assets", "black_rect.jpg")
             do! ffmpeg.MakeVideo(tempAudioFile.Path, captionsFile.Path, imageFile, outfile)
